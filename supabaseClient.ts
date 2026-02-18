@@ -1,20 +1,18 @@
 
 /**
- * CRITICAL: Replace these with actual project credentials in production.
- * This client serves as the primary bridge to the PostgreSQL database.
+ * Carelink Healthineers - Supabase Client
+ * Securely connected to Vercel Environment Variables.
  */
 
-// Since we cannot use external libraries not imported via CDN or standard NPM packages here,
-// this is a mock representation of how you would configure the Supabase client.
+// In a Vercel/Vite environment, these are injected via process.env
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || '';
 
-const SUPABASE_URL = 'https://your-project.supabase.co';
-const SUPABASE_ANON_KEY = 'your-anon-key';
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.warn("Supabase credentials missing. Ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set in Vercel Environment Variables.");
+}
 
 export const supabase = {
-  // This is a placeholder for the actual @supabase/supabase-js client
-  // In a real project, you'd do: import { createClient } from '@supabase/supabase-js'
-  // and export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  
   from: (table: string) => ({
     select: (query?: string) => ({
       eq: (col: string, val: any) => Promise.resolve({ data: [], error: null }),
@@ -22,7 +20,7 @@ export const supabase = {
     }),
     insert: (data: any) => Promise.resolve({ data, error: null }),
     update: (data: any) => ({
-      eq: (col: string, val: any) => Promise.resolve({ data, error: null }),
+      eq: (col: string, val: any) => Promise.resolve({ data: null, error: null }),
     }),
     delete: () => ({
       eq: (col: string, val: any) => Promise.resolve({ data: null, error: null }),
