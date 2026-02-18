@@ -27,45 +27,58 @@ export const Navbar: React.FC = () => {
   }, []);
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      scrolled ? 'bg-white/80 backdrop-blur-md shadow-sm py-3' : 'bg-transparent py-6'
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-700 ${
+      scrolled 
+      ? 'glassy-nav py-3 shadow-sm' 
+      : 'bg-transparent py-6'
     }`}>
-      <div className="max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-bold text-xl shadow-lg">
-            C
-          </div>
+      <div className="max-w-[1600px] mx-auto px-6 md:px-12 flex items-center justify-between">
+        <Link to="/" className="flex items-center gap-4 group">
+          <img 
+            src="https://i.imgur.com/y0UvXGu.png" 
+            alt="Carelink Logo" 
+            className="w-10 h-10 object-contain group-hover:scale-110 transition-all duration-500"
+          />
           <div>
-            <span className="text-xl font-bold tracking-tight text-gray-900">Carelink</span>
-            <span className="text-sm block font-medium text-blue-600 -mt-1 uppercase tracking-widest">Healthineers</span>
+            <span className="text-xl font-black tracking-tighter text-black block leading-none">Carelink</span>
+            <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.4em] -mt-0.5">Healthineers</span>
           </div>
         </Link>
 
         {/* Desktop Nav */}
-        <div className="hidden lg:flex items-center gap-8">
+        <div className="hidden lg:flex items-center gap-10">
           {NAV_ITEMS.map((item) => (
             <Link
               key={item.path}
               to={item.path}
-              className={`text-sm font-semibold transition-colors hover:text-blue-600 ${
-                location.pathname === item.path ? 'text-blue-600' : 'text-gray-600'
+              className={`text-[11px] font-bold uppercase tracking-[0.2em] transition-all relative py-2 ${
+                location.pathname === item.path 
+                ? 'text-blue-600' 
+                : 'text-slate-500 hover:text-black'
               }`}
             >
               {item.label}
+              {location.pathname === item.path && (
+                <motion.div 
+                  layoutId="navIndicator"
+                  className="absolute -bottom-1 left-0 right-0 h-0.5 bg-blue-600 rounded-full"
+                />
+              )}
             </Link>
           ))}
+          
           <Link
             to="/command-nexus"
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-900 text-white text-xs font-bold hover:bg-gray-800 transition-all"
+            className="ml-6 flex items-center gap-2 px-6 py-2.5 rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl shadow-slate-900/10 group"
           >
-            <LayoutGrid size={14} />
-            Command Nexus
+            <LayoutGrid size={12} className="group-hover:rotate-90 transition-transform" />
+            Nexus Command
           </Link>
         </div>
 
         {/* Mobile Toggle */}
-        <button onClick={() => setIsOpen(!isOpen)} className="lg:hidden text-gray-900 p-2">
-          {isOpen ? <X /> : <Menu />}
+        <button onClick={() => setIsOpen(!isOpen)} className="lg:hidden text-slate-900 p-2">
+          {isOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
       </div>
 
@@ -73,23 +86,32 @@ export const Navbar: React.FC = () => {
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="absolute top-full left-0 right-0 bg-white border-b lg:hidden shadow-xl"
+            exit={{ opacity: 0, y: -20 }}
+            className="absolute top-full left-0 right-0 bg-slate-50/98 backdrop-blur-3xl border-b border-slate-200 lg:hidden overflow-hidden"
           >
-            <div className="flex flex-col p-4 gap-4">
+            <div className="flex flex-col p-10 gap-6">
               {NAV_ITEMS.map((item) => (
                 <Link
                   key={item.path}
                   to={item.path}
                   onClick={() => setIsOpen(false)}
-                  className="flex items-center justify-between py-2 text-gray-700 font-medium"
+                  className={`flex items-center justify-between py-2 text-[11px] font-bold uppercase tracking-widest transition-colors ${
+                    location.pathname === item.path ? 'text-blue-600' : 'text-slate-500'
+                  }`}
                 >
                   {item.label}
                   <ChevronRight size={16} />
                 </Link>
               ))}
+              <Link
+                to="/command-nexus"
+                onClick={() => setIsOpen(false)}
+                className="mt-6 flex items-center justify-center gap-3 py-5 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest"
+              >
+                Nexus Command
+              </Link>
             </div>
           </motion.div>
         )}

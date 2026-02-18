@@ -57,3 +57,19 @@ export interface Article {
   featured_image: string;
   published_at: string;
 }
+
+// Added missing Alliance interface required for strategic partnership management
+export interface Alliance {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url: string;
+  country: string;
+  specialization: string;
+  description: string;
+  certifications: string[];
+  category: string;
+  is_featured: boolean;
+  created_at: string;
+  website_url?: string;
+}

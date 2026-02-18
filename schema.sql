@@ -41,7 +41,37 @@ CREATE TABLE products (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- RLS and other tables remain as defined in previous iteration...
+-- 4. ALLIANCES TABLE
+CREATE TABLE alliances (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  slug TEXT UNIQUE NOT NULL,
+  logo_url TEXT,
+  country TEXT,
+  specialization TEXT,
+  description TEXT,
+  certifications TEXT[], -- array of strings like ['CE', 'ISO', 'FDA']
+  website_url TEXT,
+  category TEXT, -- e.g., 'Diagnostic', 'Imaging', 'Surgical'
+  is_featured BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 5. INQUIRIES TABLE
+CREATE TABLE inquiries (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  product_id UUID REFERENCES products(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  company TEXT,
+  message TEXT NOT NULL,
+  status TEXT DEFAULT 'pending', -- 'pending', 'reviewed', 'archived'
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_alliances_slug ON alliances(slug);
+CREATE INDEX idx_inquiries_email ON inquiries(email);
 
 -- SEED DATA: UPDATED CLINICAL DEPARTMENTS
 INSERT INTO divisions (name, slug, hero_gradient, icon_name, order_index) VALUES
