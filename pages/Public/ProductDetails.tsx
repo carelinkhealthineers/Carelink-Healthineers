@@ -6,7 +6,8 @@ import {
   Mail, Download, CheckCircle, FileText, 
   Settings, Shield, ChevronLeft, Loader2, 
   Cpu, Box, Video, Activity, Globe, Info, 
-  ExternalLink, Layers, ArrowRight, ImageIcon
+  ExternalLink, Layers, ArrowRight, ImageIcon,
+  ShieldCheck, FileCheck, Landmark
 } from 'lucide-react';
 import { SEO } from '../../components/SEO';
 import { supabase } from '../../supabaseClient';
@@ -109,7 +110,6 @@ export const ProductDetails: React.FC = () => {
               </AnimatePresence>
             </motion.div>
 
-            {/* Gallery Reel */}
             {gallery.length > 1 && (
               <div className="flex gap-6 overflow-x-auto pb-6 custom-scrollbar">
                  {gallery.map((url, i) => (
@@ -155,7 +155,7 @@ export const ProductDetails: React.FC = () => {
                    <Mail size={22} /> Initiate RFQ Acquisition
                  </Link>
                  {product.brochure_url && (
-                   <a href={product.brochure_url} target="_blank" rel="noreferrer" className="w-full px-12 py-8 bg-white border border-gray-200 text-slate-900 rounded-[2.5rem] font-black flex items-center justify-center gap-4 hover:border-blue-400 transition-all">
+                   <a href={product.brochure_url} target="_blank" rel="noreferrer" className="w-full px-12 py-8 bg-blue-600 text-white rounded-[2.5rem] font-black flex items-center justify-center gap-4 hover:bg-indigo-700 transition-all shadow-xl shadow-blue-500/20">
                      <Download size={22} /> Technical Dossier
                    </a>
                  )}
@@ -189,6 +189,60 @@ export const ProductDetails: React.FC = () => {
               ))}
            </div>
         </section>
+
+        {/* Technical Archive - Dedicated Documentation Area */}
+        {product.brochure_url && (
+          <section className="mb-32">
+            <div className="bg-slate-900 rounded-[4rem] p-12 md:p-20 relative overflow-hidden group">
+               <div className="absolute inset-0 scanner-line opacity-10" />
+               <div className="absolute top-0 right-0 p-20 opacity-5 group-hover:rotate-12 transition-transform">
+                  <Landmark size={400} />
+               </div>
+               
+               <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-16">
+                  <div className="max-w-2xl">
+                     <div className="flex items-center gap-4 mb-8">
+                        <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white">
+                           <FileCheck size={28} />
+                        </div>
+                        <span className="text-[11px] font-black text-blue-400 uppercase tracking-[0.5em]">Asset Specification Dossier</span>
+                     </div>
+                     <h2 className="text-5xl font-black text-white mb-8 tracking-tighter leading-none">The Technical <br /> <span className="text-blue-500">Archive.</span></h2>
+                     <p className="text-gray-400 text-xl font-medium leading-relaxed mb-10">
+                        Download the comprehensive technical roadmap, clinical validation data, and site installation requirements for the {product.name}.
+                     </p>
+                     <div className="flex flex-wrap gap-8">
+                        <div className="flex items-center gap-3">
+                           <ShieldCheck className="text-emerald-500" size={20} />
+                           <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">ISO 13485 Verified</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                           <Activity className="text-blue-500" size={20} />
+                           <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Registry Sync: Active</span>
+                        </div>
+                     </div>
+                  </div>
+                  
+                  <div className="shrink-0 w-full lg:w-auto">
+                     <a 
+                        href={product.brochure_url} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="flex flex-col items-center gap-6 p-12 bg-white/5 border border-white/10 rounded-[3.5rem] hover:bg-white/10 transition-all group/btn"
+                     >
+                        <div className="w-32 h-32 bg-white rounded-[2.5rem] flex items-center justify-center text-slate-900 group-hover/btn:scale-110 group-hover/btn:bg-blue-600 group-hover/btn:text-white transition-all shadow-4xl shadow-blue-500/20">
+                           <Download size={48} />
+                        </div>
+                        <div className="text-center">
+                           <span className="text-[11px] font-black text-white uppercase tracking-[0.4em] block mb-2">Initialize Download</span>
+                           <span className="text-xs font-bold text-gray-400 uppercase">PDF Specification v7.0</span>
+                        </div>
+                     </a>
+                  </div>
+               </div>
+            </div>
+          </section>
+        )}
 
         {/* Architecture - Detailed Breakdown */}
         {parts.length > 0 && (
@@ -235,9 +289,16 @@ export const ProductDetails: React.FC = () => {
            <div className="relative z-10 max-w-4xl mx-auto px-6">
               <h2 className="text-5xl md:text-7xl font-black mb-10 tracking-tighter leading-none">Ready for Clinical <br /> <span className="text-blue-500">Implementation?</span></h2>
               <p className="text-gray-400 text-xl mb-16 leading-relaxed">Our technical architects are standing by to design your facility's custom installation roadmap.</p>
-              <Link to="/acquisition" className="inline-flex items-center gap-4 px-16 py-8 bg-blue-600 text-white rounded-full font-black text-xl shadow-4xl shadow-blue-600/40 hover:scale-105 transition-all">
-                 Initiate Sourcing <ArrowRight size={24} />
-              </Link>
+              <div className="flex flex-wrap justify-center gap-8">
+                <Link to="/acquisition" className="inline-flex items-center gap-4 px-16 py-8 bg-blue-600 text-white rounded-full font-black text-xl shadow-4xl shadow-blue-600/40 hover:scale-105 transition-all">
+                   Initiate Sourcing <ArrowRight size={24} />
+                </Link>
+                {product.brochure_url && (
+                   <a href={product.brochure_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-4 px-16 py-8 bg-white/5 border border-white/20 text-white rounded-full font-black text-xl hover:bg-white/10 transition-all">
+                      Review Archive <FileText size={24} />
+                   </a>
+                )}
+              </div>
            </div>
         </section>
       </div>

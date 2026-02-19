@@ -7,7 +7,7 @@ import {
   Box, Terminal, Layout, FileUp, ImagePlus, 
   CheckCircle2, AlertCircle, ChevronRight, 
   UploadCloud, ImageIcon, Maximize2, Trash,
-  PlusCircle, FileText, Download, Link2
+  PlusCircle, FileText, Download, Link2, Eye, FileX
 } from 'lucide-react';
 import { slugify } from '../../utils/slugify';
 import { supabase } from '../../supabaseClient';
@@ -25,7 +25,6 @@ export const ProductArchitecture: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Refs for hidden inputs
   const mainImageRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const docRef = useRef<HTMLInputElement>(null);
@@ -72,13 +71,22 @@ export const ProductArchitecture: React.FC = () => {
     const filePath = `uploads/${fileName}`;
 
     try {
-      const { data, error } = await supabase.storage.from(bucket).upload(filePath, file);
-      if (error) throw error;
+      const { data, error } = await supabase.storage.from(bucket).upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+      if (error) {
+        console.error(`Supabase Storage Error [${bucket}]:`, error);
+        alert(`Storage Error: ${error.message}\n(Tip: Ensure bucket '${bucket}' exists and is public)`);
+        return null;
+      }
+
       const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(filePath);
       return publicUrl;
-    } catch (err) {
-      console.error('Upload Error:', err);
-      alert(`Asset Deployment Failed: Check ${bucket} bucket permissions.`);
+    } catch (err: any) {
+      console.error('Critical Upload Fault:', err);
+      alert(`Asset Deployment Failed: ${err.message || 'Unknown network error'}`);
       return null;
     }
   };
@@ -157,7 +165,10 @@ export const ProductArchitecture: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (!formData.name || !formData.model_number) return alert('Registry Fault: Identity Missing');
+    // 1. Critical Validation
+    if (!formData.name || !formData.model_number) return alert('Registry Fault: Identity Missing (Name/Model)');
+    if (!formData.division_id) return alert('Registry Fault: No Clinical Division assigned.');
+
     setIsSaving(true);
     const slug = `${slugify(formData.name)}-${slugify(formData.model_number)}`;
     
@@ -179,28 +190,34 @@ export const ProductArchitecture: React.FC = () => {
 
       let productId = editingId;
       if (editingId) {
-        await supabase.from('products').update(payload).eq('id', editingId);
+        const { error } = await supabase.from('products').update(payload).eq('id', editingId);
+        if (error) throw error;
       } else {
-        const { data } = await supabase.from('products').insert([payload]).select();
+        const { data, error } = await supabase.from('products').insert([payload]).select();
+        if (error) throw error;
         productId = data?.[0].id;
       }
 
       if (productId) {
         await supabase.from('product_parts').delete().eq('product_id', productId);
         if (parts.length > 0) {
-          await supabase.from('product_parts').insert(parts.map((p, i) => ({
+          const { error: partError } = await supabase.from('product_parts').insert(parts.map((p, i) => ({
             product_id: productId,
             name: p.name,
             description: p.description,
             image_url: p.image_url,
             order_index: i
           })));
+          if (partError) throw partError;
         }
       }
+      
       await fetchData();
       setIsEditorOpen(false);
-    } catch (err) {
-      console.error(err);
+      alert('Asset Successfully Committed to Nexus.');
+    } catch (err: any) {
+      console.error('Persistence Failure:', err);
+      alert(`Nexus Commit Error: ${err.message}\nCheck your Database Constraints or RLS policies.`);
     } finally {
       setIsSaving(false);
     }
@@ -275,7 +292,6 @@ export const ProductArchitecture: React.FC = () => {
         )}
       </div>
 
-      {/* SOVEREIGN EDITOR INTERFACE */}
       <AnimatePresence>
         {isEditorOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
@@ -339,28 +355,48 @@ export const ProductArchitecture: React.FC = () => {
                           </div>
                        </div>
                        
-                       <div className="p-8 bg-blue-50/50 rounded-[2.5rem] border border-blue-100 flex items-center justify-between gap-10">
-                          <div className="flex items-center gap-6">
-                             <div className="w-16 h-16 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg">
-                                <FileText size={28} />
+                       <div className="p-10 bg-blue-50/50 rounded-[3rem] border border-blue-100 flex flex-col md:flex-row items-center justify-between gap-10 relative overflow-hidden group">
+                          <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:rotate-12 transition-transform">
+                             <FileText size={160} />
+                          </div>
+                          <div className="flex items-center gap-8 relative z-10">
+                             <div className="w-20 h-20 bg-blue-600 text-white rounded-[1.5rem] flex items-center justify-center shadow-2xl shadow-blue-500/30">
+                                <FileText size={32} />
                              </div>
                              <div>
-                                <h4 className="text-xl font-black text-slate-900">Technical Dossier</h4>
-                                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Clinical Specification PDF</p>
+                                <h4 className="text-2xl font-black text-slate-900 tracking-tight">Technical Dossier</h4>
+                                <div className="flex items-center gap-2 mt-1">
+                                   <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg ${formData.brochure_url ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                                      {formData.brochure_url ? 'Archive Synced' : 'Registry Empty'}
+                                   </span>
+                                </div>
                              </div>
                           </div>
-                          <div className="flex-1 max-w-md">
-                             <div className="flex items-center gap-4">
+                          <div className="flex-1 max-w-xl w-full relative z-10">
+                             <div className="flex items-center gap-4 bg-white p-3 rounded-[1.5rem] border shadow-sm">
                                <input 
                                  type="text" 
-                                 className="flex-1 px-4 py-3 bg-white border rounded-xl outline-none text-xs font-mono text-blue-600" 
+                                 className="flex-1 px-4 py-3 bg-transparent outline-none text-[11px] font-mono text-blue-600 overflow-hidden text-ellipsis" 
                                  placeholder="Dossier URL Link..." 
                                  value={formData.brochure_url || ''} 
                                  onChange={e => setFormData({...formData, brochure_url: e.target.value})}
                                />
-                               <button onClick={() => docRef.current?.click()} className="p-3 bg-slate-900 text-white rounded-xl hover:bg-blue-600 transition-all">
-                                  <UploadCloud size={20} />
-                               </button>
+                               <div className="flex items-center gap-2">
+                                 {formData.brochure_url && (
+                                   <>
+                                     <a href={formData.brochure_url} target="_blank" rel="noreferrer" className="p-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-all" title="View Current">
+                                        <Eye size={18} />
+                                     </a>
+                                     <button onClick={() => setFormData({...formData, brochure_url: ''})} className="p-3 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all" title="Purge Record">
+                                        <FileX size={18} />
+                                     </button>
+                                   </>
+                                 )}
+                                 <button onClick={() => docRef.current?.click()} className="p-3 bg-slate-900 text-white rounded-xl hover:bg-blue-600 transition-all flex items-center gap-2 px-6">
+                                    <UploadCloud size={18} />
+                                    <span className="text-[9px] font-black uppercase tracking-widest">Upload</span>
+                                 </button>
+                               </div>
                              </div>
                              <input ref={docRef} type="file" className="hidden" accept=".pdf,.doc,.docx" onChange={onDocUpload} />
                           </div>
@@ -370,6 +406,7 @@ export const ProductArchitecture: React.FC = () => {
                           <div className="space-y-4">
                              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">Departmental Mapping</label>
                              <select className="w-full px-8 py-5 bg-slate-50 rounded-[1.5rem] outline-none font-bold cursor-pointer" value={formData.division_id} onChange={e => setFormData({...formData, division_id: e.target.value})}>
+                                <option value="">-- Select Division --</option>
                                 {divisions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                              </select>
                           </div>
@@ -399,9 +436,9 @@ export const ProductArchitecture: React.FC = () => {
                                <input className="flex-1 bg-white px-4 py-2.5 rounded-xl outline-none font-black text-xs uppercase" value={key} onChange={e => {
                                  const newSpecs = { ...formData.technical_specs };
                                  const newKey = e.target.value;
-                                 const val = newSpecs[key];
+                                 const valValue = newSpecs[key];
                                  delete newSpecs[key];
-                                 newSpecs[newKey] = val;
+                                 newSpecs[newKey] = valValue;
                                  setFormData({...formData, technical_specs: newSpecs});
                                }} />
                                <input className="flex-1 bg-white px-4 py-2.5 rounded-xl outline-none font-bold text-xs text-blue-600" value={val} onChange={e => setFormData({...formData, technical_specs: { ...formData.technical_specs, [key]: e.target.value }})} />
@@ -418,7 +455,6 @@ export const ProductArchitecture: React.FC = () => {
 
                   {activeTab === 'visuals' && (
                     <motion.div key="vis" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-16 max-w-6xl mx-auto">
-                       {/* MASSIVE MAIN IMAGE */}
                        <div className="space-y-8">
                           <header className="flex items-end justify-between">
                              <div>
@@ -446,7 +482,6 @@ export const ProductArchitecture: React.FC = () => {
                           </div>
                        </div>
 
-                       {/* HUGE GALLERY REEL */}
                        <div className="space-y-8">
                           <header className="flex items-end justify-between">
                              <h4 className="text-2xl font-black text-slate-900 tracking-tighter">Supplemental Gallery Hub</h4>
