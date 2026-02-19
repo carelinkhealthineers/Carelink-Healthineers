@@ -78,7 +78,7 @@ export const ProductArchitecture: React.FC = () => {
 
       if (error) {
         console.error(`Supabase Storage Error [${bucket}]:`, error);
-        alert(`Storage Error: ${error.message}\n(Tip: Ensure bucket '${bucket}' exists and is public)`);
+        alert(`Storage Error: ${error.message}\nEnsure the bucket '${bucket}' exists in the Supabase Dashboard.`);
         return null;
       }
 
@@ -165,7 +165,6 @@ export const ProductArchitecture: React.FC = () => {
   };
 
   const handleSave = async () => {
-    // 1. Critical Validation
     if (!formData.name || !formData.model_number) return alert('Registry Fault: Identity Missing (Name/Model)');
     if (!formData.division_id) return alert('Registry Fault: No Clinical Division assigned.');
 
@@ -173,7 +172,7 @@ export const ProductArchitecture: React.FC = () => {
     const slug = `${slugify(formData.name)}-${slugify(formData.model_number)}`;
     
     try {
-      const payload = {
+      const payload: any = {
         name: formData.name,
         model_number: formData.model_number,
         division_id: formData.division_id,
@@ -194,7 +193,13 @@ export const ProductArchitecture: React.FC = () => {
         if (error) throw error;
       } else {
         const { data, error } = await supabase.from('products').insert([payload]).select();
-        if (error) throw error;
+        if (error) {
+          // Detect schema mismatch and provide advice
+          if (error.message.includes('column')) {
+            alert(`Nexus Schema Mismatch: The column '${error.message.split("'")[1]}' is missing from your database. Run the Migration SQL provided to fix this.`);
+          }
+          throw error;
+        }
         productId = data?.[0].id;
       }
 
@@ -217,7 +222,10 @@ export const ProductArchitecture: React.FC = () => {
       alert('Asset Successfully Committed to Nexus.');
     } catch (err: any) {
       console.error('Persistence Failure:', err);
-      alert(`Nexus Commit Error: ${err.message}\nCheck your Database Constraints or RLS policies.`);
+      // Detailed error alert for the user
+      if (!err.message.includes('column')) {
+         alert(`Nexus Commit Error: ${err.message}`);
+      }
     } finally {
       setIsSaving(false);
     }
