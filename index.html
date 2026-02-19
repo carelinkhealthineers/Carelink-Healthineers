@@ -9,20 +9,24 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;700&family=Sora:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary-glow: conic-gradient(from 180deg at 50% 50%, #16abff33 0deg, #0885ff33 55deg, #54d6ff33 120deg, #0071ff33 160deg, transparent 360deg);
         }
         html {
-            font-size: 13px;
+            font-size: 14px; /* Slightly increased base size for professionalism */
         }
         body { 
-            font-family: 'Sora', 'Inter', sans-serif; 
+            font-family: 'Inter', sans-serif; /* Body font Inter for maximum readability */
             scroll-behavior: smooth;
             -webkit-font-smoothing: antialiased;
             background-color: #020408;
             color: #f8fafc;
+            line-height: 1.6;
+        }
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Sora', sans-serif; /* Display font Sora for headings */
         }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
         
@@ -40,7 +44,7 @@
             width: 300%;
             height: 300%;
             background-image: url("https://grainy-gradients.vercel.app/noise.svg");
-            opacity: 0.03;
+            opacity: 0.02; /* Reduced opacity for more professional look */
             pointer-events: none;
             z-index: 1000;
             animation: grain 8s steps(10) infinite;
@@ -60,36 +64,14 @@
         }
 
         .neural-grid {
-            background-size: 50px 50px;
-            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-                              linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
         }
 
-        .scanner-line {
-            width: 100%;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, #3b82f6, transparent);
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 10;
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .group:hover .scanner-line {
-            animation: scan 2s ease-in-out infinite;
-            opacity: 1;
-        }
-
-        @keyframes scan {
-            0% { top: 0; }
-            100% { top: 100%; }
-        }
-
-        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #020408; }
-        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; border: 2px solid #020408; }
         ::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
         
         .no-scrollbar::-webkit-scrollbar { display: none; }
