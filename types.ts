@@ -27,7 +27,7 @@ export interface Product {
   short_description: string;
   long_description: string;
   main_image: string;
-  image_gallery: string[]; // Updated
+  image_gallery: string[];
   category_tag: string;
   technical_specs: Record<string, string>;
   brochure_url?: string;
@@ -38,6 +38,20 @@ export interface Product {
   meta_description?: string;
   created_at: string;
   parts?: ProductPart[];
+}
+
+export interface Blog {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  featured_image: string;
+  category: string;
+  author: string;
+  is_published: boolean;
+  published_at: string;
+  created_at: string;
 }
 
 export interface Inquiry {

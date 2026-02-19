@@ -105,9 +105,10 @@ export const ProductArchitecture: React.FC = () => {
     }
   };
 
+  // Fixed: Cast Array.from result to File[] to avoid 'unknown' parameter in handleFileUpload (Line 112 fix)
   const onGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const files = Array.from(e.target.files);
+      const files = Array.from(e.target.files) as File[];
       const urls: string[] = [];
       for (const file of files) {
         const url = await handleFileUpload(file, 'products');
@@ -124,9 +125,13 @@ export const ProductArchitecture: React.FC = () => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    input.onchange = async (e: any) => {
-      if (e.target.files && e.target.files[0]) {
-        const url = await handleFileUpload(e.target.files[0], 'products');
+    // Fix: Access target.files from the event and cast to HTMLInputElement to ensure correct typing and avoid 'unknown' errors
+    input.onchange = async (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      if (target.files && target.files[0]) {
+        // Fixed: Explicitly cast target.files[0] to File to avoid 'unknown' error
+        const file = target.files[0] as File;
+        const url = await handleFileUpload(file, 'products');
         if (url) {
           const newParts = [...parts];
           newParts[idx].image_url = url;

@@ -26,6 +26,7 @@ const SECTIONS = [
   {
     title: "Neural Ecosystem",
     links: [
+      { label: "Intelligence Briefings", path: "/insights" },
       { label: "The Neural Network", path: "/alliances" },
       { label: "Acquisition Protocol", path: "/acquisition" },
       { label: "Intelligence v2.5", path: "/intelligence" },
@@ -140,7 +141,7 @@ export const Footer: React.FC = () => {
             </div>
           ))}
 
-          {/* Logistics Command (Dynamic) */}
+          {/* Logistics Command */}
           <div className="lg:col-span-2">
             <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-10">Global Command</h4>
             <div className="space-y-8">

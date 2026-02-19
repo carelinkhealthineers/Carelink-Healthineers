@@ -2,7 +2,7 @@
 import React from 'react';
 import { Routes, Route, useLocation, Link } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import { LayoutGrid, Package, FolderTree, Mail, Settings, LogOut, Handshake } from 'lucide-react';
+import { LayoutGrid, Package, FolderTree, Mail, Settings, LogOut, Handshake, BookOpen } from 'lucide-react';
 
 // Layout Components
 import { Navbar } from './components/Navbar';
@@ -20,6 +20,8 @@ import { Acquisition } from './pages/Public/Acquisition';
 import { Intelligence } from './pages/Public/Intelligence';
 import { Foundation } from './pages/Public/Foundation';
 import { Interface } from './pages/Public/Interface';
+import { BlogList } from './pages/Public/BlogList';
+import { BlogDetails } from './pages/Public/BlogDetails';
 
 // Admin Pages
 import { NexusDashboard } from './pages/Admin/NexusDashboard';
@@ -28,6 +30,7 @@ import { AllianceControl } from './pages/Admin/AllianceControl';
 import { InquiryFlow } from './pages/Admin/InquiryFlow';
 import { DivisionControl } from './pages/Admin/DivisionControl';
 import { SystemSettings } from './pages/Admin/SystemSettings';
+import { BlogArchitecture } from './pages/Admin/BlogArchitecture';
 
 const App: React.FC = () => {
   const location = useLocation();
@@ -52,6 +55,8 @@ const App: React.FC = () => {
             <Route path="/intelligence" element={<Intelligence />} />
             <Route path="/foundation" element={<Foundation />} />
             <Route path="/interface" element={<Interface />} />
+            <Route path="/insights" element={<BlogList />} />
+            <Route path="/insights/:blogSlug" element={<BlogDetails />} />
 
             {/* Admin Routes */}
             <Route path="/command-nexus/*" element={
@@ -69,6 +74,7 @@ const App: React.FC = () => {
                     {[
                       { label: 'Overview Matrix', path: '/command-nexus', icon: <LayoutGrid size={18} /> },
                       { label: 'Product Architecture', path: '/command-nexus/architecture', icon: <Package size={18} /> },
+                      { label: 'Editorial Registry', path: '/command-nexus/editorial', icon: <BookOpen size={18} /> },
                       { label: 'Alliance Matrix', path: '/command-nexus/alliances', icon: <Handshake size={18} /> },
                       { label: 'Inquiry Flow', path: '/command-nexus/inquiries', icon: <Mail size={18} /> },
                       { label: 'Division Control', path: '/command-nexus/divisions', icon: <FolderTree size={18} /> },
@@ -97,6 +103,7 @@ const App: React.FC = () => {
                    <Routes>
                       <Route path="/" element={<NexusDashboard />} />
                       <Route path="/architecture" element={<ProductArchitecture />} />
+                      <Route path="/editorial" element={<BlogArchitecture />} />
                       <Route path="/alliances" element={<AllianceControl />} />
                       <Route path="/inquiries" element={<InquiryFlow />} />
                       <Route path="/divisions" element={<DivisionControl />} />

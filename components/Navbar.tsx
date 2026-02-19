@@ -7,11 +7,11 @@ import { supabase } from '../supabaseClient';
 import { Division } from '../types';
 
 const NAV_ITEMS = [
-  { label: 'Origin', path: '/' },
-  { label: 'Portfolio', path: '/portfolio' },
-  { label: 'Alliances', path: '/alliances' },
-  { label: 'Intelligence', path: '/intelligence' },
-  { label: 'Acquisition', path: '/acquisition' },
+  { label: 'Home', path: '/' },
+  { label: 'Products', path: '/portfolio' },
+  { label: 'Partners', path: '/alliances' },
+  { label: 'AI', path: '/intelligence' },
+  { label: 'Quote', path: '/acquisition' },
 ];
 
 export const Navbar: React.FC = () => {
@@ -95,7 +95,7 @@ export const Navbar: React.FC = () => {
                   : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-100'
                 }`}
               >
-                <LayoutGrid size={14} /> Matrix
+                <LayoutGrid size={14} /> Categories
                 <ChevronDown size={12} className={`transition-transform duration-300 ${showMatrix ? 'rotate-180' : ''}`} />
               </button>
 
@@ -132,7 +132,7 @@ export const Navbar: React.FC = () => {
                       ))}
                     </div>
                     <Link to="/divisions" className="mt-2 text-center py-3 text-[10px] font-black text-blue-600 uppercase tracking-widest hover:bg-blue-50 rounded-xl transition-colors">
-                      View Full Blueprint
+                      All Hubs
                     </Link>
                   </motion.div>
                 )}
@@ -144,7 +144,7 @@ export const Navbar: React.FC = () => {
               to="/command-nexus"
               className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:scale-105 transition-all shadow-lg shadow-slate-900/20"
             >
-              <Zap size={14} className="fill-current" /> <span className="hidden sm:inline">Nexus</span>
+              <Zap size={14} className="fill-current" /> <span className="hidden sm:inline">Admin</span>
             </Link>
 
             {/* Mobile Toggle */}
@@ -194,7 +194,7 @@ export const Navbar: React.FC = () => {
                 <div className="h-px bg-slate-100 my-4" />
                 
                 <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-2 px-4">
-                  Quick Access
+                  Clinical Hubs
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                    {divisions.slice(0,4).map(div => (
