@@ -78,14 +78,14 @@ export const ProductArchitecture: React.FC = () => {
 
       if (error) {
         console.error(`Supabase Storage Error [${bucket}]:`, error);
-        alert(`Storage Error: ${error.message}\nEnsure the bucket '${bucket}' exists in the Supabase Dashboard.`);
+        alert(`Storage Error: ${error.message}\n\nFIX: Ensure the bucket '${bucket}' exists in Supabase Storage and has a policy for public uploads.`);
         return null;
       }
 
       const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(filePath);
       return publicUrl;
     } catch (err: any) {
-      console.error('Critical Upload Fault:', err);
+      console.error('Critical Asset Upload Fault:', err);
       alert(`Asset Deployment Failed: ${err.message || 'Unknown network error'}`);
       return null;
     }
@@ -180,10 +180,10 @@ export const ProductArchitecture: React.FC = () => {
         short_description: formData.short_description,
         long_description: formData.long_description,
         main_image: formData.main_image,
-        image_gallery: formData.image_gallery,
-        technical_specs: formData.technical_specs,
+        image_gallery: formData.image_gallery || [],
+        technical_specs: formData.technical_specs || {},
         is_published: formData.is_published,
-        brochure_url: formData.brochure_url,
+        brochure_url: formData.brochure_url || '',
         slug: slug
       };
 
@@ -194,9 +194,9 @@ export const ProductArchitecture: React.FC = () => {
       } else {
         const { data, error } = await supabase.from('products').insert([payload]).select();
         if (error) {
-          // Detect schema mismatch and provide advice
           if (error.message.includes('column')) {
-            alert(`Nexus Schema Mismatch: The column '${error.message.split("'")[1]}' is missing from your database. Run the Migration SQL provided to fix this.`);
+            const col = error.message.split("'")[1] || 'brochure_url';
+            alert(`SCHEMA MISMATCH: Column '${col}' is missing.\n\nRun this in Supabase SQL Editor:\nALTER TABLE products ADD COLUMN ${col} TEXT;\nNOTIFY pgrst, 'reload schema';`);
           }
           throw error;
         }
@@ -219,10 +219,9 @@ export const ProductArchitecture: React.FC = () => {
       
       await fetchData();
       setIsEditorOpen(false);
-      alert('Asset Successfully Committed to Nexus.');
+      alert('Asset Successfully Committed to Nexus Registry.');
     } catch (err: any) {
       console.error('Persistence Failure:', err);
-      // Detailed error alert for the user
       if (!err.message.includes('column')) {
          alert(`Nexus Commit Error: ${err.message}`);
       }
