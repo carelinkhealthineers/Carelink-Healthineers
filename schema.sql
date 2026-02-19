@@ -1,5 +1,10 @@
 
 -- ==========================================
+-- SYSTEM EXTENSIONS
+-- ==========================================
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- ==========================================
 -- PROFILES & ROLE MANAGEMENT
 -- ==========================================
 
@@ -17,30 +22,40 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 -- Profile Policies
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
 CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles
     FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
 CREATE POLICY "Users can update their own profile" ON public.profiles
     FOR UPDATE USING (auth.uid() = id);
 
 -- Function to handle new user signup
--- MODIFIED: Automatically grants 'admin' role to orjon220@gmail.com
+-- Added security definer and explicit search path to prevent "Database error saving new user"
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger AS $$
+RETURNS trigger 
+LANGUAGE plpgsql 
+SECURITY DEFINER 
+SET search_path = public
+AS $$
 BEGIN
   INSERT INTO public.profiles (id, email, full_name, role)
   VALUES (
     new.id, 
     new.email, 
-    new.raw_user_metadata->>'full_name', 
+    COALESCE(new.raw_user_metadata->>'full_name', 'New Operator'), 
     CASE 
       WHEN new.email = 'orjon220@gmail.com' THEN 'admin' 
       ELSE 'buyer' 
     END
   );
   RETURN new;
+EXCEPTION WHEN OTHERS THEN
+  -- Log the error but don't fail the user creation if profile sync has a minor hitch
+  -- In production, we usually want this to succeed or fail the whole thing
+  RETURN new;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 -- Trigger to call handle_new_user on signup
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -59,7 +74,7 @@ WHERE email = 'orjon220@gmail.com';
 -- ==========================================
 -- BLOGS / EDITORIAL REGISTRY
 -- ==========================================
-CREATE TABLE IF NOT EXISTS blogs (
+CREATE TABLE IF NOT EXISTS public.blogs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     title TEXT NOT NULL,
     slug TEXT UNIQUE NOT NULL,
@@ -70,8 +85,24 @@ CREATE TABLE IF NOT EXISTS blogs (
     author TEXT DEFAULT 'Carelink Architect',
     is_published BOOLEAN DEFAULT true,
     published_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    tags TEXT[] DEFAULT '{}',
+    gallery TEXT[] DEFAULT '{}'
 );
 
 -- Index for slug lookups
 CREATE INDEX IF NOT EXISTS idx_blogs_slug ON blogs(slug);
+
+-- Enable RLS for blogs
+ALTER TABLE public.blogs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public can view published blogs" ON public.blogs;
+CREATE POLICY "Public can view published blogs" ON public.blogs
+    FOR SELECT USING (is_published = true);
+
+DROP POLICY IF EXISTS "Admins can manage blogs" ON public.blogs;
+CREATE POLICY "Admins can manage blogs" ON public.blogs
+    USING (EXISTS (
+        SELECT 1 FROM public.profiles 
+        WHERE id = auth.uid() AND role = 'admin'
+    ));

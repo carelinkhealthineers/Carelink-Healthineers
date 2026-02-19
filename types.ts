@@ -52,6 +52,8 @@ export interface Blog {
   is_published: boolean;
   published_at: string;
   created_at: string;
+  tags?: string[];
+  gallery?: string[];
 }
 
 export interface Inquiry {
