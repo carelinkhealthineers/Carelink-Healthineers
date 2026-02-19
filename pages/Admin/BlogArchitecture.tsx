@@ -43,8 +43,12 @@ export const BlogArchitecture: React.FC = () => {
 
   const fetchBlogs = async () => {
     setIsLoading(true);
-    const { data } = await supabase.from('blogs').select('*').order('created_at', { ascending: false });
-    if (data) setBlogs(data);
+    const { data, error } = await supabase.from('blogs').select('*').order('created_at', { ascending: false });
+    if (error) {
+      console.error('Failed to fetch blogs:', error);
+    } else {
+      setBlogs(data || []);
+    }
     setIsLoading(false);
   };
 
@@ -88,7 +92,6 @@ export const BlogArchitecture: React.FC = () => {
 
   const onGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      // Fix: Add explicit type cast to File[] for FileList conversion
       const files = Array.from(e.target.files) as File[];
       const urls: string[] = [];
       for (const file of files) {
@@ -113,20 +116,32 @@ export const BlogArchitecture: React.FC = () => {
       alert('Registry Error: Title and Content are mandatory.');
       return;
     }
+    
     setIsSaving(true);
-    const slug = slugify(formData.title || '');
-    const payload = { ...formData, slug };
-
+    
     try {
+      // Create a unique slug for new posts to avoid silent unique constraint failures
+      const baseSlug = slugify(formData.title || '');
+      const slug = editingId ? baseSlug : `${baseSlug}-${Math.random().toString(36).substring(2, 8)}`;
+      
+      // Strip 'id' and 'created_at' to prevent collision errors
+      const { id, created_at, ...safeData } = formData as any;
+      const payload = { ...safeData, slug };
+
       if (editingId) {
-        await supabase.from('blogs').update(payload).eq('id', editingId);
+        const { error } = await supabase.from('blogs').update(payload).eq('id', editingId);
+        if (error) throw error;
       } else {
-        await supabase.from('blogs').insert([{ ...payload, published_at: new Date().toISOString() }]);
+        payload.published_at = payload.published_at || new Date().toISOString();
+        const { error } = await supabase.from('blogs').insert([payload]);
+        if (error) throw error;
       }
+      
       await fetchBlogs();
       setIsEditorOpen(false);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error('Save Error:', err);
+      alert(`Failed to commit briefing: ${err.message || 'Unknown database error'}`);
     } finally {
       setIsSaving(false);
     }
@@ -200,7 +215,7 @@ export const BlogArchitecture: React.FC = () => {
           blogs.filter(b => b.title.toLowerCase().includes(searchTerm.toLowerCase())).map((blog) => (
             <motion.div layout key={blog.id} className="bg-white/[0.01] rounded-[3rem] p-8 border border-white/5 group hover:border-blue-500/50 transition-all duration-500 shadow-2xl flex flex-col h-full relative overflow-hidden">
                <div className="aspect-video rounded-[2rem] overflow-hidden bg-black mb-8 border border-white/5 relative">
-                  <img src={blog.featured_image} className="w-full h-full object-cover opacity-50 group-hover:opacity-100 group-hover:scale-105 transition-all duration-1000 grayscale group-hover:grayscale-0" />
+                  <img src={blog.featured_image || ''} className="w-full h-full object-cover opacity-50 group-hover:opacity-100 group-hover:scale-105 transition-all duration-1000 grayscale group-hover:grayscale-0" />
                   <div className="absolute top-4 right-4 px-3 py-1 bg-black/60 backdrop-blur-md rounded-lg text-[7px] font-black text-white uppercase tracking-widest border border-white/10">
                     {blog.category}
                   </div>
@@ -224,7 +239,13 @@ export const BlogArchitecture: React.FC = () => {
 
                <div className="mt-auto flex gap-3 pt-6 border-t border-white/5">
                   <button onClick={() => toggleEditor(blog)} className="flex-1 py-4 bg-white/5 text-white border border-white/5 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all">Modify_Intel</button>
-                  <button onClick={async () => { if(confirm('Purge from Archive?')) { await supabase.from('blogs').delete().eq('id', blog.id); fetchBlogs(); } }} className="p-4 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-2xl hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={16} /></button>
+                  <button onClick={async () => { 
+                    if(confirm('Purge from Archive?')) { 
+                      const { error } = await supabase.from('blogs').delete().eq('id', blog.id); 
+                      if (error) { alert('Deletion failed: ' + error.message); }
+                      fetchBlogs(); 
+                    } 
+                  }} className="p-4 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-2xl hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={16} /></button>
                </div>
             </motion.div>
           ))

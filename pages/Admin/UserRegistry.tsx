@@ -11,13 +11,25 @@ export const UserRegistry: React.FC = () => {
 
   const fetchUsers = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (data) setUsers(data);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .limit(10000)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching users:', error);
+      }
+      
+      if (data) {
+        setUsers(data);
+      }
+    } catch (err) {
+      console.error('Unexpected error fetching users:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -28,22 +40,28 @@ export const UserRegistry: React.FC = () => {
     const newRole = currentRole === 'admin' ? 'buyer' : 'admin';
     if (!confirm(`Switch this user to ${newRole.toUpperCase()} privilege?`)) return;
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({ role: newRole })
-      .eq('id', userId);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('id', userId);
 
-    if (error) {
-      alert(`Role transition failed: ${error.message}`);
-    } else {
-      fetchUsers();
+      if (error) {
+        alert(`Role transition failed: ${error.message}`);
+      } else {
+        fetchUsers();
+      }
+    } catch (err) {
+      console.error('Error updating role:', err);
     }
   };
 
-  const filtered = users.filter(u => 
-    u.email.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    u.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = users.filter(u => {
+    const term = searchTerm.toLowerCase();
+    const emailMatch = u.email ? u.email.toLowerCase().includes(term) : false;
+    const nameMatch = u.full_name ? u.full_name.toLowerCase().includes(term) : false;
+    return emailMatch || nameMatch;
+  });
 
   return (
     <div className="p-10 lg:p-16 text-white min-h-screen">
@@ -92,7 +110,7 @@ export const UserRegistry: React.FC = () => {
                       </div>
                       <div>
                         <div className="font-black text-white tracking-tight">{user.full_name || 'ANONYMOUS_ENTITY'}</div>
-                        <div className="text-[10px] text-slate-600 font-mono tracking-tighter mt-1">{user.email}</div>
+                        <div className="text-[10px] text-slate-600 font-mono tracking-tighter mt-1">{user.email || 'NO_EMAIL_DETECTED'}</div>
                       </div>
                     </div>
                   </td>
@@ -102,11 +120,11 @@ export const UserRegistry: React.FC = () => {
                       ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' 
                       : 'bg-white/5 text-slate-600 border-white/5'
                     }`}>
-                      {user.role}
+                      {user.role || 'GUEST'}
                     </span>
                   </td>
                   <td className="px-10 py-8 text-[10px] text-slate-500 font-bold tracking-widest">
-                    {new Date(user.created_at).toLocaleDateString()}
+                    {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'UNKNOWN'}
                   </td>
                   <td className="px-10 py-8 text-right">
                     <button 

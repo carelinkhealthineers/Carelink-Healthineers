@@ -418,7 +418,7 @@ export const ProductArchitecture: React.FC = () => {
                              <button onClick={() => mainImageRef.current?.click()} className="px-10 py-5 bg-white text-black rounded-3xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:bg-blue-600 hover:text-white transition-all">
                                 Source Image
                              </button>
-                             <input ref={mainImageRef} type="file" className="hidden" onChange={onMainImageUpload} />
+                             <input ref={mainImageRef} type="file" accept="image/*" className="hidden" onChange={onMainImageUpload} />
                           </header>
 
                           <div className="w-full aspect-video rounded-[3rem] bg-black border border-white/5 overflow-hidden relative group">
@@ -432,6 +432,32 @@ export const ProductArchitecture: React.FC = () => {
                              <div className="absolute bottom-10 left-10 p-4 bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl">
                                 <span className="text-[8px] font-black text-blue-500 uppercase tracking-[0.4em]">Primary_Registry_Asset</span>
                              </div>
+                          </div>
+                       </div>
+
+                       <div className="space-y-8 mt-16 border-t border-white/5 pt-16">
+                          <header className="flex items-end justify-between">
+                             <div>
+                               <h4 className="text-3xl font-black text-white tracking-tighter">Asset Gallery</h4>
+                               <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-2 opacity-60 italic">Supplemental Visual Matrix</p>
+                             </div>
+                             <button onClick={() => galleryRef.current?.click()} className="px-10 py-5 bg-white/5 border border-white/10 text-white rounded-3xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center gap-3">
+                                <Plus size={16} /> Batch Upload Assets
+                             </button>
+                             <input ref={galleryRef} type="file" className="hidden" multiple accept="image/*" onChange={onGalleryUpload} />
+                          </header>
+
+                          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                             {formData.image_gallery?.map((url, i) => (
+                               <div key={i} className="aspect-square bg-white/[0.02] border border-white/5 rounded-3xl overflow-hidden relative group shadow-xl">
+                                  <img src={url} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all" />
+                                  <button onClick={() => setFormData(prev => ({ ...prev, image_gallery: prev.image_gallery?.filter((_, idx) => idx !== i) }))} className="absolute top-4 right-4 p-2 bg-rose-500/80 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all"><X size={14} /></button>
+                               </div>
+                             ))}
+                             <button onClick={() => galleryRef.current?.click()} className="aspect-square bg-white/[0.01] border-2 border-dashed border-white/5 rounded-3xl flex flex-col items-center justify-center text-slate-800 hover:text-blue-500 hover:border-blue-500/20 transition-all group/btn">
+                                <ImagePlus size={32} className="group-hover/btn:scale-110 transition-transform" />
+                                <span className="text-[8px] font-black uppercase tracking-widest mt-4">Append Asset</span>
+                             </button>
                           </div>
                        </div>
                     </motion.div>

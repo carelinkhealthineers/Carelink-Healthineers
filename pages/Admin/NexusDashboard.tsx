@@ -5,34 +5,69 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Package, Users, Mail, Activity, ArrowUpRight, TrendingUp, Loader2, RefreshCw, Terminal } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 
-const DATA = [
-  { name: 'Jan', inquiries: 45, products: 12 },
-  { name: 'Feb', inquiries: 52, products: 15 },
-  { name: 'Mar', inquiries: 61, products: 22 },
-  { name: 'Apr', inquiries: 58, products: 25 },
-  { name: 'May', inquiries: 85, products: 28 },
-  { name: 'Jun', inquiries: 92, products: 35 },
-];
-
 export const NexusDashboard: React.FC = () => {
   const [stats, setStats] = useState({ products: 0, inquiries: 0, alliances: 0, pending: 0 });
+  const [chartData, setChartData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchStats = async () => {
     setIsLoading(true);
     try {
-      const [pRes, iRes, aRes, pendRes] = await Promise.all([
-        supabase.from('products').select('*', { count: 'exact', head: true }),
-        supabase.from('inquiries').select('*', { count: 'exact', head: true }),
-        supabase.from('alliances').select('*', { count: 'exact', head: true }),
-        supabase.from('inquiries').select('*', { count: 'exact', head: true }).eq('status', 'pending')
+      // Calculate date for 6 months ago
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+      sixMonthsAgo.setDate(1);
+      sixMonthsAgo.setHours(0, 0, 0, 0);
+
+      const [recentProductsRes, recentInquiriesRes, pCountRes, iCountRes, aCountRes, pendCountRes] = await Promise.all([
+        supabase.from('products').select('created_at').gte('created_at', sixMonthsAgo.toISOString()),
+        supabase.from('inquiries').select('created_at').gte('created_at', sixMonthsAgo.toISOString()),
+        supabase.from('products').select('id', { count: 'exact', head: true }),
+        supabase.from('inquiries').select('id', { count: 'exact', head: true }),
+        supabase.from('alliances').select('id', { count: 'exact', head: true }),
+        supabase.from('inquiries').select('id', { count: 'exact', head: true }).eq('status', 'pending')
       ]);
+
       setStats({
-        products: pRes.count || 0,
-        inquiries: iRes.count || 0,
-        alliances: aRes.count || 0,
-        pending: pendRes.count || 0
+        products: pCountRes.count || 0,
+        inquiries: iCountRes.count || 0,
+        alliances: aCountRes.count || 0,
+        pending: pendCountRes.count || 0
       });
+
+      // Generate dynamic chart data for the last 6 months
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const dataMap = new Map();
+      const today = new Date();
+      
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        const key = `${d.getFullYear()}-${d.getMonth()}`;
+        dataMap.set(key, { 
+          name: months[d.getMonth()], 
+          sortVal: d.getTime(),
+          inquiries: 0, 
+          products: 0 
+        });
+      }
+
+      const processEntries = (entries: any[], type: 'products' | 'inquiries') => {
+        entries.forEach(entry => {
+          if (!entry.created_at) return;
+          const d = new Date(entry.created_at);
+          const key = `${d.getFullYear()}-${d.getMonth()}`;
+          if (dataMap.has(key)) {
+            dataMap.get(key)[type]++;
+          }
+        });
+      };
+
+      processEntries(recentProductsRes.data || [], 'products');
+      processEntries(recentInquiriesRes.data || [], 'inquiries');
+
+      const finalChartData = Array.from(dataMap.values()).sort((a, b) => a.sortVal - b.sortVal);
+      setChartData(finalChartData);
+
     } catch (err) {
       console.error('Stats Error:', err);
     } finally {
@@ -66,8 +101,8 @@ export const NexusDashboard: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
         {[
-          { label: 'Total Assets', val: stats.products, icon: <Package size={20} />, change: '+12%', color: 'blue' },
-          { label: 'Active Inquiries', val: stats.inquiries, icon: <Mail size={20} />, change: `+${stats.pending} New`, color: 'indigo' },
+          { label: 'Total Assets', val: stats.products, icon: <Package size={20} />, change: 'LIVE', color: 'blue' },
+          { label: 'Active Inquiries', val: stats.inquiries, icon: <Mail size={20} />, change: `${stats.pending} Pending`, color: 'indigo' },
           { label: 'Global Alliances', val: stats.alliances, icon: <Users size={20} />, change: 'STABLE', color: 'emerald' },
           { label: 'Platform Pulse', val: 'NOMINAL', icon: <Activity size={20} />, change: '99.9%', color: 'rose' },
         ].map((stat, i) => (
@@ -104,27 +139,34 @@ export const NexusDashboard: React.FC = () => {
             <Terminal size={14} className="text-slate-800" />
           </div>
           <div className="h-80 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={DATA}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 9, fill: '#475569', fontWeight: 900 }} 
-                />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 9, fill: '#475569', fontWeight: 900 }} 
-                />
-                <Tooltip 
-                  cursor={{ fill: 'rgba(255,255,255,0.02)' }} 
-                  contentStyle={{ backgroundColor: '#020408', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', fontSize: '10px' }}
-                />
-                <Bar dataKey="inquiries" fill="#3B82F6" radius={[6, 6, 0, 0]} barSize={24} />
-              </BarChart>
-            </ResponsiveContainer>
+            {isLoading ? (
+              <div className="w-full h-full flex items-center justify-center">
+                 <Loader2 className="animate-spin text-slate-700" size={40} />
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 9, fill: '#475569', fontWeight: 900 }} 
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 9, fill: '#475569', fontWeight: 900 }} 
+                    allowDecimals={false}
+                  />
+                  <Tooltip 
+                    cursor={{ fill: 'rgba(255,255,255,0.02)' }} 
+                    contentStyle={{ backgroundColor: '#020408', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', fontSize: '10px' }}
+                  />
+                  <Bar dataKey="inquiries" fill="#3B82F6" radius={[6, 6, 0, 0]} barSize={24} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -135,33 +177,40 @@ export const NexusDashboard: React.FC = () => {
             <Activity size={14} className="text-slate-800" />
           </div>
           <div className="h-80 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={DATA}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 9, fill: '#475569', fontWeight: 900 }} 
-                />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 9, fill: '#475569', fontWeight: 900 }} 
-                />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#020408', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', fontSize: '10px' }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="products" 
-                  stroke="#3B82F6" 
-                  strokeWidth={4} 
-                  dot={{ r: 6, fill: '#3B82F6', strokeWidth: 0 }} 
-                  activeDot={{ r: 8, strokeWidth: 0 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {isLoading ? (
+               <div className="w-full h-full flex items-center justify-center">
+                 <Loader2 className="animate-spin text-slate-700" size={40} />
+               </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 9, fill: '#475569', fontWeight: 900 }} 
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 9, fill: '#475569', fontWeight: 900 }} 
+                    allowDecimals={false}
+                  />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#020408', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', fontSize: '10px' }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="products" 
+                    stroke="#3B82F6" 
+                    strokeWidth={4} 
+                    dot={{ r: 6, fill: '#3B82F6', strokeWidth: 0 }} 
+                    activeDot={{ r: 8, strokeWidth: 0 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>
