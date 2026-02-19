@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, ChevronDown, LayoutGrid, Zap, Activity, ArrowRight } from 'lucide-react';
+import { Menu, X, ChevronDown, LayoutGrid, Activity, ArrowRight, User, Shield, LogOut, Settings } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { Division } from '../types';
 
@@ -17,14 +17,71 @@ const NAV_ITEMS = [
 export const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [showMatrix, setShowMatrix] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [hoveredPath, setHoveredPath] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
+  const [role, setRole] = useState<string | null>(null);
   const location = useLocation();
+  const navigate = useNavigate();
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     supabase.from('divisions').select('*').order('order_index')
       .then(({ data }) => setDivisions(data || []));
+
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setUser(session.user);
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+        setRole(profile?.role || 'buyer');
+      } else {
+        setUser(null);
+        setRole(null);
+      }
+    };
+
+    checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session) {
+        setUser(session.user);
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+        setRole(profile?.role || 'buyer');
+      } else {
+        setUser(null);
+        setRole(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setShowUserMenu(false);
+    navigate('/');
+  };
 
   return (
     <>
@@ -66,7 +123,6 @@ export const Navbar: React.FC = () => {
                     isActive ? 'text-blue-600' : 'text-slate-500 hover:text-slate-900'
                   }`}
                 >
-                  {/* Active/Hover Background Pill */}
                   {(isActive || isHovered) && (
                     <motion.div
                       layoutId="navPill"
@@ -85,7 +141,6 @@ export const Navbar: React.FC = () => {
           {/* RIGHT: Actions */}
           <div className="flex items-center gap-2 pl-4">
             
-            {/* Matrix Toggle */}
             <div className="relative">
               <button 
                 onClick={() => setShowMatrix(!showMatrix)}
@@ -99,7 +154,6 @@ export const Navbar: React.FC = () => {
                 <ChevronDown size={12} className={`transition-transform duration-300 ${showMatrix ? 'rotate-180' : ''}`} />
               </button>
 
-              {/* Desktop Matrix Dropdown */}
               <AnimatePresence>
                 {showMatrix && (
                   <motion.div
@@ -131,23 +185,71 @@ export const Navbar: React.FC = () => {
                         </Link>
                       ))}
                     </div>
-                    <Link to="/divisions" className="mt-2 text-center py-3 text-[10px] font-black text-blue-600 uppercase tracking-widest hover:bg-blue-50 rounded-xl transition-colors">
-                      All Hubs
-                    </Link>
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
 
-            {/* Nexus CTA */}
-            <Link 
-              to="/command-nexus"
-              className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:scale-105 transition-all shadow-lg shadow-slate-900/20"
-            >
-              <Zap size={14} className="fill-current" /> <span className="hidden sm:inline">Admin</span>
-            </Link>
+            {/* User Dropdown Menu */}
+            <div className="relative" ref={userMenuRef}>
+              {user ? (
+                <button 
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center gap-2 p-1 pr-4 bg-slate-50 border border-slate-100 rounded-full hover:bg-blue-50 transition-all group"
+                >
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs ${role === 'admin' ? 'bg-blue-600' : 'bg-slate-900'}`}>
+                    {user.email.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest hidden sm:inline">
+                    {role === 'admin' ? 'Admin Node' : 'Client Node'}
+                  </span>
+                  <ChevronDown size={12} className={`text-slate-400 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+                </button>
+              ) : (
+                <Link 
+                  to="/login"
+                  className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-slate-900/10"
+                >
+                  <User size={14} /> Login
+                </Link>
+              )}
 
-            {/* Mobile Toggle */}
+              <AnimatePresence>
+                {showUserMenu && user && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute top-full right-0 mt-4 w-64 bg-white/95 backdrop-blur-xl rounded-[2.5rem] border border-white/60 shadow-2xl p-3 z-50 origin-top-right overflow-hidden"
+                  >
+                    <div className="px-5 py-4 border-b border-slate-100 mb-2">
+                      <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Authenticated Email</div>
+                      <div className="text-[10px] font-black text-slate-900 truncate">{user.email}</div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      {role === 'admin' && (
+                        <Link 
+                          to="/command-nexus"
+                          onClick={() => setShowUserMenu(false)}
+                          className="flex items-center gap-3 w-full p-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest text-blue-600 hover:bg-blue-50 transition-colors"
+                        >
+                          <Shield size={16} /> Command Nexus
+                        </Link>
+                      )}
+                      
+                      <button 
+                        onClick={handleLogout}
+                        className="flex items-center gap-3 w-full p-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest text-rose-500 hover:bg-rose-50 transition-colors"
+                      >
+                        <LogOut size={16} /> Logout Session
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
             <button 
               onClick={() => setIsOpen(!isOpen)}
               className="lg:hidden w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-900 border border-slate-100 shadow-sm"
@@ -158,7 +260,6 @@ export const Navbar: React.FC = () => {
         </motion.div>
       </nav>
 
-      {/* Mobile Menu Overlay */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -192,22 +293,34 @@ export const Navbar: React.FC = () => {
                 ))}
                 
                 <div className="h-px bg-slate-100 my-4" />
-                
-                <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-2 px-4">
-                  Clinical Hubs
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                   {divisions.slice(0,4).map(div => (
-                     <Link 
-                       key={div.id} 
-                       to={`/portfolio?division=${div.slug}`}
-                       onClick={() => setIsOpen(false)}
-                       className="p-3 bg-slate-50 rounded-xl text-[9px] font-bold text-slate-600 truncate hover:bg-blue-50 hover:text-blue-600 transition-colors"
+
+                {user ? (
+                   <>
+                     {role === 'admin' && (
+                       <Link 
+                         to="/command-nexus"
+                         onClick={() => setIsOpen(false)}
+                         className="block px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-blue-600 hover:bg-blue-50 transition-all flex items-center gap-3"
+                       >
+                         <Shield size={16} /> Admin Nexus
+                       </Link>
+                     )}
+                     <button 
+                       onClick={() => { setIsOpen(false); handleLogout(); }}
+                       className="w-full text-left px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-rose-500 hover:bg-rose-50 transition-all flex items-center gap-3"
                      >
-                       {div.name}
-                     </Link>
-                   ))}
-                </div>
+                       <LogOut size={16} /> Logout
+                     </button>
+                   </>
+                ) : (
+                  <Link 
+                    to="/login"
+                    onClick={() => setIsOpen(false)}
+                    className="block px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-blue-600 hover:bg-blue-50 transition-all flex items-center gap-3"
+                  >
+                    <User size={16} /> Login
+                  </Link>
+                )}
               </div>
             </motion.div>
           </motion.div>
