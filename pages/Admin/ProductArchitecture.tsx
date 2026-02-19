@@ -78,7 +78,7 @@ export const ProductArchitecture: React.FC = () => {
 
       if (error) {
         console.error(`Supabase Storage Error [${bucket}]:`, error);
-        alert(`Storage Error: ${error.message}\n\nFIX: Ensure the bucket '${bucket}' exists in Supabase Storage and has a policy for public uploads.`);
+        alert(`Storage Error: ${error.message}\n\nFIX: Run the Storage SQL to create the '${bucket}' bucket.`);
         return null;
       }
 
@@ -140,7 +140,11 @@ export const ProductArchitecture: React.FC = () => {
   const toggleEditor = async (product: Product | null = null) => {
     if (product) {
       setEditingId(product.id);
-      setFormData({ ...product, image_gallery: product.image_gallery || [] });
+      setFormData({ 
+        ...product, 
+        image_gallery: product.image_gallery || [],
+        technical_specs: product.technical_specs || {}
+      });
       const { data } = await supabase.from('product_parts').select('*').eq('product_id', product.id).order('order_index');
       setParts(data || []);
     } else {
@@ -195,8 +199,9 @@ export const ProductArchitecture: React.FC = () => {
         const { data, error } = await supabase.from('products').insert([payload]).select();
         if (error) {
           if (error.message.includes('column')) {
-            const col = error.message.split("'")[1] || 'brochure_url';
-            alert(`SCHEMA MISMATCH: Column '${col}' is missing.\n\nRun this in Supabase SQL Editor:\nALTER TABLE products ADD COLUMN ${col} TEXT;\nNOTIFY pgrst, 'reload schema';`);
+            const col = error.message.split("'")[1] || 'technical_specs';
+            const type = col === 'technical_specs' ? 'JSONB DEFAULT \'{}\'' : 'TEXT';
+            alert(`SCHEMA MISMATCH: Column '${col}' is missing.\n\nRun this in Supabase SQL Editor:\nALTER TABLE products ADD COLUMN ${col} ${type};\nNOTIFY pgrst, 'reload schema';`);
           }
           throw error;
         }
