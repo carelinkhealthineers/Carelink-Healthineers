@@ -173,7 +173,7 @@ export const ProductDetails: React.FC = () => {
 
               {/* Action Hub */}
               <div className="flex gap-4">
-                 <Link to="/acquisition" className="flex-1 py-4 bg-white text-black rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all text-center flex items-center justify-center gap-3 shadow-xl">
+                 <Link to={`/acquisition?product=${encodeURIComponent(product.name)}`} className="flex-1 py-4 bg-white text-black rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all text-center flex items-center justify-center gap-3 shadow-xl">
                     Request Quote <ArrowUpRight size={16} />
                  </Link>
                  <button 
@@ -332,7 +332,7 @@ export const ProductDetails: React.FC = () => {
                  <p className="text-base font-medium text-slate-500 mt-1 italic">Our technical architects are ready to assist with your facility planning.</p>
               </div>
            </div>
-           <Link to="/acquisition" className="px-10 py-5 bg-slate-900 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl">
+           <Link to={`/acquisition?product=${encodeURIComponent(product.name)}`} className="px-10 py-5 bg-slate-900 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl">
               Talk to an Expert
            </Link>
         </div>
