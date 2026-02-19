@@ -26,6 +26,8 @@ import { NexusDashboard } from './pages/Admin/NexusDashboard';
 import { ProductArchitecture } from './pages/Admin/ProductArchitecture';
 import { AllianceControl } from './pages/Admin/AllianceControl';
 import { InquiryFlow } from './pages/Admin/InquiryFlow';
+import { DivisionControl } from './pages/Admin/DivisionControl';
+import { SystemSettings } from './pages/Admin/SystemSettings';
 
 const App: React.FC = () => {
   const location = useLocation();
@@ -54,14 +56,9 @@ const App: React.FC = () => {
             {/* Admin Routes */}
             <Route path="/command-nexus/*" element={
               <div className="flex min-h-screen bg-gray-50/50">
-                {/* Admin Sidebar */}
                 <div className="w-72 bg-gray-900 text-white p-8 hidden lg:block sticky top-0 h-screen shrink-0 overflow-y-auto custom-scrollbar">
                   <div className="flex items-center gap-3 mb-12">
-                    <img 
-                      src="https://i.imgur.com/y0UvXGu.png" 
-                      alt="Nexus Logo" 
-                      className="w-12 h-12 object-contain logo-glow"
-                    />
+                    <img src="https://i.imgur.com/y0UvXGu.png" alt="Nexus Logo" className="w-12 h-12 object-contain" />
                     <div>
                       <span className="font-black text-lg block tracking-tighter">Command</span>
                       <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest -mt-1">Nexus v1.0</span>
@@ -81,30 +78,29 @@ const App: React.FC = () => {
                         key={item.label} 
                         to={item.path}
                         className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-bold transition-all ${
-                          location.pathname === item.path ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                          location.pathname === item.path ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-white/5'
                         }`}
                       >
-                        {item.icon}
-                        {item.label}
+                        {item.icon} {item.label}
                       </Link>
                     ))}
                   </nav>
 
                   <div className="absolute bottom-8 left-8 right-8">
-                    <button className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-gray-800 rounded-2xl text-xs font-bold text-gray-500 hover:text-white hover:bg-white/5 transition-all">
-                      <LogOut size={14} /> Global Terminate
-                    </button>
+                    <Link to="/" className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-gray-800 rounded-2xl text-xs font-bold text-gray-500 hover:text-white hover:bg-white/5 transition-all">
+                      <LogOut size={14} /> Exit Nexus
+                    </Link>
                   </div>
                 </div>
 
-                {/* Admin Content */}
                 <div className="flex-1 overflow-auto bg-white">
                    <Routes>
                       <Route path="/" element={<NexusDashboard />} />
                       <Route path="/architecture" element={<ProductArchitecture />} />
                       <Route path="/alliances" element={<AllianceControl />} />
                       <Route path="/inquiries" element={<InquiryFlow />} />
-                      <Route path="*" element={<div className="p-20 text-center text-gray-400 font-bold uppercase tracking-widest">Section Under Development</div>} />
+                      <Route path="/divisions" element={<DivisionControl />} />
+                      <Route path="/settings" element={<SystemSettings />} />
                    </Routes>
                 </div>
               </div>
@@ -112,7 +108,6 @@ const App: React.FC = () => {
           </Routes>
         </AnimatePresence>
       </main>
-
       {!isAdmin && <Footer />}
     </div>
   );

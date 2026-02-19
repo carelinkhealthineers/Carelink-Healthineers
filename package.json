@@ -15,7 +15,8 @@
     "lucide-react": "^0.571.0",
     "recharts": "^3.7.0",
     "framer-motion": "^12.34.0",
-    "three": "0.160.0"
+    "three": "0.160.0",
+    "@supabase/supabase-js": "2.45.4"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

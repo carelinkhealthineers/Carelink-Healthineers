@@ -6,9 +6,10 @@ import {
   ShieldCheck, Zap, Send, ClipboardList, 
   Settings, Truck, CheckCircle2, ArrowRight,
   ChevronRight, Building2, User, Mail, Phone,
-  Activity, Award, Landmark, Layers, Search
+  Activity, Award, Landmark, Layers
 } from 'lucide-react';
 import { SEO } from '../../components/SEO';
+import { supabase } from '../../supabaseClient';
 
 const ACQUISITION_STAGES = [
   { 
@@ -59,20 +60,41 @@ const PROCUREMENT_MODELS = [
 
 export const Acquisition: React.FC = () => {
   const [activeStep, setActiveStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     organization: '',
     phone: '',
-    interest: 'Radiology',
+    interest: 'Imaging & Radiology',
     message: ''
   });
 
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setIsSubmitting(true);
+    
+    try {
+      const { error } = await supabase.from('inquiries').insert([
+        {
+          name: formData.name,
+          email: formData.email,
+          company: formData.organization,
+          message: `[Interest: ${formData.interest}] - ${formData.message}`,
+          status: 'pending'
+        }
+      ]);
+
+      if (error) throw error;
+      setSubmitted(true);
+    } catch (err: any) {
+      console.error('Acquisition Sync Error:', err);
+      alert('Sourcing Dispatch Failed: ' + (err.message || 'Check database connection.'));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const nextStep = () => setActiveStep(prev => Math.min(prev + 1, 2));
@@ -354,9 +376,10 @@ export const Acquisition: React.FC = () => {
                               </button>
                               <button 
                                 type="submit"
-                                className="flex-1 py-5 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-[2rem] font-black text-lg shadow-2xl shadow-blue-500/30 hover:scale-[1.02] transition-all flex items-center justify-center gap-3"
+                                disabled={isSubmitting}
+                                className={`flex-1 py-5 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-[2rem] font-black text-lg shadow-2xl shadow-blue-500/30 hover:scale-[1.02] transition-all flex items-center justify-center gap-3 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
                               >
-                                Commit RFQ <Send size={20} />
+                                {isSubmitting ? 'Syncing...' : 'Commit RFQ'} <Send size={20} />
                               </button>
                             </div>
                           </motion.div>
@@ -373,8 +396,8 @@ export const Acquisition: React.FC = () => {
                            <CheckCircle2 size={48} />
                         </div>
                         <h3 className="text-3xl font-black text-gray-900 mb-4 tracking-tighter">Sourcing Intelligence Dispatched.</h3>
-                        <p className="text-gray-500 font-medium leading-relaxed max-w-sm mx-auto">
-                          Our clinical architects are analyzing your requirements. A formal response and technical dossier will be dispatched to your terminal within 4-6 hours.
+                        <p className="text-gray-500 font-medium leading-relaxed max-sm mx-auto">
+                          Our clinical architects are analyzing your requirements in the registry. A response will be dispatched to your terminal soon.
                         </p>
                         <button 
                           onClick={() => { setSubmitted(false); setActiveStep(1); }}

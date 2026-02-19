@@ -1,196 +1,245 @@
 
-import React, { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, Link } from 'react-router-dom';
-import { Mail, Download, CheckCircle, FileText, Settings, Shield, ChevronLeft, AlertCircle } from 'lucide-react';
+import { 
+  Mail, Download, CheckCircle, FileText, 
+  Settings, Shield, ChevronLeft, Loader2, 
+  Cpu, Box, Video, Activity, Globe, Info, 
+  ExternalLink, Layers, ArrowRight, ImageIcon
+} from 'lucide-react';
 import { SEO } from '../../components/SEO';
-import { MASTER_PRODUCTS } from './Portfolio';
+import { supabase } from '../../supabaseClient';
+import { Product, ProductPart } from '../../types';
 
 export const ProductDetails: React.FC = () => {
   const { productSlug } = useParams();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [product, setProduct] = useState<Product | null>(null);
+  const [parts, setParts] = useState<ProductPart[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeImage, setActiveImage] = useState<string | null>(null);
 
-  // Lookup the product from our expanded master list
-  const product = useMemo(() => {
-    return MASTER_PRODUCTS.find(p => p.id === productSlug);
+  useEffect(() => {
+    const fetchFullSpecification = async () => {
+      setLoading(true);
+      try {
+        const { data: productData, error: pError } = await supabase
+          .from('products')
+          .select('*')
+          .eq('slug', productSlug)
+          .single();
+        
+        if (pError) throw pError;
+        setProduct(productData);
+        setActiveImage(productData.main_image);
+
+        const { data: partsData, error: partsError } = await supabase
+          .from('product_parts')
+          .select('*')
+          .eq('product_id', productData.id)
+          .order('order_index');
+        
+        if (!partsError) setParts(partsData || []);
+        
+      } catch (err) {
+        console.error('Asset Retrieval Error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchFullSpecification();
   }, [productSlug]);
 
-  if (!product) {
-    return (
-      <div className="pt-40 pb-20 text-center">
-        <SEO title="System Not Found" />
-        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6 text-amber-500">
-          <AlertCircle size={32} />
-        </div>
-        <h1 className="text-2xl font-black text-gray-900 mb-4">Infrastructure Registry Error</h1>
-        <p className="text-gray-500 mb-8">The requested medical system is not found in the current architecture.</p>
-        <Link to="/portfolio" className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold">Return to Portfolio</Link>
+  if (loading) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+      <div className="relative">
+        <Loader2 size={64} className="animate-spin text-blue-600 mb-6" />
+        <div className="absolute inset-0 blur-xl bg-blue-500/20 animate-pulse" />
       </div>
-    );
-  }
+      <span className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400">Hydrating Technical Blueprint...</span>
+    </div>
+  );
 
-  // Specialized specs based on division
-  const specs = [
-    { key: "Global Standard", value: "ISO 13485 / CE Certified" },
-    { key: "Architecture", value: product.sub },
-    { key: "Model Registry", value: product.model },
-    { key: "Availability", value: "Global Acquisition Open" },
-    { key: "Technical Support", value: "24/7 Remote Diagnostics" },
-    { key: "Warranty", value: "3 Year Comprehensive" },
-  ];
+  if (!product) return (
+    <div className="pt-40 text-center min-h-screen bg-gray-50">
+      <h1 className="text-3xl font-black text-gray-900 mb-4">Registry Fault</h1>
+      <p className="text-gray-400 mb-8 font-medium">Clinical asset identifier missing.</p>
+      <Link to="/portfolio" className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl">Return to Matrix</Link>
+    </div>
+  );
 
-  const handleAcquisition = () => {
-    const subject = encodeURIComponent(`Inquiry about ${product.name} [${product.model}]`);
-    const body = encodeURIComponent(`Dear Carelink Team,\n\nI am interested in initiating acquisition for the following equipment:\n\nModel: ${product.name}\nIdentifier: ${product.model}\nDivision: ${product.sub}\n\nPlease provide formal quotation and technical documentation.\n\nBest regards,\n[Your Name]\n[Company]`);
-    window.location.href = `mailto:acquisition@carelink.com?subject=${subject}&body=${body}`;
-  };
-
-  const jsonLd = {
-    "@context": "https://schema.org/",
-    "@type": "MedicalDevice",
-    "name": product.name,
-    "model": product.model,
-    "manufacturer": "Carelink Partners",
-    "description": `Professional ${product.name} engineered for high-precision clinical environments.`
-  };
+  const gallery = [product.main_image, ...(product.image_gallery || [])];
 
   return (
-    <div className="pt-24 pb-20">
-      <SEO title={product.name} description={`Technical blueprint for ${product.name}`} image={product.image} type="product" jsonLd={jsonLd} />
-
-      <div className="max-w-7xl mx-auto px-4 md:px-8">
-        {/* Breadcrumb & Navigation */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest">
-            <Link to="/portfolio" className="hover:text-blue-600 transition-colors">Portfolio</Link>
-            <span>/</span>
-            <span className="text-blue-600">{product.sub}</span>
-          </div>
-          <Link to="/portfolio" className="flex items-center gap-2 text-xs font-black text-gray-500 hover:text-blue-600 transition-all uppercase tracking-widest">
-            <ChevronLeft size={16} /> Back to Catalog
+    <div className="pt-24 pb-32 bg-gray-50/50 min-h-screen">
+      <SEO title={product.name} description={product.short_description} image={product.main_image} />
+      
+      <div className="max-w-[1700px] mx-auto px-6 md:px-12">
+        <header className="mb-12 flex items-center justify-between">
+          <Link to="/portfolio" className="flex items-center gap-3 text-[10px] font-black text-gray-400 hover:text-blue-600 transition-all uppercase tracking-[0.2em] group">
+            <ChevronLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> Back to Matrix
           </Link>
-        </div>
-
-        {/* Hero Area */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-20">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="rounded-3xl overflow-hidden bg-white border border-gray-100 shadow-xl"
-          >
-            <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex flex-col justify-center"
-          >
-            <div className="inline-flex mb-4 px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-[0.2em]">
-              {product.sub} Intelligence
-            </div>
-            <h1 className="text-4xl md:text-5xl font-black text-gray-900 mb-6 leading-tight">
-              {product.name}
-            </h1>
-            <p className="text-lg text-gray-500 mb-8 leading-relaxed">
-              Professional-grade {product.name} (Model {product.model}) designed for mission-critical clinical performance. 
-              Engineered with advanced analytical frameworks to ensure unparalleled accuracy in diagnostic and surgical workflows.
-            </p>
-
-            <div className="grid grid-cols-2 gap-4 mb-10">
-              <div className="p-4 rounded-2xl bg-gray-50 border">
-                <div className="text-[10px] font-bold text-gray-400 uppercase mb-1">Status</div>
-                <div className="flex items-center gap-2 text-sm font-bold text-emerald-600">
-                  <CheckCircle size={14} /> Available Globally
-                </div>
-              </div>
-              <div className="p-4 rounded-2xl bg-gray-50 border">
-                <div className="text-[10px] font-bold text-gray-400 uppercase mb-1">Standard</div>
-                <div className="flex items-center gap-2 text-sm font-bold text-blue-600">
-                  <Shield size={14} /> ISO 13485:2016
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-4">
-              <button 
-                onClick={handleAcquisition}
-                className="flex-1 px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-full font-bold shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 hover:translate-y-[-2px] transition-all"
-              >
-                <Mail size={18} /> Initiate Acquisition
-              </button>
-              <button className="px-8 py-4 bg-white text-gray-900 border border-gray-200 rounded-full font-bold flex items-center justify-center gap-2 hover:bg-gray-50 transition-all">
-                <Download size={18} /> Documentation
-              </button>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Tabbed Content */}
-        <div className="bg-white rounded-3xl border shadow-sm overflow-hidden">
-          <div className="flex border-b overflow-x-auto custom-scrollbar">
-            {[
-              { id: 'overview', icon: <FileText size={18} />, label: 'Overview' },
-              { id: 'specs', icon: <Settings size={18} />, label: 'Specifications' },
-              { id: 'compliance', icon: <Shield size={18} />, label: 'Compliance' },
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-8 py-5 text-sm font-bold transition-all border-b-2 whitespace-nowrap ${
-                  activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                {tab.icon} {tab.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-3">
+             <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+             <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Registry_ID: {product.model_number}</span>
           </div>
+        </header>
 
-          <div className="p-8 md:p-12">
-            {activeTab === 'overview' && (
-              <div className="prose prose-blue max-w-none">
-                <h3 className="text-2xl font-bold mb-4">Technical Advantage</h3>
-                <p className="text-gray-600 text-lg leading-relaxed mb-6">
-                  The {product.name} incorporates the latest medical IoT technology and ergonomic engineering. 
-                  Every component is stress-tested to meet the rigorous demands of multi-specialty hospital environments.
-                </p>
-                <ul className="space-y-3">
-                  {['Enhanced High-Precision Sensors', 'Intelligent UI Dashboard', 'Energy-Efficient Architecture', 'Seamless EMR Integration'].map((item, i) => (
-                    <li key={i} className="flex items-center gap-3 text-gray-600 font-medium">
-                      <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {activeTab === 'specs' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {specs.map((spec, i) => (
-                  <div key={i} className="flex justify-between items-center p-4 bg-gray-50 rounded-xl border border-gray-100">
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{spec.key}</span>
-                    <span className="text-gray-900 font-bold">{spec.value}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {activeTab === 'compliance' && (
-              <div className="prose prose-blue max-w-none">
-                <h3 className="text-2xl font-bold mb-4">Global Certifications</h3>
-                <p className="text-gray-600 text-lg leading-relaxed">
-                  This unit adheres to stringent global healthcare standards, ensuring safety and performance reliability in any jurisdiction.
-                </p>
-                <div className="mt-8 p-6 bg-blue-50 rounded-2xl border border-blue-100 flex items-start gap-4">
-                  <Shield className="text-blue-600 shrink-0" size={24} />
-                  <div>
-                    <h4 className="font-bold text-blue-900 mb-1">Standard ISO 13485:2016</h4>
-                    <p className="text-sm text-blue-700">Medical devices - Quality management systems - Requirements for regulatory purposes.</p>
-                  </div>
-                </div>
+        {/* Cinematic Visual Hub */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 mb-32 items-start">
+          <div className="lg:col-span-8">
+            <motion.div 
+              layout
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-[4rem] overflow-hidden bg-white border shadow-2xl shadow-blue-500/5 relative group mb-8"
+            >
+              <div className="absolute inset-0 scanner-line opacity-10" />
+              <AnimatePresence mode='wait'>
+                <motion.img 
+                  key={activeImage}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.5 }}
+                  src={activeImage || product.main_image} 
+                  alt={product.name} 
+                  className="w-full h-full object-cover min-h-[700px] group-hover:scale-105 transition-transform duration-1000" 
+                />
+              </AnimatePresence>
+            </motion.div>
+
+            {/* Gallery Reel */}
+            {gallery.length > 1 && (
+              <div className="flex gap-6 overflow-x-auto pb-6 custom-scrollbar">
+                 {gallery.map((url, i) => (
+                   <button 
+                     key={i} 
+                     onClick={() => setActiveImage(url)}
+                     className={`w-40 h-40 rounded-[2rem] overflow-hidden border-2 shrink-0 transition-all ${activeImage === url ? 'border-blue-600 scale-95 shadow-lg' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                   >
+                     <img src={url} className="w-full h-full object-cover" />
+                   </button>
+                 ))}
               </div>
             )}
           </div>
+
+          <div className="lg:col-span-4 pt-12">
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+              <div className="inline-flex mb-8 px-5 py-2 rounded-full bg-blue-600 text-white text-[10px] font-black uppercase tracking-[0.4em] shadow-lg shadow-blue-600/20">
+                {product.category_tag || 'Clinical Asset'}
+              </div>
+              <h1 className="text-6xl md:text-7xl font-black text-gray-900 mb-10 leading-[0.9] tracking-tighter">{product.name}</h1>
+              <p className="text-xl text-gray-500 mb-12 leading-relaxed font-medium">{product.long_description || product.short_description}</p>
+              
+              <div className="grid grid-cols-2 gap-6 mb-12">
+                 <div className="p-8 rounded-[2.5rem] bg-white border border-gray-100 shadow-sm group hover:border-blue-200 transition-all">
+                   <div className="flex items-center gap-3 mb-3">
+                     <Settings size={16} className="text-blue-500" />
+                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Model Identity</span>
+                   </div>
+                   <div className="text-xl font-black text-gray-900 font-mono tracking-tighter">{product.model_number}</div>
+                 </div>
+                 <div className="p-8 rounded-[2.5rem] bg-emerald-50 border border-emerald-100">
+                   <div className="flex items-center gap-3 mb-3 text-emerald-600">
+                     <Shield size={16} />
+                     <span className="text-[10px] font-black uppercase tracking-widest">Sovereign Warranty</span>
+                   </div>
+                   <div className="text-xl font-black text-emerald-700 tracking-tighter">{product.warranty_info || 'Carelink Platinum'}</div>
+                 </div>
+              </div>
+
+              <div className="flex flex-col gap-6">
+                 <Link to="/acquisition" className="w-full px-12 py-8 bg-slate-900 text-white rounded-[2.5rem] font-black shadow-2xl shadow-slate-900/20 flex items-center justify-center gap-4 hover:bg-blue-600 transition-all text-lg">
+                   <Mail size={22} /> Initiate RFQ Acquisition
+                 </Link>
+                 {product.brochure_url && (
+                   <a href={product.brochure_url} target="_blank" rel="noreferrer" className="w-full px-12 py-8 bg-white border border-gray-200 text-slate-900 rounded-[2.5rem] font-black flex items-center justify-center gap-4 hover:border-blue-400 transition-all">
+                     <Download size={22} /> Technical Dossier
+                   </a>
+                 )}
+              </div>
+            </motion.div>
+          </div>
         </div>
+
+        {/* Technical Blueprint Hub */}
+        <section className="mb-32">
+           <div className="flex items-center gap-6 mb-16">
+              <div className="w-16 h-16 rounded-[2rem] bg-slate-900 text-blue-500 flex items-center justify-center shadow-2xl"><Cpu size={32} /></div>
+              <div>
+                 <h2 className="text-4xl font-black text-gray-900 tracking-tighter">Clinical Performance Matrix</h2>
+                 <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.5em]">Hardware Performance Blueprints</p>
+              </div>
+           </div>
+
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {Object.entries(product.technical_specs || {}).map(([key, val], idx) => (
+                <motion.div 
+                  initial={{ opacity: 0, y: 15 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.05 }}
+                  key={key} 
+                  className="bg-white p-10 rounded-[3rem] border border-gray-100 shadow-sm hover:shadow-2xl transition-all group"
+                >
+                   <div className="text-[11px] font-black text-blue-600 uppercase tracking-widest mb-4 opacity-60 group-hover:opacity-100">{key}</div>
+                   <div className="text-2xl font-black text-gray-900 tracking-tighter">{val}</div>
+                </motion.div>
+              ))}
+           </div>
+        </section>
+
+        {/* Architecture - Detailed Breakdown */}
+        {parts.length > 0 && (
+          <section className="mb-32">
+            <div className="flex items-center gap-6 mb-16">
+               <div className="w-16 h-16 rounded-[2rem] bg-blue-600 text-white flex items-center justify-center shadow-2xl shadow-blue-600/20"><Layers size={32} /></div>
+               <div>
+                  <h2 className="text-4xl font-black text-gray-900 tracking-tighter">Component Architecture</h2>
+                  <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.5em]">Modular Sub-System Breakdown</p>
+               </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-12">
+               {parts.map((part, i) => (
+                 <motion.div 
+                   key={part.id || i}
+                   initial={{ opacity: 0, scale: 0.98 }}
+                   whileInView={{ opacity: 1, scale: 1 }}
+                   className="bg-white rounded-[4rem] p-10 md:p-16 border border-gray-100 shadow-sm flex flex-col lg:flex-row gap-16 items-center group hover:shadow-3xl transition-all"
+                 >
+                    <div className="w-full lg:w-[450px] h-[450px] rounded-[3.5rem] overflow-hidden bg-gray-50 border shrink-0">
+                       <img src={part.image_url} alt={part.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
+                    </div>
+                    <div className="flex-1">
+                       <div className="flex items-center gap-4 mb-6">
+                          <span className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-black">0{i+1}</span>
+                          <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">System Sub-Module</span>
+                       </div>
+                       <h3 className="text-4xl font-black text-gray-900 mb-8 leading-none tracking-tighter">{part.name}</h3>
+                       <p className="text-xl text-gray-500 leading-relaxed font-medium mb-10">{part.description}</p>
+                       <div className="inline-flex items-center gap-4 px-6 py-3 rounded-2xl bg-slate-50 text-blue-600 text-xs font-black uppercase tracking-widest">
+                          <Activity size={16} /> Operational Continuity Verified
+                       </div>
+                    </div>
+                 </motion.div>
+               ))}
+            </div>
+          </section>
+        )}
+
+        {/* Cinematic Call-to-Action */}
+        <section className="text-center py-32 bg-slate-900 rounded-[5rem] text-white relative overflow-hidden group">
+           <div className="absolute inset-0 scanner-line opacity-10" />
+           <div className="relative z-10 max-w-4xl mx-auto px-6">
+              <h2 className="text-5xl md:text-7xl font-black mb-10 tracking-tighter leading-none">Ready for Clinical <br /> <span className="text-blue-500">Implementation?</span></h2>
+              <p className="text-gray-400 text-xl mb-16 leading-relaxed">Our technical architects are standing by to design your facility's custom installation roadmap.</p>
+              <Link to="/acquisition" className="inline-flex items-center gap-4 px-16 py-8 bg-blue-600 text-white rounded-full font-black text-xl shadow-4xl shadow-blue-600/40 hover:scale-105 transition-all">
+                 Initiate Sourcing <ArrowRight size={24} />
+              </Link>
+           </div>
+        </section>
       </div>
     </div>
   );

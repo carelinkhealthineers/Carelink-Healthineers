@@ -1,87 +1,66 @@
 
--- Enable UUID extension
+-- CARELINK HEALTHINEERS - MASTER DATABASE SCHEMA
+-- Target Environment: Supabase / PostgreSQL
+
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 1. SETTINGS TABLE
-CREATE TABLE settings (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  key TEXT UNIQUE NOT NULL,
-  value TEXT NOT NULL,
-  description TEXT,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- ==========================================
+-- 1. SYSTEM CONFIGURATION
+-- ==========================================
+CREATE TABLE IF NOT EXISTS settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    key TEXT UNIQUE NOT NULL,
+    value TEXT NOT NULL,
+    category TEXT DEFAULT 'general',
+    description TEXT,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 2. DIVISIONS TABLE
-CREATE TABLE divisions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL,
-  slug TEXT UNIQUE NOT NULL,
-  description TEXT,
-  hero_gradient TEXT,
-  icon_name TEXT,
-  order_index INTEGER DEFAULT 0,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- ==========================================
+-- 2. CLINICAL DIVISIONS
+-- ==========================================
+CREATE TABLE IF NOT EXISTS divisions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    slug TEXT UNIQUE NOT NULL,
+    description TEXT,
+    count_label TEXT,
+    hero_gradient TEXT DEFAULT 'from-blue-600 to-indigo-700',
+    icon_name TEXT DEFAULT 'Activity',
+    order_index INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 3. PRODUCTS TABLE
-CREATE TABLE products (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  division_id UUID REFERENCES divisions(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  model_number TEXT NOT NULL,
-  slug TEXT UNIQUE NOT NULL,
-  short_description TEXT,
-  long_description TEXT,
-  main_image TEXT,
-  category_tag TEXT, -- e.g., 'Imaging Equipment', 'Surgical Items'
-  is_published BOOLEAN DEFAULT FALSE,
-  meta_title TEXT,
-  meta_description TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- ==========================================
+-- 3. PRODUCT ARCHITECTURE (Augmented with image_gallery)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS products (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    division_id UUID REFERENCES divisions(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    model_number TEXT NOT NULL,
+    slug TEXT UNIQUE NOT NULL,
+    short_description TEXT,
+    long_description TEXT,
+    main_image TEXT DEFAULT 'https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&q=80&w=800',
+    image_gallery TEXT[] DEFAULT '{}', -- Added: Support for multiple images
+    category_tag TEXT,
+    technical_specs JSONB DEFAULT '{}',
+    brochure_url TEXT,
+    video_url TEXT,
+    warranty_info TEXT,
+    is_published BOOLEAN DEFAULT TRUE,
+    meta_title TEXT,
+    meta_description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 4. ALLIANCES TABLE
-CREATE TABLE alliances (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL,
-  slug TEXT UNIQUE NOT NULL,
-  logo_url TEXT,
-  country TEXT,
-  specialization TEXT,
-  description TEXT,
-  certifications TEXT[], -- array of strings like ['CE', 'ISO', 'FDA']
-  website_url TEXT,
-  category TEXT, -- e.g., 'Diagnostic', 'Imaging', 'Surgical'
-  is_featured BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS product_parts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    description TEXT,
+    image_url TEXT,
+    order_index INTEGER DEFAULT 0
 );
-
--- 5. INQUIRIES TABLE
-CREATE TABLE inquiries (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  product_id UUID REFERENCES products(id) ON DELETE SET NULL,
-  name TEXT NOT NULL,
-  email TEXT NOT NULL,
-  company TEXT,
-  message TEXT NOT NULL,
-  status TEXT DEFAULT 'pending', -- 'pending', 'reviewed', 'archived'
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE INDEX idx_alliances_slug ON alliances(slug);
-CREATE INDEX idx_inquiries_email ON inquiries(email);
-
--- SEED DATA: UPDATED CLINICAL DEPARTMENTS
-INSERT INTO divisions (name, slug, hero_gradient, icon_name, order_index) VALUES
-('Laboratory / Pathology', 'laboratory-pathology', 'from-blue-600 to-indigo-700', 'Microscope', 1),
-('Imaging / Radiology', 'imaging-radiology', 'from-violet-600 to-purple-800', 'Radiation', 2),
-('Operation Theatre (OT)', 'surgical-ot', 'from-cyan-600 to-blue-700', 'Scissors', 3),
-('ICU / CCU / Emergency', 'critical-care', 'from-rose-600 to-red-800', 'Activity', 4),
-('OPD / General Examination', 'opd-examination', 'from-emerald-600 to-teal-800', 'Stethoscope', 5),
-('Dialysis Department', 'dialysis', 'from-blue-400 to-indigo-600', 'Waves', 6),
-('Dental Department', 'dental', 'from-sky-500 to-blue-600', 'Zap', 7),
-('CSSD / Sterilization', 'sterilization', 'from-slate-600 to-zinc-800', 'ShieldCheck', 8),
-('Hospital Furniture', 'hospital-furniture', 'from-amber-600 to-orange-700', 'Bed', 9),
-('Medical Consumables', 'consumables', 'from-pink-600 to-rose-700', 'Package', 10);

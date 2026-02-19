@@ -5,7 +5,17 @@ export interface Division {
   slug: string;
   description: string;
   hero_gradient: string;
-  image_url?: string;
+  icon_name: string;
+  order_index: number;
+}
+
+export interface ProductPart {
+  id?: string;
+  product_id?: string;
+  name: string;
+  description: string;
+  image_url: string;
+  order_index?: number;
 }
 
 export interface Product {
@@ -17,18 +27,17 @@ export interface Product {
   short_description: string;
   long_description: string;
   main_image: string;
+  image_gallery: string[]; // Updated
+  category_tag: string;
+  technical_specs: Record<string, string>;
+  brochure_url?: string;
+  video_url?: string;
+  warranty_info?: string;
   is_published: boolean;
   meta_title?: string;
   meta_description?: string;
   created_at: string;
-}
-
-export interface Specification {
-  id: string;
-  product_id: string;
-  spec_key: string;
-  spec_value: string;
-  order_index: number;
+  parts?: ProductPart[];
 }
 
 export interface Inquiry {
@@ -43,22 +52,13 @@ export interface Inquiry {
 }
 
 export interface Setting {
+  id: string;
   key: string;
   value: string;
+  category: string;
   description?: string;
 }
 
-export interface Article {
-  id: string;
-  title: string;
-  slug: string;
-  content: string;
-  excerpt: string;
-  featured_image: string;
-  published_at: string;
-}
-
-// Added missing Alliance interface required for strategic partnership management
 export interface Alliance {
   id: string;
   name: string;
