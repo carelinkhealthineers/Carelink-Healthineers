@@ -78,9 +78,16 @@ export const Navbar: React.FC = () => {
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setShowUserMenu(false);
-    navigate('/');
+    try {
+      await supabase.auth.signOut();
+      setShowUserMenu(false);
+      // Use window.location.href for a full state flush to prevent session ghosting
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Fallback
+      window.location.href = '/';
+    }
   };
 
   return (

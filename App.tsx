@@ -81,8 +81,14 @@ const App: React.FC = () => {
   }, [location.pathname]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.href = '/';
+    try {
+      await supabase.auth.signOut();
+      // Using window.location.href ensures the entire React state is cleared
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout error:', error);
+      window.location.href = '/';
+    }
   };
 
   return (
