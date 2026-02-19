@@ -46,7 +46,7 @@ const ClinicalNeuralMatrix: React.FC = () => {
     group.add(essence);
 
     // Ultra-Fast Particle System
-    const particlesCount = 120; // Lowered for stability
+    const particlesCount = 120;
     const posArray = new Float32Array(particlesCount * 3);
     for (let i = 0; i < particlesCount * 3; i++) {
       posArray[i] = (Math.random() - 0.5) * 10;
@@ -96,25 +96,11 @@ const ClinicalNeuralMatrix: React.FC = () => {
 
     camera.position.z = 8;
 
-    let mouseX = 0, mouseY = 0;
-    const onMouseMove = (e: MouseEvent) => {
-      mouseX = (e.clientX / window.innerWidth) - 0.5;
-      mouseY = (e.clientY / window.innerHeight) - 0.5;
-    };
-    window.addEventListener('mousemove', onMouseMove);
-
     const animate = () => {
       requestAnimationFrame(animate);
-      
-      // Constant smooth rotation - NO hover dependency
-      group.rotation.y += 0.001;
-      group.rotation.x += 0.0003;
-      
-      // Very dampened parallax for depth without lag
-      camera.position.x += (mouseX * 2 - camera.position.x) * 0.01;
-      camera.position.y += (-mouseY * 2 - camera.position.y) * 0.01;
+      group.rotation.y += 0.0012;
+      group.rotation.x += 0.0002;
       camera.lookAt(scene.position);
-
       renderer.render(scene, camera);
     };
 
@@ -129,7 +115,6 @@ const ClinicalNeuralMatrix: React.FC = () => {
     window.addEventListener('resize', handleResize);
 
     return () => {
-      window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('resize', handleResize);
       mountRef.current?.removeChild(renderer.domElement);
     };
@@ -163,16 +148,16 @@ const GhostButton: React.FC<{ to: string; label: string; subLabel: string; icon:
       >
         <motion.div
           style={{ rotateX, rotateY }}
-          className="relative px-7 py-4 rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-2xl transition-all duration-300 hover:border-blue-500/50 hover:bg-white/[0.07] flex flex-col items-center gap-1"
+          className="relative px-8 py-5 rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-3xl transition-all duration-300 hover:border-blue-500/60 hover:bg-white/[0.08] flex flex-col items-center gap-1"
         >
-          <span className="text-[6px] font-black text-white/30 uppercase tracking-[1.2em] mb-1 group-hover:text-blue-400 transition-colors">
+          <span className="text-[7px] font-black text-white/30 uppercase tracking-[1em] mb-1 group-hover:text-blue-400 transition-colors">
             {subLabel}
           </span>
           <div className="flex items-center gap-4">
-             <span className="text-[9px] font-black text-white/80 uppercase tracking-[0.4em] group-hover:text-white transition-all">
+             <span className="text-[10px] font-black text-white/90 uppercase tracking-[0.4em] group-hover:text-white transition-all">
                 {label}
              </span>
-             <div className="text-white/20 group-hover:text-blue-400 transition-colors scale-90 group-hover:scale-100 transition-all">
+             <div className="text-white/30 group-hover:text-blue-400 transition-all scale-90 group-hover:scale-100">
                {icon}
              </div>
           </div>
@@ -244,20 +229,20 @@ export const Origin: React.FC = () => {
             className="flex flex-col items-center gap-4"
           >
              <div className="px-5 py-1.5 rounded-full border border-white/5 text-[5px] font-black text-white/50 uppercase tracking-[2em]">
-                NEURAL_STABILITY_LOCKED
+                GLOBAL_NETWORK_READY
              </div>
              <div className="h-6 w-[1px] bg-gradient-to-b from-blue-500/40 to-transparent" />
           </motion.div>
         </div>
 
-        {/* BILATERAL INTERFACE (Left/Right Buttons) */}
+        {/* BILATERAL INTERFACE (Left/Right Buttons) - Using simple words: "See Products" and "Contact Us" */}
         <div className="w-full max-w-[1500px] px-8 md:px-16 flex items-center justify-between z-30 pointer-events-none">
           <div className="pointer-events-auto">
             <GhostButton 
               to="/portfolio" 
-              label="Access Matrix" 
-              subLabel="PORTAL_EXPLORER"
-              icon={<ArrowUpRight size={12} />} 
+              label="See Products" 
+              subLabel="VIEW ALL"
+              icon={<ArrowUpRight size={14} />} 
               side="left"
             />
           </div>
@@ -265,26 +250,31 @@ export const Origin: React.FC = () => {
           <div className="pointer-events-auto">
             <GhostButton 
               to="/acquisition" 
-              label="Initiate RFQ" 
-              subLabel="SOURCING_COMMENCE"
-              icon={<Scan size={12} />} 
+              label="Contact Us" 
+              subLabel="GET QUOTE"
+              icon={<Scan size={14} />} 
               side="right"
             />
           </div>
         </div>
 
-        {/* LOWERED & SHARPENED HEADLINE */}
+        {/* TWO-LINE TYPOGRAPHY (Matches Provided Layout Image) */}
         <div className="absolute bottom-20 left-0 right-0 z-20 flex items-center justify-center pointer-events-none">
            <motion.div 
-             initial={{ opacity: 0, y: 10 }}
+             initial={{ opacity: 0, y: 15 }}
              animate={{ opacity: 1, y: 0 }}
-             transition={{ duration: 1.2, delay: 0.6 }}
+             transition={{ duration: 1.5, delay: 0.4 }}
              className="text-center"
            >
-              <h1 className="text-[12px] md:text-[14px] font-black text-white/70 uppercase tracking-[2.8em] mb-3 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]">
-                 Sovereign Clinical Infrastructure
+              <h1 className="flex flex-col gap-8">
+                <span className="text-[12px] md:text-[14px] font-black text-white/90 uppercase tracking-[3.2em] drop-shadow-[0_0_15px_rgba(59,130,246,0.3)] pr-[-3.2em]">
+                   Sovereign Clinical
+                </span>
+                <span className="text-[12px] md:text-[14px] font-black text-white/90 uppercase tracking-[3.2em] drop-shadow-[0_0_15px_rgba(59,130,246,0.3)] pr-[-3.2em]">
+                   Infrastructure
+                </span>
               </h1>
-              <div className="h-[1px] w-20 bg-gradient-to-r from-transparent via-blue-500/60 to-transparent mx-auto" />
+              <div className="h-[1px] w-28 bg-gradient-to-r from-transparent via-blue-500/80 to-transparent mx-auto mt-10 shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
            </motion.div>
         </div>
 

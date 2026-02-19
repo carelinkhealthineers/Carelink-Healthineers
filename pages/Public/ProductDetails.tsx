@@ -224,7 +224,7 @@ export const ProductDetails: React.FC = () => {
 
                        <div className="space-y-3">
                           <Link to="/acquisition" className="w-full py-4 rounded-2xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 hover:scale-[1.02] transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2">
-                             <Mail size={14} /> Initiate RFQ
+                             <Mail size={14} /> Contact Us
                           </Link>
                           <Link to="/alliances" className="w-full py-4 rounded-2xl bg-white text-black text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center justify-center gap-2">
                              <Cpu size={14} /> View Logistics
