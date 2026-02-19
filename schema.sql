@@ -16,6 +16,14 @@ CREATE TABLE IF NOT EXISTS settings (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- SEED FOOTER CONTACT SETTINGS
+INSERT INTO settings (key, value, category, description)
+VALUES 
+('footer_address', 'Technical District 01, Innovation Drive, Dubai, UAE', 'footer', 'Physical headquarters address displayed in the global footer.'),
+('footer_phone', '+971 4 888 0000', 'footer', 'Primary technical support contact number.'),
+('footer_email', 'nexus@carelink.global', 'footer', 'Central command email for inquiries.')
+ON CONFLICT (key) DO NOTHING;
+
 -- ==========================================
 -- 2. CLINICAL DIVISIONS
 -- ==========================================
@@ -56,11 +64,14 @@ CREATE TABLE IF NOT EXISTS products (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Ensure columns exist if table was created earlier without them
+-- MANDATORY COLUMN SYNC (Fixes Schema Mismatches automatically)
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='products' AND column_name='brochure_url') THEN
         ALTER TABLE products ADD COLUMN brochure_url TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='products' AND column_name='technical_specs') THEN
+        ALTER TABLE products ADD COLUMN technical_specs JSONB DEFAULT '{}';
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='products' AND column_name='image_gallery') THEN
         ALTER TABLE products ADD COLUMN image_gallery TEXT[] DEFAULT '{}';
@@ -68,7 +79,7 @@ BEGIN
 END $$;
 
 CREATE TABLE IF NOT EXISTS product_parts (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id PRIMARY KEY DEFAULT uuid_generate_v4(),
     product_id UUID REFERENCES products(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     description TEXT,
@@ -77,12 +88,27 @@ CREATE TABLE IF NOT EXISTS product_parts (
 );
 
 -- ==========================================
--- 4. SECURITY (RLS)
+-- 4. INQUIRY FLOW
+-- ==========================================
+CREATE TABLE IF NOT EXISTS inquiries (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    company TEXT NOT NULL,
+    message TEXT,
+    status TEXT DEFAULT 'pending',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ==========================================
+-- 5. SECURITY (RLS)
 -- ==========================================
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public Full Access" ON products;
 CREATE POLICY "Public Full Access" ON products FOR ALL USING (true) WITH CHECK (true);
 
-ALTER TABLE product_parts ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Public Full Access" ON product_parts;
-CREATE POLICY "Public Full Access" ON product_parts FOR ALL USING (true) WITH CHECK (true);
+ALTER TABLE inquiries ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public Submit" ON inquiries;
+CREATE POLICY "Public Submit" ON inquiries FOR ALL USING (true) WITH CHECK (true);
+
+NOTIFY pgrst, 'reload schema';

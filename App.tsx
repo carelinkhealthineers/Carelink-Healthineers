@@ -34,7 +34,7 @@ const App: React.FC = () => {
   const isAdmin = location.pathname.startsWith('/command-nexus');
 
   return (
-    <div className="min-h-screen bg-[#f1f5f9] selection:bg-blue-600 selection:text-white transition-colors duration-500">
+    <div className="min-h-screen bg-[#020408] selection:bg-blue-600 selection:text-white transition-colors duration-500">
       {!isAdmin && <NeuralBackground />}
       {!isAdmin && <HUDOverlay />}
       {!isAdmin && <Navbar />}

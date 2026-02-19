@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, ChevronRight, LayoutGrid, ChevronDown, Activity, Layers } from 'lucide-react';
+import { Menu, X, ChevronDown, LayoutGrid, Zap, Activity, ArrowRight } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { Division } from '../types';
 
@@ -16,161 +16,203 @@ const NAV_ITEMS = [
 
 export const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const [showMatrix, setShowMatrix] = useState(false);
   const [divisions, setDivisions] = useState<Division[]>([]);
+  const [hoveredPath, setHoveredPath] = useState<string | null>(null);
   const location = useLocation();
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', handleScroll);
-    
-    // Fetch divisions for global matrix
     supabase.from('divisions').select('*').order('order_index')
       .then(({ data }) => setDivisions(data || []));
-
-    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-[60] transition-all duration-700 ${
-      scrolled 
-      ? 'glassy-nav py-3 shadow-sm' 
-      : 'bg-transparent py-6'
-    }`}>
-      <div className="max-w-[1600px] mx-auto px-6 md:px-12 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-4 group">
-          <img 
-            src="https://i.imgur.com/y0UvXGu.png" 
-            alt="Carelink Logo" 
-            className="w-10 h-10 object-contain group-hover:scale-110 transition-all duration-500"
-          />
-          <div>
-            <span className="text-xl font-black tracking-tighter text-black block leading-none">Carelink</span>
-            <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.4em] -mt-0.5">Healthineers</span>
-          </div>
-        </Link>
-
-        {/* Desktop Nav */}
-        <div className="hidden lg:flex items-center gap-8">
-          <div className="relative" onMouseEnter={() => setShowMatrix(true)} onMouseLeave={() => setShowMatrix(false)}>
-            <button className={`flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] transition-all py-2 ${showMatrix ? 'text-blue-600' : 'text-slate-500'}`}>
-              Clinical Matrix <ChevronDown size={14} className={`transition-transform duration-300 ${showMatrix ? 'rotate-180' : ''}`} />
-            </button>
-            
-            <AnimatePresence>
-              {showMatrix && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  className="absolute top-full -left-20 w-[600px] bg-white rounded-[2rem] shadow-3xl border border-gray-100 p-8 grid grid-cols-2 gap-4"
-                >
-                  {divisions.map((div) => (
-                    <Link 
-                      key={div.id} 
-                      to={`/portfolio?division=${div.slug}`}
-                      className="flex items-center gap-4 p-4 rounded-2xl hover:bg-gray-50 transition-all group"
-                      onClick={() => setShowMatrix(false)}
-                    >
-                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${div.hero_gradient} flex items-center justify-center text-white text-xs shadow-md`}>
-                        <Activity size={18} />
-                      </div>
-                      <div>
-                        <div className="text-[11px] font-black text-gray-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{div.name}</div>
-                        <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{(div as any).count_label || 'Strategic Node'}</div>
-                      </div>
-                    </Link>
-                  ))}
-                  <div className="col-span-2 pt-4 border-t mt-2">
-                     <Link to="/divisions" className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] flex items-center justify-center gap-2 hover:gap-4 transition-all">
-                        Full Clinical Blueprint <ChevronRight size={14} />
-                     </Link>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`text-[11px] font-bold uppercase tracking-[0.2em] transition-all relative py-2 ${
-                location.pathname === item.path 
-                ? 'text-blue-600' 
-                : 'text-slate-500 hover:text-black'
-              }`}
-            >
-              {item.label}
-              {location.pathname === item.path && (
-                <motion.div 
-                  layoutId="navIndicator"
-                  className="absolute -bottom-1 left-0 right-0 h-0.5 bg-blue-600 rounded-full"
-                />
-              )}
-            </Link>
-          ))}
-          
-          <Link
-            to="/command-nexus"
-            className="ml-6 flex items-center gap-2 px-6 py-2.5 rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl shadow-slate-900/10 group"
-          >
-            <LayoutGrid size={12} className="group-hover:rotate-90 transition-transform" />
-            Nexus Command
+    <>
+      <nav className="fixed top-6 left-0 right-0 z-[100] flex justify-center px-6 pointer-events-none">
+        <motion.div 
+          initial={{ y: -100, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 260, damping: 20 }}
+          className="pointer-events-auto w-full max-w-5xl bg-white/80 backdrop-blur-2xl border border-white/60 shadow-xl shadow-slate-200/10 rounded-full p-2 pl-6 pr-2 flex items-center justify-between relative"
+        >
+          {/* LEFT: Identity */}
+          <Link to="/" className="flex items-center gap-3 group mr-6 shrink-0">
+            <div className="relative w-8 h-8">
+              <div className="absolute inset-0 bg-blue-500 rounded-full blur opacity-20 group-hover:opacity-40 transition-opacity" />
+              <img 
+                src="https://i.imgur.com/y0UvXGu.png" 
+                alt="Logo" 
+                className="w-full h-full object-contain relative z-10"
+              />
+            </div>
+            <div className="hidden sm:flex flex-col">
+              <span className="text-sm font-black tracking-tighter text-slate-900 leading-none">CARELINK</span>
+            </div>
           </Link>
-        </div>
 
-        {/* Mobile Toggle */}
-        <button onClick={() => setIsOpen(!isOpen)} className="lg:hidden text-slate-900 p-2">
-          {isOpen ? <X size={28} /> : <Menu size={28} />}
-        </button>
-      </div>
+          {/* CENTER: Liquid Navigation */}
+          <div className="hidden lg:flex items-center bg-slate-100/50 rounded-full p-1 border border-white/50 shadow-inner gap-1">
+            {NAV_ITEMS.map((item) => {
+              const isActive = location.pathname === item.path;
+              const isHovered = hoveredPath === item.path;
+              
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onMouseEnter={() => setHoveredPath(item.path)}
+                  onMouseLeave={() => setHoveredPath(null)}
+                  className={`relative px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-colors z-10 ${
+                    isActive ? 'text-blue-600' : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  {/* Active/Hover Background Pill */}
+                  {(isActive || isHovered) && (
+                    <motion.div
+                      layoutId="navPill"
+                      className="absolute inset-0 bg-white rounded-full shadow-sm border border-black/5"
+                      initial={false}
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      style={{ zIndex: -1 }}
+                    />
+                  )}
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
 
-      {/* Mobile Nav */}
+          {/* RIGHT: Actions */}
+          <div className="flex items-center gap-2 pl-4">
+            
+            {/* Matrix Toggle */}
+            <div className="relative">
+              <button 
+                onClick={() => setShowMatrix(!showMatrix)}
+                className={`hidden md:flex items-center gap-2 px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+                  showMatrix 
+                  ? 'bg-slate-900 text-white' 
+                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-100'
+                }`}
+              >
+                <LayoutGrid size={14} /> Matrix
+                <ChevronDown size={12} className={`transition-transform duration-300 ${showMatrix ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Desktop Matrix Dropdown */}
+              <AnimatePresence>
+                {showMatrix && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute top-full right-0 mt-4 w-80 bg-white/90 backdrop-blur-xl rounded-[2rem] border border-white/60 shadow-2xl p-4 grid gap-2 z-50 origin-top-right"
+                  >
+                    <div className="px-4 py-2 text-[9px] font-black text-slate-300 uppercase tracking-widest border-b border-slate-100 mb-2">
+                      Clinical Departments
+                    </div>
+                    <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-2 space-y-1">
+                      {divisions.map((div) => (
+                        <Link 
+                          key={div.id}
+                          to={`/portfolio?division=${div.slug}`}
+                          onClick={() => setShowMatrix(false)}
+                          className="flex items-center gap-3 p-3 rounded-2xl hover:bg-blue-50 transition-colors group"
+                        >
+                          <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${div.hero_gradient} flex items-center justify-center text-white shadow-sm shrink-0`}>
+                             <Activity size={14} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                             <div className="text-[10px] font-black text-slate-700 group-hover:text-blue-600 truncate uppercase tracking-tight">
+                               {div.name}
+                             </div>
+                          </div>
+                          <ArrowRight size={12} className="text-blue-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </Link>
+                      ))}
+                    </div>
+                    <Link to="/divisions" className="mt-2 text-center py-3 text-[10px] font-black text-blue-600 uppercase tracking-widest hover:bg-blue-50 rounded-xl transition-colors">
+                      View Full Blueprint
+                    </Link>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Nexus CTA */}
+            <Link 
+              to="/command-nexus"
+              className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:scale-105 transition-all shadow-lg shadow-slate-900/20"
+            >
+              <Zap size={14} className="fill-current" /> <span className="hidden sm:inline">Nexus</span>
+            </Link>
+
+            {/* Mobile Toggle */}
+            <button 
+              onClick={() => setIsOpen(!isOpen)}
+              className="lg:hidden w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-900 border border-slate-100 shadow-sm"
+            >
+              {isOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
+          </div>
+        </motion.div>
+      </nav>
+
+      {/* Mobile Menu Overlay */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="absolute top-full left-0 right-0 bg-white/98 backdrop-blur-3xl border-b border-slate-200 lg:hidden overflow-hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[90] bg-slate-900/20 backdrop-blur-md flex items-start justify-center pt-28 px-6"
+            onClick={() => setIsOpen(false)}
           >
-            <div className="flex flex-col p-10 gap-4">
-              <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 border-b pb-2">Clinical Matrix</div>
-              <div className="grid grid-cols-1 gap-2">
-                 {divisions.map(div => (
-                   <Link key={div.id} to={`/portfolio?division=${div.slug}`} className="text-sm font-bold text-gray-900 py-2 border-b border-gray-50 flex justify-between" onClick={() => setIsOpen(false)}>
-                     {div.name} <ChevronRight size={14} className="text-gray-300" />
-                   </Link>
-                 ))}
-              </div>
-              <div className="mt-4 flex flex-col gap-4">
+            <motion.div
+              initial={{ y: -20, scale: 0.95 }}
+              animate={{ y: 0, scale: 1 }}
+              exit={{ y: -20, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 space-y-2">
                 {NAV_ITEMS.map((item) => (
                   <Link
                     key={item.path}
                     to={item.path}
                     onClick={() => setIsOpen(false)}
-                    className={`flex items-center justify-between py-2 text-[11px] font-bold uppercase tracking-widest transition-colors ${
-                      location.pathname === item.path ? 'text-blue-600' : 'text-slate-500'
+                    className={`block px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                      location.pathname === item.path 
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' 
+                      : 'text-slate-500 hover:bg-slate-50'
                     }`}
                   >
                     {item.label}
-                    <ChevronRight size={16} />
                   </Link>
                 ))}
+                
+                <div className="h-px bg-slate-100 my-4" />
+                
+                <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-2 px-4">
+                  Quick Access
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                   {divisions.slice(0,4).map(div => (
+                     <Link 
+                       key={div.id} 
+                       to={`/portfolio?division=${div.slug}`}
+                       onClick={() => setIsOpen(false)}
+                       className="p-3 bg-slate-50 rounded-xl text-[9px] font-bold text-slate-600 truncate hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                     >
+                       {div.name}
+                     </Link>
+                   ))}
+                </div>
               </div>
-              <Link
-                to="/command-nexus"
-                onClick={() => setIsOpen(false)}
-                className="mt-6 flex items-center justify-center gap-3 py-5 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest"
-              >
-                Nexus Command
-              </Link>
-            </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-    </nav>
+    </>
   );
 };
