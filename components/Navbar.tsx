@@ -111,6 +111,7 @@ export const Navbar: React.FC = () => {
             </div>
             <div className="hidden sm:flex flex-col">
               <span className="text-sm font-black tracking-tighter text-slate-900 leading-none">CARELINK</span>
+              <span className="text-[9px] font-bold text-slate-500 tracking-widest mt-0.5 uppercase">Healthineers</span>
             </div>
           </Link>
 

@@ -90,6 +90,10 @@ CREATE TABLE IF NOT EXISTS public.blogs (
     gallery TEXT[] DEFAULT '{}'
 );
 
+-- Safety migrations: explicitly add columns if table already existed without them
+ALTER TABLE public.blogs ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}';
+ALTER TABLE public.blogs ADD COLUMN IF NOT EXISTS gallery TEXT[] DEFAULT '{}';
+
 -- Index for slug lookups
 CREATE INDEX IF NOT EXISTS idx_blogs_slug ON blogs(slug);
 
