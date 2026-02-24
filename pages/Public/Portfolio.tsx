@@ -56,7 +56,11 @@ export const Portfolio: React.FC = () => {
 
   return (
     <div className="pt-32 pb-32 bg-[#020408] min-h-screen font-sans selection:bg-blue-600">
-      <SEO title="Asset Portfolio" description="Clinical Asset Registry and Infrastructure Sourcing Matrix." />
+      <SEO 
+        title="Asset Portfolio" 
+        description="Explore our comprehensive registry of high-density medical assets, including imaging systems, surgical robotics, and patient monitoring solutions."
+        keywords={['medical equipment portfolio', 'clinical assets', 'medical imaging', 'surgical robotics', 'patient monitoring', 'hospital equipment catalog']}
+      />
 
       <div className="max-w-[1700px] mx-auto px-6 md:px-12">
         {/* Header Metadata (Smarter Look) */}

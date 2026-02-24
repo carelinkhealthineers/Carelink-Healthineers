@@ -212,7 +212,11 @@ export const Origin: React.FC = () => {
 
   return (
     <div className="pt-0 bg-[#020408]">
-      <SEO title="Home" description="Carelink Healthineers: Global Clinical Infrastructure." />
+      <SEO 
+        title="Global Clinical Infrastructure" 
+        description="Carelink Healthineers is the world's leading sovereign clinical infrastructure network, providing high-density medical assets, ISO 13485 compliance, and sub-24h technical deployment."
+        keywords={['medical equipment', 'clinical infrastructure', 'ISO 13485', 'medical sourcing', 'healthcare logistics', 'global distribution', 'medical assets']}
+      />
       
       {/* 1. CINEMATIC NEURAL VOID */}
       <section className="relative h-screen min-h-[600px] flex flex-col items-center justify-center overflow-hidden bg-[#020408]">

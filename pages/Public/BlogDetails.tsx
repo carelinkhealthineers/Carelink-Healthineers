@@ -39,9 +39,38 @@ export const BlogDetails: React.FC = () => {
     </div>
   );
 
+  const articleSchema = blog ? {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": blog.title,
+    "image": [blog.featured_image],
+    "datePublished": blog.published_at,
+    "dateModified": blog.published_at,
+    "author": [{
+      "@type": "Person",
+      "name": blog.author || "Carelink Healthineers"
+    }],
+    "publisher": {
+      "@type": "Organization",
+      "name": "Carelink Healthineers",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://i.imgur.com/y0UvXGu.png"
+      }
+    },
+    "description": blog.excerpt
+  } : undefined;
+
   return (
     <div className="pt-40 pb-48 bg-[#020408] min-h-screen selection:bg-blue-600 selection:text-white">
-      <SEO title={blog.title} description={blog.excerpt} image={blog.featured_image} />
+      <SEO 
+        title={blog.title} 
+        description={blog.excerpt} 
+        image={blog.featured_image}
+        type="article"
+        keywords={[...(blog.tags || []), blog.category, 'medical insights', 'clinical news']}
+        jsonLd={articleSchema}
+      />
       
       <article className="max-w-[1000px] mx-auto px-6">
         <Link to="/insights" className="inline-flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-all mb-16 group">

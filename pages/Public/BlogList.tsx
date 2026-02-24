@@ -33,7 +33,11 @@ export const BlogList: React.FC = () => {
 
   return (
     <div className="pt-32 pb-32 bg-[#020408] min-h-screen">
-      <SEO title="Intelligence Briefings" description="High-performance clinical insights, viral healthcare briefings, and technical bulletins." />
+      <SEO 
+        title="Intelligence Briefings" 
+        description="Access high-performance clinical insights, viral healthcare briefings, and technical bulletins from the Carelink Healthineers network." 
+        keywords={['medical news', 'clinical insights', 'healthcare technology', 'medical industry trends', 'hospital management']}
+      />
       
       <div className="max-w-[1500px] mx-auto px-6">
         <header className="flex flex-col lg:flex-row items-end justify-between gap-8 mb-24">

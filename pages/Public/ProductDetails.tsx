@@ -83,9 +83,38 @@ export const ProductDetails: React.FC = () => {
 
   const gallery = [product.main_image, ...(product.image_gallery || [])].filter(Boolean);
 
+  const productSchema = {
+    "@context": "https://schema.org/",
+    "@type": "Product",
+    "name": product.name,
+    "image": gallery,
+    "description": product.short_description,
+    "sku": product.id,
+    "mpn": product.model_number,
+    "brand": {
+      "@type": "Brand",
+      "name": "Carelink Healthineers"
+    },
+    "offers": {
+      "@type": "Offer",
+      "url": window.location.href,
+      "priceCurrency": "USD",
+      "price": "0", // Request for quote
+      "availability": "https://schema.org/InStock",
+      "itemCondition": "https://schema.org/NewCondition"
+    }
+  };
+
   return (
     <div className="pt-24 pb-48 bg-[#020408] text-slate-400 selection:bg-blue-600 selection:text-white">
-      <SEO title={product.name} description={product.short_description} image={product.main_image} />
+      <SEO 
+        title={product.name} 
+        description={product.short_description} 
+        image={product.main_image}
+        type="product"
+        keywords={[product.name, product.model_number, product.category_tag, 'medical equipment', 'clinical asset']}
+        jsonLd={productSchema}
+      />
       
       <div className="max-w-[1400px] mx-auto px-6 md:px-12">
         {/* Professional Breadcrumb */}
