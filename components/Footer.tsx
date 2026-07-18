@@ -11,48 +11,48 @@ import { supabase } from '../supabaseClient';
 
 const SECTIONS = [
   {
-    title: "Strategic Sectors",
+    title: "Medical Equipment",
     links: [
       { label: "Imaging & Radiology", path: "/portfolio?division=imaging-radiology" },
       { label: "Laboratory & Pathology", path: "/portfolio?division=laboratory-pathology" },
-      { label: "Surgical & OT Hub", path: "/portfolio?division=surgical-ot" },
-      { label: "Critical Care (ICU)", path: "/portfolio?division=critical-care" },
-      { label: "Dialysis Systems", path: "/portfolio?division=dialysis" },
-      { label: "Dental Care Matrix", path: "/portfolio?division=dental" },
-      { label: "CSSD Sterilization", path: "/portfolio?division=sterilization" },
+      { label: "Surgical & Operating Room", path: "/portfolio?division=surgical-ot" },
+      { label: "Critical Care & ICU", path: "/portfolio?division=critical-care" },
+      { label: "Renal Care Systems", path: "/portfolio?division=dialysis" },
+      { label: "Dental Equipment", path: "/portfolio?division=dental" },
+      { label: "Sterilization & CSSD", path: "/portfolio?division=sterilization" },
       { label: "Patient Monitoring", path: "/portfolio?division=monitoring" }
     ]
   },
   {
-    title: "Neural Ecosystem",
+    title: "Resources & Services",
     links: [
-      { label: "Intelligence Briefings", path: "/insights" },
-      { label: "The Neural Network", path: "/alliances" },
-      { label: "Acquisition Protocol", path: "/acquisition" },
-      { label: "Intelligence v2.5", path: "/intelligence" },
-      { label: "Digital Interface", path: "/interface" },
-      { label: "Foundation Registry", path: "/foundation" },
-      { label: "Nexus Command Center", path: "/command-nexus" }
+      { label: "Clinical Insights & Blog", path: "/insights" },
+      { label: "Our Global Alliances", path: "/alliances" },
+      { label: "Request a Quote", path: "/acquisition" },
+      { label: "Medical AI Solutions", path: "/intelligence" },
+      { label: "Client Portal", path: "/interface" },
+      { label: "Quality & Compliance", path: "/foundation" },
+      { label: "Admin Dashboard", path: "/command-nexus" }
     ]
   },
   {
-    title: "Technical Support",
+    title: "Company & Support",
     links: [
-      { label: "Compliance Archive", path: "/foundation" },
-      { label: "System Telemetry", path: "/intelligence" },
-      { label: "Procurement Roadmap", path: "/acquisition" },
-      { label: "Support Terminal", path: "/acquisition" },
-      { label: "Field Engineering", path: "/alliances" },
-      { label: "Clinical Careers", path: "/" }
+      { label: "Quality Standards", path: "/foundation" },
+      { label: "Clinical Solutions", path: "/intelligence" },
+      { label: "Procurement Process", path: "/acquisition" },
+      { label: "Contact Support", path: "/acquisition" },
+      { label: "Technical Assistance", path: "/alliances" },
+      { label: "Careers", path: "/" }
     ]
   }
 ];
 
 export const Footer: React.FC = () => {
   const [contactInfo, setContactInfo] = useState({
-    address: 'Technical District 01, Innovation Drive, DXB',
-    phone: '+971 4 000 0000',
-    email: 'nexus@carelink.global'
+    address: 'Innovation District, Medical Plaza Block A, Suite 410',
+    phone: '+1 (800) 555-0199',
+    email: 'procurement@carelink.global'
   });
 
   useEffect(() => {
@@ -76,47 +76,37 @@ export const Footer: React.FC = () => {
   }, []);
 
   return (
-    <footer className="relative bg-[#020408] text-white pt-40 pb-16 border-t border-white/5 overflow-hidden">
-      {/* Decorative Neural Elements */}
-      <div className="absolute inset-0 neural-grid opacity-10 pointer-events-none" />
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-[radial-gradient(circle_at_50%_100%,rgba(59,130,246,0.1),transparent_70%)] pointer-events-none" />
-      
-      {/* HUD Scanner Laser Line */}
-      <motion.div 
-        animate={{ top: ['-10%', '110%'] }}
-        transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-        className="absolute left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-blue-500/30 to-transparent z-10 pointer-events-none"
-      />
+    <footer className="relative bg-slate-900 text-slate-300 pt-24 pb-16 border-t border-slate-800 overflow-hidden font-sans">
+      {/* Elegant Ambient Gradients */}
+      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[350px] bg-[radial-gradient(circle_at_50%_100%,rgba(37,99,235,0.05),transparent_70%)] pointer-events-none" />
 
-      <div className="max-w-[1600px] mx-auto px-6 md:px-12 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-20 mb-32">
+      <div className="max-w-[1500px] mx-auto px-6 md:px-12 relative z-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 lg:gap-16 mb-20">
           
           {/* Brand Hub */}
-          <div className="lg:col-span-4">
-            <Link to="/" className="flex items-center gap-4 mb-10 group">
-              <div className="relative">
-                <img 
-                  src="https://i.imgur.com/y0UvXGu.png" 
-                  alt="Carelink Logo" 
-                  className="w-16 h-16 object-contain logo-glow group-hover:scale-110 transition-all duration-500"
-                />
-                <div className="absolute -inset-1 bg-blue-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
+          <div className="lg:col-span-4 space-y-6">
+            <Link to="/" className="flex items-center gap-3.5 group">
+              <img 
+                src="https://i.imgur.com/y0UvXGu.png" 
+                alt="Carelink Logo" 
+                className="w-12 h-12 object-contain brightness-110 filter"
+              />
               <div>
-                <span className="text-3xl font-black tracking-tighter text-white block leading-none">Carelink</span>
-                <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.4em]">Healthineers</span>
+                <span className="text-xl font-bold tracking-tight text-white block leading-none font-serif-classical">Carelink</span>
+                <span className="text-[9px] font-bold text-blue-400 uppercase tracking-[0.3em]">Healthineers</span>
               </div>
             </Link>
-            <p className="text-gray-400 font-medium leading-relaxed mb-12 max-w-sm text-lg">
-              Architecting the absolute frontier of global healthcare infrastructure. Sourcing precision, delivering clinical sovereignty.
+            <p className="text-slate-400 font-medium leading-relaxed max-w-sm text-sm">
+              The premium B2B medical equipment procurement standard. We connect global hospital systems with direct factory pricing and fully certified clinical equipment.
             </p>
-            <div className="flex gap-4">
+            <div className="flex gap-3 pt-2">
               {[
-                { icon: <Linkedin size={20} />, label: "LinkedIn" },
-                { icon: <Twitter size={20} />, label: "Twitter" },
-                { icon: <Youtube size={20} />, label: "YouTube" },
+                { icon: <Linkedin size={16} />, label: "LinkedIn" },
+                { icon: <Twitter size={16} />, label: "Twitter" },
+                { icon: <Youtube size={16} />, label: "YouTube" },
               ].map((social, i) => (
-                <a key={i} href="#" className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:bg-blue-600 hover:text-white transition-all hover:scale-110 group">
+                <a key={i} href="#" aria-label={social.label} className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-400 hover:text-white transition-all flex items-center justify-center border border-slate-700 hover:border-blue-500 shadow-sm">
                   {social.icon}
                 </a>
               ))}
@@ -126,14 +116,13 @@ export const Footer: React.FC = () => {
           {/* Navigation Matrix */}
           {SECTIONS.map((section, i) => (
             <div key={i} className="lg:col-span-2">
-              <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-10">{section.title}</h4>
-              <ul className="space-y-5">
+              <h4 className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-6">{section.title}</h4>
+              <ul className="space-y-3">
                 {section.links.map((link, idx) => (
                   <li key={idx}>
-                    <Link to={link.path} className="text-sm font-bold text-gray-400 hover:text-white flex items-center gap-3 group transition-all">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white/10 group-hover:bg-blue-500 group-hover:shadow-[0_0_8px_rgba(59,130,246,0.8)] transition-all" />
+                    <Link to={link.path} className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-2 group transition-colors">
+                      <span className="w-1 h-1 rounded-full bg-slate-700 group-hover:bg-blue-400 transition-colors" />
                       {link.label}
-                      <ArrowUpRight size={14} className="opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0 text-blue-500" />
                     </Link>
                   </li>
                 ))}
@@ -142,73 +131,56 @@ export const Footer: React.FC = () => {
           ))}
 
           {/* Logistics Command */}
-          <div className="lg:col-span-2">
-            <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-10">Global Command</h4>
-            <div className="space-y-8">
-              <div className="flex gap-4 group cursor-default">
-                <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                  <MapPin size={18} />
-                </div>
-                <span className="text-sm font-bold text-gray-400 leading-relaxed group-hover:text-white transition-colors">
-                  {contactInfo.address}
-                </span>
+          <div className="lg:col-span-2 space-y-6">
+            <h4 className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">Office Registry</h4>
+            <div className="space-y-4">
+              <div className="flex gap-3 text-xs font-semibold text-slate-400 leading-relaxed">
+                <MapPin size={14} className="text-slate-500 shrink-0 mt-0.5" />
+                <span>{contactInfo.address}</span>
               </div>
-              <div className="flex gap-4 group cursor-pointer">
-                <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                  <Phone size={18} />
-                </div>
-                <span className="text-sm font-bold text-gray-400 group-hover:text-white transition-colors">
-                  {contactInfo.phone}
-                </span>
+              <div className="flex gap-3 text-xs font-semibold text-slate-400">
+                <Phone size={14} className="text-slate-500 shrink-0" />
+                <span>{contactInfo.phone}</span>
               </div>
-              <div className="flex gap-4 group cursor-pointer">
-                <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                  <Mail size={18} />
-                </div>
-                <span className="text-sm font-bold text-gray-400 group-hover:text-white transition-colors truncate">
-                  {contactInfo.email}
-                </span>
+              <div className="flex gap-3 text-xs font-semibold text-slate-400 truncate">
+                <Mail size={14} className="text-slate-500 shrink-0" />
+                <span>{contactInfo.email}</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Dynamic Telemetry Bar */}
-        <div className="py-12 border-y border-white/5 flex flex-wrap items-center justify-between gap-12 mb-16 font-mono">
-           <div className="flex items-center gap-12 overflow-x-auto no-scrollbar">
-              <div className="flex items-center gap-3 text-[10px] font-bold text-emerald-500 uppercase tracking-widest whitespace-nowrap">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" /> 
-                System: Nominal
+        {/* Dynamic Verification & Trust Bar */}
+        <div className="py-8 border-y border-slate-800 flex flex-wrap items-center justify-between gap-6 mb-10 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+           <div className="flex flex-wrap items-center gap-8 md:gap-12">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> 
+                ISO 13485 CERTIFIED
               </div>
-              <div className="flex items-center gap-3 text-[10px] font-bold text-blue-400 uppercase tracking-widest whitespace-nowrap">
-                <Network size={16} /> Nodes: 48 Active
+              <div className="flex items-center gap-2">
+                <Globe size={12} className="text-blue-400" /> GLOBAL DIRECT SOURCING
               </div>
-              <div className="flex items-center gap-3 text-[10px] font-bold text-indigo-400 uppercase tracking-widest whitespace-nowrap">
-                <Database size={16} /> Registry: Synced
-              </div>
-              <div className="flex items-center gap-3 text-[10px] font-bold text-purple-400 uppercase tracking-widest whitespace-nowrap">
-                <Cpu size={16} /> AI: Deploying v2.5
+              <div className="flex items-center gap-2">
+                <Zap size={12} className="text-amber-400" /> DIRECT FACTORY WARRANTY
               </div>
            </div>
-           <div className="flex items-center gap-8 grayscale opacity-20 hover:opacity-100 transition-all cursor-default">
-              <ShieldCheck size={28} />
-              <Globe size={28} />
-              <Zap size={28} />
-              <Award size={28} />
-              <Building2 size={28} />
+           <div className="flex items-center gap-4 text-slate-600">
+              <ShieldCheck size={20} />
+              <Globe size={20} />
+              <Zap size={20} />
+              <Award size={20} />
            </div>
         </div>
 
         {/* Global Footer Subline */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-10 text-[10px] font-black text-gray-600 uppercase tracking-[0.4em]">
-          <div className="flex flex-wrap justify-center gap-10">
-            <a href="#" className="hover:text-white transition-colors">SLA.Protocol</a>
-            <a href="#" className="hover:text-white transition-colors">Data.Sovereignty</a>
-            <a href="#" className="hover:text-white transition-colors">Ethical.Registry</a>
-            <a href="#" className="hover:text-white transition-colors">Network.Terms</a>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] font-semibold text-slate-500">
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-1">
+            <a href="#" className="hover:text-slate-300 transition-colors">Service Terms</a>
+            <a href="#" className="hover:text-slate-300 transition-colors">Privacy Policy</a>
+            <a href="#" className="hover:text-slate-300 transition-colors">Quality Guidelines</a>
           </div>
-          <div className="text-gray-500">
-            &copy; {new Date().getFullYear()} Carelink Healthineers Group // Master_Nexus_Stable
+          <div>
+            &copy; {new Date().getFullYear()} Carelink Healthineers. All rights reserved.
           </div>
         </div>
       </div>

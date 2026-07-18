@@ -1,36 +1,77 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
+
+interface BreadcrumbItem {
+  name: string;
+  item: string;
+}
 
 interface SEOProps {
   title: string;
   description?: string;
   keywords?: string[];
   image?: string;
-  type?: 'website' | 'article' | 'product';
+  type?: 'website' | 'article' | 'product' | 'profile';
   jsonLd?: object;
+  breadcrumbs?: BreadcrumbItem[];
   canonicalUrl?: string;
+  disableDynamicFetch?: boolean;
 }
 
 export const SEO: React.FC<SEOProps> = ({ 
-  title, 
-  description, 
-  keywords = [], 
-  image, 
+  title: initialTitle, 
+  description: initialDescription, 
+  keywords: initialKeywords = [], 
+  image: initialImage, 
   type = 'website', 
   jsonLd,
-  canonicalUrl 
+  breadcrumbs,
+  canonicalUrl,
+  disableDynamicFetch = false
 }) => {
   const location = useLocation();
-  const siteUrl = 'https://carelink-healthineers.vercel.app'; // Replace with actual domain
-  const currentUrl = canonicalUrl || `${siteUrl}${location.pathname}`;
-  const defaultImage = 'https://i.imgur.com/y0UvXGu.png'; // Default OG Image
-  const finalImage = image || defaultImage;
+  const [meta, setMeta] = useState({
+    title: initialTitle,
+    description: initialDescription,
+    keywords: initialKeywords,
+    image: initialImage
+  });
 
-  React.useEffect(() => {
-    document.title = `${title} | Carelink Healthineers`;
+  // Dynamic SEO Fetching (Client-Side "Pro" Feature)
+  useEffect(() => {
+    if (disableDynamicFetch) return;
+
+    const fetchDynamicSEO = async () => {
+      const { data } = await supabase
+        .from('page_seo_settings')
+        .select('*')
+        .eq('page_path', location.pathname)
+        .single();
+
+      if (data) {
+        setMeta({
+          title: data.title || initialTitle,
+          description: data.meta_description || initialDescription,
+          keywords: data.keywords || initialKeywords,
+          image: data.og_image || initialImage
+        });
+      }
+    };
+
+    fetchDynamicSEO();
+  }, [location.pathname, disableDynamicFetch, initialTitle, initialDescription, initialKeywords, initialImage]);
+
+  const siteUrl = 'https://carelink-healthineers.vercel.app';
+  const currentUrl = canonicalUrl || `${siteUrl}${location.pathname}`;
+  const defaultImage = 'https://i.imgur.com/y0UvXGu.png';
+  const finalImage = meta.image || defaultImage;
+  const fullTitle = `${meta.title} | Carelink Healthineers`;
+
+  useEffect(() => {
+    document.title = fullTitle;
     
-    // Helper to update or create meta tags
     const updateMeta = (name: string, content: string) => {
       let el = document.querySelector(`meta[name="${name}"]`);
       if (!el) {
@@ -41,7 +82,6 @@ export const SEO: React.FC<SEOProps> = ({
       el.setAttribute('content', content);
     };
 
-    // Helper for Open Graph / Property tags
     const updateProperty = (property: string, content: string) => {
       let el = document.querySelector(`meta[property="${property}"]`);
       if (!el) {
@@ -52,7 +92,6 @@ export const SEO: React.FC<SEOProps> = ({
       el.setAttribute('content', content);
     };
 
-    // Helper for Link tags (canonical)
     const updateLink = (rel: string, href: string) => {
       let el = document.querySelector(`link[rel="${rel}"]`);
       if (!el) {
@@ -63,43 +102,42 @@ export const SEO: React.FC<SEOProps> = ({
       el.setAttribute('href', href);
     };
 
-    // Standard Meta Tags
-    if (description) {
-      updateMeta('description', description);
-    }
-    
-    if (keywords.length > 0) {
-      updateMeta('keywords', keywords.join(', '));
-    }
-
-    updateMeta('robots', 'index, follow');
+    // Standard Tags
+    if (meta.description) updateMeta('description', meta.description);
+    if (meta.keywords && meta.keywords.length > 0) updateMeta('keywords', meta.keywords.join(', '));
+    updateMeta('robots', 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1');
     updateMeta('viewport', 'width=device-width, initial-scale=1.0');
     updateMeta('author', 'Carelink Healthineers');
+    updateMeta('publisher', 'Carelink Healthineers');
 
-    // Open Graph Tags
-    updateProperty('og:title', title);
-    updateProperty('og:description', description || '');
+    // Open Graph
+    updateProperty('og:title', fullTitle);
+    updateProperty('og:description', meta.description || '');
     updateProperty('og:type', type);
     updateProperty('og:url', currentUrl);
     updateProperty('og:image', finalImage);
     updateProperty('og:site_name', 'Carelink Healthineers');
     updateProperty('og:locale', 'en_US');
 
-    // Twitter Card Tags
+    // Twitter
     updateMeta('twitter:card', 'summary_large_image');
-    updateMeta('twitter:title', title);
-    updateMeta('twitter:description', description || '');
+    updateMeta('twitter:title', fullTitle);
+    updateMeta('twitter:description', meta.description || '');
     updateMeta('twitter:image', finalImage);
-    updateMeta('twitter:creator', '@CarelinkHealth'); // Replace with actual handle
+    updateMeta('twitter:creator', '@CarelinkHealth');
+    updateMeta('twitter:site', '@CarelinkHealth');
 
-    // Canonical URL
+    // Canonical
     updateLink('canonical', currentUrl);
 
-    // JSON-LD Structured Data
-    const existingScript = document.getElementById('json-ld');
-    if (existingScript) existingScript.remove();
+    // JSON-LD Construction
+    const existingScripts = document.querySelectorAll('script[type="application/ld+json"]');
+    existingScripts.forEach(s => s.remove());
 
-    const structuredData = jsonLd || {
+    const schemas = [];
+
+    // 1. Organization Schema (Global)
+    schemas.push({
       "@context": "https://schema.org",
       "@type": "Organization",
       "name": "Carelink Healthineers",
@@ -111,26 +149,44 @@ export const SEO: React.FC<SEOProps> = ({
       ],
       "contactPoint": {
         "@type": "ContactPoint",
-        "telephone": "+1-555-0123",
-        "contactType": "customer service"
+        "telephone": "+1-800-555-0199",
+        "contactType": "customer service",
+        "areaServed": "Global",
+        "availableLanguage": ["English", "Spanish", "German"]
       }
-    };
+    });
 
-    const script = document.createElement('script');
-    script.id = 'json-ld';
-    script.type = 'application/ld+json';
-    script.text = JSON.stringify(structuredData);
-    document.head.appendChild(script);
+    // 2. Breadcrumb Schema
+    if (breadcrumbs) {
+      schemas.push({
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": breadcrumbs.map((crumb, index) => ({
+          "@type": "ListItem",
+          "position": index + 1,
+          "name": crumb.name,
+          "item": crumb.item.startsWith('http') ? crumb.item : `${siteUrl}${crumb.item}`
+        }))
+      });
+    }
 
-    // Cleanup function (optional, but good practice if component unmounts)
+    // 3. Page-Specific Schema
+    if (jsonLd) {
+      schemas.push(jsonLd);
+    }
+
+    // Inject Schemas
+    schemas.forEach(schemaData => {
+      const script = document.createElement('script');
+      script.type = 'application/ld+json';
+      script.text = JSON.stringify(schemaData);
+      document.head.appendChild(script);
+    });
+
     return () => {
-      // We generally don't remove meta tags on unmount in SPA navigation 
-      // because the next page will overwrite them immediately.
-      // However, removing the JSON-LD script is safe.
-      const script = document.getElementById('json-ld');
-      if (script) script.remove();
+      // Cleanup logic if needed
     };
-  }, [title, description, keywords, image, type, jsonLd, currentUrl, finalImage]);
+  }, [meta, type, jsonLd, breadcrumbs, currentUrl, finalImage, fullTitle]);
 
   return null;
 };

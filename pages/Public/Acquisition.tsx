@@ -52,11 +52,11 @@ export const Acquisition: React.FC = () => {
   };
 
   return (
-    <div className="bg-[#020408] text-slate-200 pt-24 min-h-screen font-sans selection:bg-blue-600">
+    <div className="bg-white text-slate-800 pt-24 min-h-screen font-sans selection:bg-blue-600">
       <SEO title="Get a Quote" description="Request a custom clinical infrastructure quote." />
 
       {/* 1. TOP PROCUREMENT SECTION */}
-      <section className="relative py-16 md:py-24 overflow-hidden border-b border-white/5">
+      <section className="relative py-16 md:py-24 overflow-hidden border-b border-slate-100">
         <div className="absolute inset-0 neural-grid opacity-10 pointer-events-none" />
         
         <div className="max-w-[1400px] mx-auto px-6 md:px-12 relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
@@ -65,25 +65,25 @@ export const Acquisition: React.FC = () => {
           <div className="lg:col-span-5">
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
                <div className="flex items-center gap-3 mb-6">
-                  <span className="px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold tracking-wide flex items-center gap-2">
+                  <span className="px-4 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-xs font-semibold tracking-wide flex items-center gap-2">
                     <Sparkles size={14} /> Official Sourcing Portal
                   </span>
                </div>
-               <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tight leading-[1.15] mb-6">
+               <h1 className="text-4xl md:text-6xl font-bold text-slate-900 tracking-tight leading-[1.15] mb-6">
                  Source the finest <br /><span className="text-blue-500">clinical assets.</span>
                </h1>
-               <p className="text-lg text-slate-400 leading-relaxed font-medium mb-10 max-w-md">
+               <p className="text-lg text-slate-500 leading-relaxed font-medium mb-10 max-w-md">
                  Carelink connects your facility with world-class medical infrastructure. Detail your requirements, and our team will prepare a tailored proposal within four hours.
                </p>
                
-               <div className="flex gap-10 pt-6 border-t border-white/10">
+               <div className="flex gap-10 pt-6 border-t border-slate-100">
                   <div className="space-y-1">
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest block">Response Time</span>
-                    <span className="text-2xl font-bold text-white tracking-tight">&lt; 4 Hours</span>
+                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest block">Response Time</span>
+                    <span className="text-2xl font-bold text-slate-900 tracking-tight">&lt; 4 Hours</span>
                   </div>
                   <div className="space-y-1">
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest block">Accuracy Rate</span>
-                    <span className="text-2xl font-bold text-emerald-400 tracking-tight flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest block">Accuracy Rate</span>
+                    <span className="text-2xl font-bold text-emerald-600 tracking-tight flex items-center gap-2">
                       <ShieldCheck size={24} /> 100%
                     </span>
                   </div>
@@ -97,7 +97,7 @@ export const Acquisition: React.FC = () => {
                initial={{ opacity: 0, scale: 0.98 }} 
                animate={{ opacity: 1, scale: 1 }}
                transition={{ duration: 0.6, delay: 0.1 }}
-               className="bg-[#f4f4f5] border border-slate-200 rounded-[2.5rem] p-8 md:p-12 shadow-2xl relative overflow-hidden"
+               className="bg-[#f4f4f5] border border-slate-200 rounded-[2.5rem] p-8 md:p-12 shadow-md relative overflow-hidden"
              >
                 <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none">
                   <ClipboardCheck size={200} className="text-slate-900" />
@@ -195,8 +195,8 @@ export const Acquisition: React.FC = () => {
         </div>
       </section>
 
-      {/* 2. VALUE STEPS - Clean, Modern on Black */}
-      <section className="py-24 bg-[#020408]">
+      {/* 2. VALUE STEPS - Clean, Modern */}
+      <section className="py-24 bg-slate-50/50">
          <div className="max-w-[1400px] mx-auto px-6 md:px-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
             {[
               { label: "Consultation", icon: <Sparkles size={24} />, desc: "We sit down to understand your facility’s precise clinical requirements." },
@@ -204,21 +204,21 @@ export const Acquisition: React.FC = () => {
               { label: "Deployment", icon: <Box size={24} />, desc: "Enjoy seamless field installation and operational training." },
               { label: "Lifecycle Support", icon: <Zap size={24} />, desc: "Receive continuous technical monitoring and dedicated support." }
             ].map((step, i) => (
-              <div key={i} className="group flex flex-col items-center text-center p-8 rounded-3xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all">
-                 <div className="w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400 mb-6 group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition-all">
+              <div key={i} className="group flex flex-col items-center text-center p-8 rounded-3xl bg-white border border-slate-200 hover:bg-slate-50 hover:shadow-sm transition-all duration-300">
+                 <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 mb-6 group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition-all">
                     {step.icon}
                  </div>
-                 <h4 className="text-xl font-bold text-white mb-3">{step.label}</h4>
-                 <p className="text-sm text-slate-400 font-medium leading-relaxed">{step.desc}</p>
+                 <h4 className="text-xl font-bold text-slate-900 mb-3">{step.label}</h4>
+                 <p className="text-sm text-slate-500 font-medium leading-relaxed">{step.desc}</p>
               </div>
             ))}
          </div>
       </section>
 
       {/* 3. PARTNER BADGES */}
-      <section className="py-12 border-t border-white/5 flex flex-wrap justify-center gap-12 md:gap-24 opacity-40 hover:opacity-100 transition-all duration-500 cursor-default">
+      <section className="py-12 border-t border-slate-100 flex flex-wrap justify-center gap-12 md:gap-24 opacity-60 hover:opacity-100 transition-all duration-500 cursor-default">
          {["SIEMENS", "GE HEALTHCARE", "MINDRAY", "PHILIPS", "MEDTRONIC"].map(brand => (
-           <span key={brand} className="text-base font-bold tracking-widest text-white uppercase">{brand}</span>
+           <span key={brand} className="text-base font-bold tracking-widest text-slate-400 hover:text-slate-600 uppercase transition-colors">{brand}</span>
          ))}
       </section>
     </div>

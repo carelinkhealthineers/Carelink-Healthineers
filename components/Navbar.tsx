@@ -209,7 +209,7 @@ export const Navbar: React.FC = () => {
                     {user.email.charAt(0).toUpperCase()}
                   </div>
                   <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest hidden sm:inline">
-                    {role === 'admin' ? 'Admin Node' : 'Client Node'}
+                    {role === 'admin' ? 'Administrator' : 'My Account'}
                   </span>
                   <ChevronDown size={12} className={`text-slate-400 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
                 </button>
@@ -242,7 +242,7 @@ export const Navbar: React.FC = () => {
                           onClick={() => setShowUserMenu(false)}
                           className="flex items-center gap-3 w-full p-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest text-blue-600 hover:bg-blue-50 transition-colors"
                         >
-                          <Shield size={16} /> Command Nexus
+                          <Shield size={16} /> Admin Dashboard
                         </Link>
                       )}
                       
@@ -250,7 +250,7 @@ export const Navbar: React.FC = () => {
                         onClick={handleLogout}
                         className="flex items-center gap-3 w-full p-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest text-rose-500 hover:bg-rose-50 transition-colors"
                       >
-                        <LogOut size={16} /> Logout Session
+                        <LogOut size={16} /> Sign Out
                       </button>
                     </div>
                   </motion.div>

@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, useLocation, Link, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import { LayoutGrid, Package, FolderTree, Mail, Settings, LogOut, Handshake, BookOpen, Users, Terminal } from 'lucide-react';
+import { LayoutGrid, Package, FolderTree, Mail, Settings, LogOut, Handshake, BookOpen, Users, Terminal, Globe } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 // Layout Components
@@ -35,6 +35,7 @@ import { DivisionControl } from './pages/Admin/DivisionControl';
 import { SystemSettings } from './pages/Admin/SystemSettings';
 import { BlogArchitecture } from './pages/Admin/BlogArchitecture';
 import { UserRegistry } from './pages/Admin/UserRegistry';
+import { SEOControl } from './pages/Admin/SEOControl';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> = ({ children, adminOnly = false }) => {
@@ -60,7 +61,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
   }, []);
 
   if (loading) return (
-    <div className="min-h-screen bg-[#020408] flex items-center justify-center">
+    <div className="min-h-screen bg-white flex items-center justify-center">
       <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
     </div>
   );
@@ -90,14 +91,12 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#020408] selection:bg-blue-600 selection:text-white transition-colors duration-500">
-      {!isAdmin && <NeuralBackground />}
-      {!isAdmin && <HUDOverlay />}
+    <div className="min-h-screen bg-white selection:bg-blue-600 selection:text-white transition-colors duration-500">
       {!isAdmin && <Navbar />}
       
-      <main className={isAdmin ? 'bg-[#020408]' : 'min-h-screen'}>
+      <main className={isAdmin ? 'bg-white' : 'min-h-screen'}>
         <AnimatePresence mode="wait">
-          <Routes location={location} key={location.pathname}>
+          <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Origin />} />
             <Route path="/divisions" element={<Divisions />} />
@@ -116,16 +115,16 @@ const App: React.FC = () => {
             {/* Admin Routes */}
             <Route path="/command-nexus/*" element={
               <ProtectedRoute adminOnly>
-                <div className="flex min-h-screen bg-[#020408] border-t border-white/5">
-                  {/* Dark Admin Sidebar */}
-                  <div className="w-80 bg-[#05070a] text-white p-10 hidden lg:block sticky top-0 h-screen shrink-0 overflow-y-auto border-r border-white/5 custom-scrollbar">
+                <div className="flex min-h-screen bg-white border-t border-slate-100">
+                  {/* Light Admin Sidebar */}
+                  <div className="w-80 bg-slate-50 text-slate-800 p-10 hidden lg:block sticky top-0 h-screen shrink-0 overflow-y-auto border-r border-slate-100 custom-scrollbar">
                     <div className="flex items-center gap-4 mb-16 group">
                       <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center shadow-2xl shadow-blue-500/20 group-hover:rotate-12 transition-transform">
                         <Terminal size={24} className="text-white" />
                       </div>
                       <div>
-                        <span className="font-black text-xl block tracking-tighter">Command</span>
-                        <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.4em] -mt-1 opacity-70">Nexus v1.0</span>
+                        <span className="font-black text-xl block tracking-tighter text-slate-900">Command</span>
+                        <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.4em] -mt-1 opacity-70">Nexus v1.0</span>
                       </div>
                     </div>
                     
@@ -138,6 +137,7 @@ const App: React.FC = () => {
                         { label: 'Alliances', path: '/command-nexus/alliances', icon: <Handshake size={18} /> },
                         { label: 'Inquiry Flow', path: '/command-nexus/inquiries', icon: <Mail size={18} /> },
                         { label: 'Divisions', path: '/command-nexus/divisions', icon: <FolderTree size={18} /> },
+                        { label: 'SEO Matrix', path: '/command-nexus/seo', icon: <Globe size={18} /> },
                         { label: 'Settings', path: '/command-nexus/settings', icon: <Settings size={18} /> },
                       ].map(item => (
                         <Link 
@@ -146,7 +146,7 @@ const App: React.FC = () => {
                           className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all ${
                             location.pathname === item.path 
                             ? 'bg-blue-600 text-white shadow-xl shadow-blue-500/10' 
-                            : 'text-slate-500 hover:text-white hover:bg-white/5'
+                            : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                           }`}
                         >
                           {item.icon} {item.label}
@@ -157,18 +157,18 @@ const App: React.FC = () => {
                     <div className="absolute bottom-10 left-10 right-10 space-y-3">
                       <button 
                         onClick={handleLogout}
-                        className="w-full flex items-center justify-center gap-3 px-6 py-4 border border-white/5 rounded-2xl text-[10px] font-bold uppercase tracking-widest text-rose-500 hover:bg-rose-500/10 transition-all"
+                        className="w-full flex items-center justify-center gap-3 px-6 py-4 border border-slate-200 rounded-2xl text-[10px] font-bold uppercase tracking-widest text-rose-600 hover:bg-rose-50 transition-all"
                       >
                         <LogOut size={16} /> Logout
                       </button>
-                      <Link to="/" className="w-full flex items-center justify-center gap-3 px-6 py-4 border border-white/5 rounded-2xl text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-white hover:bg-white/5 transition-all">
+                      <Link to="/" className="w-full flex items-center justify-center gap-3 px-6 py-4 border border-slate-200 rounded-2xl text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-all">
                          Origin View
                       </Link>
                     </div>
                   </div>
 
-                  {/* Dark Main Content Area */}
-                  <div className="flex-1 overflow-auto bg-[#020408]">
+                  {/* Light Main Content Area */}
+                  <div className="flex-1 overflow-auto bg-white">
                     <div className="max-w-[1600px] mx-auto min-h-screen">
                       <Routes>
                           <Route path="/" element={<NexusDashboard />} />
@@ -178,6 +178,7 @@ const App: React.FC = () => {
                           <Route path="/alliances" element={<AllianceControl />} />
                           <Route path="/inquiries" element={<InquiryFlow />} />
                           <Route path="/divisions" element={<DivisionControl />} />
+                          <Route path="/seo" element={<SEOControl />} />
                           <Route path="/settings" element={<SystemSettings />} />
                       </Routes>
                     </div>
