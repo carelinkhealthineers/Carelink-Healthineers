@@ -57,9 +57,9 @@ export const Portfolio: React.FC = () => {
   return (
     <div className="pt-32 pb-32 bg-white min-h-screen font-sans selection:bg-blue-600">
       <SEO 
-        title="Asset Portfolio" 
-        description="Explore our comprehensive registry of high-density medical assets, including imaging systems, surgical robotics, and patient monitoring solutions."
-        keywords={['medical equipment portfolio', 'clinical assets', 'medical imaging', 'surgical robotics', 'patient monitoring', 'hospital equipment catalog']}
+        title="Equipment Portfolio | Medical & Dental Catalog" 
+        description="Browse our complete catalog of certified medical and dental equipment. Official partner of Dürr Dental with direct factory pricing and fast delivery."
+        keywords={['medical equipment catalog', 'dental equipment', 'Dürr Dental products', 'VistaPano', 'imaging systems', 'clinical equipment']}
       />
 
       <div className="max-w-[1700px] mx-auto px-6 md:px-12">
@@ -68,7 +68,7 @@ export const Portfolio: React.FC = () => {
            <div className="space-y-4">
               <div className="flex items-center gap-3">
                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                 <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.4em]">Registry_Node_Active_4.2</span>
+                 <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Live Product Catalog</span>
               </div>
               <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter leading-none">
                 Infrastructure <span className="text-slate-400 italic">Portfolio.</span>
@@ -77,7 +77,7 @@ export const Portfolio: React.FC = () => {
            
            <div className="flex items-center gap-6">
               <div className="hidden lg:flex flex-col items-end">
-                 <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Total_Assets_Mapped</span>
+                 <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Total Products</span>
                  <span className="text-xs font-black text-blue-600">{products.length} Units</span>
               </div>
               <div className="flex bg-slate-50 border border-slate-200/60 rounded-xl p-1">

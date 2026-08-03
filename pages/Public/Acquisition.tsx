@@ -53,7 +53,11 @@ export const Acquisition: React.FC = () => {
 
   return (
     <div className="bg-white text-slate-800 pt-24 min-h-screen font-sans selection:bg-blue-600">
-      <SEO title="Get a Quote" description="Request a custom clinical infrastructure quote." />
+      <SEO 
+        title="Request a Quote | Direct Medical Equipment Sourcing" 
+        description="Get a fast, transparent quote for medical and dental equipment. Carelink Healthineers and Dürr Dental provide direct factory pricing and fast delivery." 
+        keywords={['request quote', 'medical equipment quote', 'dental equipment pricing', 'Dürr Dental quote', 'Carelink Healthineers']}
+      />
 
       {/* 1. TOP PROCUREMENT SECTION */}
       <section className="relative py-16 md:py-24 overflow-hidden border-b border-slate-100">

@@ -190,8 +190,8 @@ export const ProductDetails: React.FC = () => {
                  {[
                    { label: "Model Number", val: product.model_number },
                    { label: "Category", val: product.category_tag },
-                   { label: "Warranty", val: "Standard 24-Month Support" },
-                   { label: "Certification", val: "ISO 13485 Compliant" }
+                   { label: "Support", val: "Direct Factory Support" },
+                   { label: "Manufacturer", val: "Dürr Dental Authorized" }
                  ].map((stat, i) => (
                     <div key={i} className="flex items-center justify-between p-5 hover:bg-slate-100/40 transition-colors">
                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{stat.label}</span>
@@ -319,8 +319,8 @@ export const ProductDetails: React.FC = () => {
                              <ShieldCheck size={28} />
                           </div>
                           <div>
-                             <h4 className="text-sm font-bold text-slate-800 uppercase tracking-tight">ISO 13485 Certification</h4>
-                             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Global Medical Device Quality Standard</p>
+                             <h4 className="text-sm font-bold text-slate-800 uppercase tracking-tight">Official Dürr Dental Partner</h4>
+                             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Direct Certified Manufacturer Standards</p>
                           </div>
                        </div>
                        <CheckCircle2 size={24} className="text-emerald-500" />

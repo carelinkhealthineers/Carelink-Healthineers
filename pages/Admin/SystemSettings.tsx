@@ -140,7 +140,7 @@ export const SystemSettings: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between px-10 py-6 bg-white/[0.01] rounded-full border border-white/5 text-[9px] font-black text-slate-700 uppercase tracking-[0.5em]">
-                 <div className="flex items-center gap-3"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> ISO_13485: SECURE</div>
+                 <div className="flex items-center gap-3"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> DURR_DENTAL_PARTNER: VERIFIED</div>
                  <Activity size={14} className="text-slate-800" />
               </div>
            </div>

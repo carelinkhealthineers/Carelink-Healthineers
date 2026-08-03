@@ -153,15 +153,15 @@ export const Footer: React.FC = () => {
         {/* Dynamic Verification & Trust Bar */}
         <div className="py-8 border-y border-slate-800 flex flex-wrap items-center justify-between gap-6 mb-10 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
            <div className="flex flex-wrap items-center gap-8 md:gap-12">
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> 
-                ISO 13485 CERTIFIED
+              <div className="flex items-center gap-2 text-white font-bold bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700 shadow-sm">
+                <img src="/durr-dental-logo-white.svg" alt="Dürr Dental Logo" className="h-4 w-auto object-contain" />
+                <span className="text-blue-400 font-extrabold text-[10px] tracking-widest ml-1">OFFICIAL MANUFACTURER</span>
               </div>
               <div className="flex items-center gap-2">
                 <Globe size={12} className="text-blue-400" /> GLOBAL DIRECT SOURCING
               </div>
               <div className="flex items-center gap-2">
-                <Zap size={12} className="text-amber-400" /> DIRECT FACTORY WARRANTY
+                <Zap size={12} className="text-amber-400" /> DIRECT FACTORY PRICING
               </div>
            </div>
            <div className="flex items-center gap-4 text-slate-600">

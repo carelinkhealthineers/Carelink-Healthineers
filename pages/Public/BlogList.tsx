@@ -34,9 +34,9 @@ export const BlogList: React.FC = () => {
   return (
     <div className="pt-32 pb-32 bg-[#020408] min-h-screen">
       <SEO 
-        title="Intelligence Briefings" 
-        description="Access high-performance clinical insights, viral healthcare briefings, and technical bulletins from the Carelink Healthineers network." 
-        keywords={['medical news', 'clinical insights', 'healthcare technology', 'medical industry trends', 'hospital management']}
+        title="Clinical Insights & News | Carelink Healthineers" 
+        description="Read the latest clinical insights, medical equipment guides, and industry updates from Carelink Healthineers and Dürr Dental." 
+        keywords={['medical news', 'clinical insights', 'healthcare technology', 'dental equipment news', 'Dürr Dental updates']}
       />
       
       <div className="max-w-[1500px] mx-auto px-6">

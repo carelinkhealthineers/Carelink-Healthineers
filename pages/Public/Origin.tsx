@@ -35,7 +35,7 @@ const FALLBACK_PRODUCTS: Product[] = [
       "Personalization": "BioMatrix Sensors",
       "Power Grid": "380-480V 3-Phase",
       "Helium Boil-Off": "Zero Boil-Off Guarantee",
-      "Standards": "ISO 13485 Vetted"
+      "Manufacturer": "Dürr Dental Partner"
     },
     is_published: true,
     created_at: "2026-07-18"
@@ -57,7 +57,7 @@ const FALLBACK_PRODUCTS: Product[] = [
       "Battery Reserve": "4h High-Capacity Li-Ion",
       "Vital Channels": "64 Live Waveforms",
       "ECG Resolution": "Real-time 12-lead Analysis",
-      "Compliance": "ISO 13485 & CE Vetted"
+      "Compliance": "Dürr Dental Certified"
     },
     is_published: true,
     created_at: "2026-07-18"
@@ -79,7 +79,7 @@ const FALLBACK_PRODUCTS: Product[] = [
       "Active Cooling": "Bilateral Anode Oil Circulation",
       "Dosage Mode": "Pulse-Dose Radiation Reduction",
       "Laser Guide": "Dual Red Target Positioning",
-      "Warranty": "24-Month Factory Coverage"
+      "Support": "Direct Manufacturer Service"
     },
     is_published: true,
     created_at: "2026-07-18"
@@ -192,13 +192,13 @@ export const Origin: React.FC = () => {
   return (
     <div className="pt-0 bg-white selection:bg-blue-600 selection:text-white">
       <SEO 
-        title="Direct B2B Clinical Procurement" 
-        description="Carelink Healthineers is the gold standard clinical equipment network. Secure direct factory pricing, ISO 13485 compliant assets, and responsive technical integration."
-        keywords={['medical equipment', 'clinical infrastructure', 'ISO 13485', 'medical sourcing', 'MRI scanner', 'Mindray BeneVision', 'ultrasound procurement']}
+        title="Carelink Healthineers | Direct Medical Equipment Sourcing & Dürr Dental Partner" 
+        description="Carelink Healthineers connects healthcare facilities directly with certified medical and dental equipment. Official partner of Dürr Dental, providing direct factory prices, fast delivery, and expert technical support."
+        keywords={['medical equipment', 'Dürr Dental', 'dental equipment', 'medical sourcing', 'VistaPano', 'radiology equipment', 'hospital equipment', 'Carelink Healthineers']}
       />
       
       {/* 1. HERO SECTION: DYNAMIC PRODUCT CENTERPIECE & SALES SUITE */}
-      <section className="relative min-h-screen py-24 xl:py-0 xl:h-screen flex items-center overflow-hidden bg-white border-b border-slate-100">
+      <section className="relative pt-28 pb-16 md:pt-32 md:pb-20 xl:pt-36 xl:pb-24 flex items-center bg-white border-b border-slate-100">
         
         {/* Soft Radial Gradient for Premium Light feel */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(59,130,246,0.04),transparent_60%)] pointer-events-none z-10" />
@@ -209,15 +209,16 @@ export const Origin: React.FC = () => {
           {/* Left Column: Sourcing Narrative & Fast CTAs */}
           <div className="xl:col-span-5 space-y-8 text-left">
             
-            {/* Trust badge */}
+            {/* Featured Dürr Dental Manufacturer Trust badge */}
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-[10px] font-bold text-blue-600 uppercase tracking-widest shadow-sm"
+              className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white border border-slate-200 text-[10px] font-bold text-slate-800 uppercase tracking-widest shadow-sm hover:border-blue-400 transition-all"
             >
-              <Award size={12} className="text-blue-500 animate-pulse" />
-              Direct Manufacturer Sourcing Network
+              <img src="/durr-dental-logo.svg" alt="Dürr Dental Logo" className="h-4 w-auto object-contain" />
+              <span className="w-px h-3.5 bg-slate-200" />
+              <span className="text-blue-600 font-extrabold tracking-wider">OFFICIAL MANUFACTURER</span>
             </motion.div>
 
             {/* Powerful conversion headline */}
@@ -237,7 +238,7 @@ export const Origin: React.FC = () => {
               transition={{ duration: 0.8, delay: 0.2 }}
               className="text-base sm:text-lg text-slate-500 max-w-lg leading-relaxed font-sans"
             >
-              By bypassing traditional distributor markups, Carelink connects hospital networks directly with certified medical assets, absolute price transparency, and rapid Q3 factory delivery slots.
+              Skip middleman markups. Carelink connects hospitals and clinics directly with certified medical equipment, transparent factory pricing, and fast delivery.
             </motion.p>
 
             {/* Sourcing Quick Action Buttons */}
@@ -248,14 +249,14 @@ export const Origin: React.FC = () => {
               className="flex flex-col sm:flex-row gap-4 w-full"
             >
               <a 
-                href="# procurement-wizard"
+                href="#procurement-wizard"
                 onClick={(e) => {
                   e.preventDefault();
                   document.getElementById('procurement-wizard')?.scrollIntoView({ behavior: 'smooth' });
                 }}
                 className="inline-flex items-center justify-center gap-2.5 px-8 py-4 bg-blue-600 text-white font-bold text-sm tracking-wider uppercase rounded-xl hover:bg-blue-700 shadow-md hover:shadow-lg transition-all duration-300"
               >
-                Start Sourcing Wizard <Zap size={14} className="text-amber-300" />
+                Get Custom Quote <Zap size={14} className="text-amber-300" />
               </a>
               <a
                 href="#catalog-section"
@@ -265,11 +266,11 @@ export const Origin: React.FC = () => {
                 }}
                 className="inline-flex items-center justify-center gap-2.5 px-8 py-4 bg-white border border-slate-200 text-slate-700 font-bold text-sm tracking-wider uppercase rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
               >
-                Browse Sourcing Catalog <ArrowRight size={15} />
+                Browse Catalog <ArrowRight size={15} />
               </a>
             </motion.div>
 
-            {/* Sourcing Speed Telemetry */}
+            {/* Key Advantages Grid */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -277,17 +278,17 @@ export const Origin: React.FC = () => {
               className="grid grid-cols-3 gap-6 pt-8 border-t border-slate-100"
             >
               <div className="space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pricing Policy</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pricing</span>
                 <span className="text-xl sm:text-2xl font-bold text-blue-600 tracking-tight">Direct Factory</span>
               </div>
               <div className="space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Warranty Included</span>
-                <span className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">24 Months</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Quality Standard</span>
+                <span className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Dürr Certified</span>
               </div>
               <div className="space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Inspected Delivery</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Delivery</span>
                 <span className="text-xl sm:text-2xl font-bold text-emerald-600 tracking-tight flex items-center gap-1.5">
-                  100% Vetted
+                  Fast &amp; Tested
                 </span>
               </div>
             </motion.div>
@@ -327,7 +328,7 @@ export const Origin: React.FC = () => {
                   transition={{ duration: 0.4 }}
                   className="space-y-6"
                 >
-                  <div className="aspect-[16/10] w-full rounded-2xl border border-slate-200 bg-slate-50 p-6 overflow-hidden relative shadow-inner group flex items-center justify-center">
+                  <div className="h-60 sm:h-72 w-full rounded-2xl border border-slate-200 bg-slate-50 p-6 overflow-hidden relative shadow-inner group flex items-center justify-center">
                     <img 
                       src={currentHeroProduct.main_image} 
                       alt={currentHeroProduct.name} 
@@ -436,23 +437,28 @@ export const Origin: React.FC = () => {
               </div>
             </div>
 
-            {/* Bento Card 2: Technical Compliance Verification */}
-            <div className="p-8 bg-white border border-slate-200 rounded-3xl flex flex-col justify-between shadow-sm hover:shadow-md transition-all">
+            {/* Bento Card 2: Dürr Dental Official Manufacturer */}
+            <div className="p-8 bg-white border border-blue-200/80 rounded-3xl flex flex-col justify-between shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
               <div className="space-y-4">
-                <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shadow-sm">
-                  <ShieldCheck size={22} />
+                <div className="flex items-center justify-between">
+                  <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center shadow-xs">
+                    <img src="/durr-dental-logo.svg" alt="Dürr Dental" className="h-6 w-auto object-contain" />
+                  </div>
+                  <span className="text-[9px] font-black bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full uppercase tracking-wider border border-blue-100">
+                    Official Manufacturer
+                  </span>
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 tracking-tight">ISO 13485 Strict Standards</h3>
+                <h3 className="text-lg font-bold text-slate-900 tracking-tight">Dürr Dental Quality Standards</h3>
                 <p className="text-slate-500 text-xs font-medium leading-relaxed">
-                  Every asset is tested, calibrated, and certified conformant to global clinical quality guidelines before customs release.
+                  Every asset is engineered, tested, and calibrated in direct partnership with Dürr Dental according to German precision clinical standards before dispatch.
                 </p>
               </div>
-              <div className="pt-6 border-t border-slate-100 text-[10px] font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1.5 mt-6">
-                ✓ Regulatory Cleared
+              <div className="pt-6 border-t border-slate-100 text-[10px] font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1.5 mt-6">
+                ✓ Dürr Dental Certified
               </div>
             </div>
 
-            {/* Bento Card 3: Direct Factory Warranty */}
+            {/* Bento Card 3: Direct Factory Support */}
             <div className="p-8 bg-white border border-slate-200 rounded-3xl flex flex-col justify-between shadow-sm hover:shadow-md transition-all">
               <div className="space-y-4">
                 <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
@@ -500,10 +506,10 @@ export const Origin: React.FC = () => {
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <Hexagon className="text-blue-500" size={12} />
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">PROCUREMENT REGISTER</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">OUR CATALOG</span>
               </div>
               <h2 className="text-3xl md:text-5xl font-normal text-slate-900 tracking-tight font-serif-classical">
-                Available Clinical <span className="italic text-blue-600 font-serif-classical">Assets</span>
+                Featured <span className="italic text-blue-600 font-serif-classical">Products</span>
               </h2>
             </div>
             
@@ -940,7 +946,7 @@ export const Origin: React.FC = () => {
       {/* 6. TRUST HARBINGER BAR */}
       <section className="py-12 bg-white border-t border-b border-slate-200">
         <div className="max-w-[1600px] mx-auto px-10 flex flex-wrap justify-center md:justify-between items-center gap-8 text-[11px] font-bold text-slate-500 uppercase tracking-widest">
-          <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> ISO 13485: SECURED INVENTORY</div>
+          <div className="flex items-center gap-2 text-slate-900"><img src="/durr-dental-logo.svg" alt="Dürr Dental" className="h-4 w-auto object-contain inline" /><span className="text-blue-600 font-extrabold ml-1">OFFICIAL MANUFACTURER NETWORK</span></div>
           <div className="flex items-center gap-2"><Globe size={12} className="text-blue-600" /> INTERNATIONAL SUPPLY HUBS: ACTIVE</div>
           <div className="flex items-center gap-2"><HeartPulse size={12} className="text-emerald-500 animate-pulse" /> VITAL CLINICAL SERVICES: SYSTEM OK</div>
           <div className="flex items-center gap-2"><Database size={12} className="text-indigo-600" /> PRODUCT REGISTRY: IN SYNC</div>

@@ -20,7 +20,7 @@ import { SEO } from '../../components/SEO';
 const PILLARS = [
   {
     title: "Clinical Integrity",
-    desc: "Every component we source is validated against the most stringent global clinical standards (CE, ISO 13485).",
+    desc: "Every component we source is manufactured to peak German precision standards in direct partnership with Dürr Dental.",
     icon: <ShieldCheck size={28} />,
     color: "blue"
   },
@@ -50,8 +50,9 @@ export const Foundation: React.FC = () => {
   return (
     <div className="bg-white pt-20 overflow-hidden">
       <SEO 
-        title="Our Foundation" 
-        description="Discover the core values, mission, and history of Carelink Healthineers — architecting healthcare excellence since 1998." 
+        title="About Us | Carelink Healthineers & Dürr Dental Partner" 
+        description="Learn about Carelink Healthineers — connecting healthcare providers with certified medical and dental equipment directly from top manufacturers." 
+        keywords={['about Carelink Healthineers', 'medical equipment sourcing company', 'Dürr Dental partner', 'medical equipment company']}
       />
 
       {/* Hero Section */}
@@ -211,7 +212,7 @@ export const Foundation: React.FC = () => {
                  </p>
                  <div className="space-y-4">
                     {[
-                      "ISO 13485:2016 Certified Quality Systems",
+                      "Dürr Dental Authorized Manufacturer Systems",
                       "CE Medical Device Directive (MDD) Compliance",
                       "FDA Cleared Technology Pathways",
                       "Global Traceability & Ethical Sourcing Protocols"

@@ -20,7 +20,11 @@ const FEATURED_MANUFACTURERS = [
 export const Alliances: React.FC = () => {
   return (
     <div className="pt-24 bg-white text-slate-800 overflow-hidden min-h-screen font-sans selection:bg-blue-600">
-      <SEO title="Our Partners" description="Carelink's global network of Tier-1 manufacturing partners." />
+      <SEO 
+        title="Our Partners | Global Manufacturers & Dürr Dental" 
+        description="Explore Carelink Healthineers' direct partnerships with world-leading medical and dental manufacturers including Dürr Dental, Siemens, GE, and Philips."
+        keywords={['medical partners', 'Dürr Dental partner', 'medical equipment manufacturers', 'Siemens Healthineers', 'GE Healthcare']}
+      />
 
       {/* 1. HERO SECTION - Classical Light Theme */}
       <section className="relative py-24 md:py-32 border-b border-slate-100 bg-white">
@@ -157,7 +161,7 @@ export const Alliances: React.FC = () => {
               <div className="space-y-6">
                  {[
                    { title: "Direct Sourcing Pathways", desc: "We eliminate procurement intermediaries. Ship direct from certified factory production lines, maximizing your capital budget efficiency.", icon: <Link2 size={22}/> },
-                   { title: "Rigorous Technical Compliance", desc: "Every clinical asset is thoroughly vetted to conform with local medical safety boards and ISO 13485 guidelines.", icon: <ShieldCheck size={22}/> },
+                   { title: "Rigorous Technical Compliance", desc: "Every clinical asset is produced by Dürr Dental and thoroughly vetted to conform with top clinical standards.", icon: <ShieldCheck size={22}/> },
                    { title: "Sovereign Engineering Support", desc: "Our certified medical technicians assemble, test, and provide personal training directly at your clinical facility.", icon: <Activity size={22}/> }
                  ].map((item, i) => (
                    <div key={i} className="flex gap-6 p-6 rounded-[2rem] bg-slate-50 border border-slate-200/80 hover:bg-slate-100/50 transition-all group">

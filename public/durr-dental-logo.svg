@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 120" fill="none">
+  <!-- Dürr Dental Icon: Parallel slanted geometric shapes -->
+  <g transform="translate(10, 10)">
+    <!-- Top-Left Cyan parallelogram -->
+    <path d="M 0 90 L 48 90 L 118 10 L 118 0 Z" fill="#00AEEF"/>
+    <!-- Bottom-Right Darker Blue parallelogram -->
+    <path d="M 38 90 L 86 90 L 118 50 L 118 36 Z" fill="#006699"/>
+  </g>
+  <!-- Text: DÜRR DENTAL -->
+  <g fill="#0F172A" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+    <text x="138" y="52" font-size="34" font-weight="700" letter-spacing="1">DÜRR</text>
+    <text x="138" y="92" font-size="34" font-weight="700" letter-spacing="1">DENTAL</text>
+  </g>
+</svg>

@@ -33,7 +33,11 @@ export const Divisions: React.FC = () => {
 
   return (
     <div className="pt-32 pb-20 bg-white">
-      <SEO title="Clinical Matrix" description="Explore our 10 specialized clinical departments and infrastructure solutions." />
+      <SEO 
+        title="Clinical Divisions | Specialized Medical Departments" 
+        description="Explore Carelink Healthineers' 10 specialized clinical divisions covering imaging, dental, surgery, ICU, and diagnostic systems."
+        keywords={['clinical divisions', 'medical departments', 'dental equipment division', 'imaging systems', 'Carelink Healthineers']}
+      />
       
       <div className="max-w-[1600px] mx-auto px-6 md:px-12">
         <header className="text-center mb-24 max-w-4xl mx-auto">
