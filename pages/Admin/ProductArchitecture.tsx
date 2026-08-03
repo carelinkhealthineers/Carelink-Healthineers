@@ -138,12 +138,20 @@ export const ProductArchitecture: React.FC = () => {
   const toggleEditor = async (product: Product | null = null) => {
     if (product) {
       setEditingId(product.id);
+      const isVidOn = product.show_video !== false && 
+        product.show_video !== 'false' && 
+        product.show_video !== 0 && 
+        product.show_video !== '0' && 
+        product.technical_specs?._show_video !== 'false';
+
+      const vidUrl = product.video_url || product.technical_specs?._video_url || '';
+
       setFormData({ 
         ...product, 
         image_gallery: product.image_gallery || [],
         technical_specs: product.technical_specs || {},
-        show_video: product.show_video !== false,
-        video_url: product.video_url || ''
+        show_video: isVidOn,
+        video_url: vidUrl
       });
       const { data } = await supabase.from('product_parts').select('*').eq('product_id', product.id).order('order_index');
       setParts(data || []);
@@ -176,14 +184,40 @@ export const ProductArchitecture: React.FC = () => {
     const slug = `${slugify(formData.name)}-${slugify(formData.model_number)}`;
     
     try {
-      const payload: any = { ...formData, slug };
+      const isVidOn = formData.show_video !== false && formData.show_video !== 'false';
+      const techSpecs = {
+        ...(formData.technical_specs || {}),
+        _show_video: String(isVidOn),
+        _video_url: formData.video_url || ''
+      };
+
+      const payload: any = { 
+        ...formData, 
+        show_video: isVidOn,
+        video_url: formData.video_url || '',
+        technical_specs: techSpecs,
+        slug 
+      };
+
       let productId = editingId;
       if (editingId) {
-        await supabase.from('products').update(payload).eq('id', editingId);
+        const { error: updateErr } = await supabase.from('products').update(payload).eq('id', editingId);
+        if (updateErr) {
+          console.warn('Payload update warning, falling back:', updateErr.message);
+          const { show_video, video_url, ...safePayload } = payload;
+          await supabase.from('products').update(safePayload).eq('id', editingId);
+        }
       } else {
-        const { data } = await supabase.from('products').insert([payload]).select();
-        productId = data?.[0].id;
+        let { data, error: insertErr } = await supabase.from('products').insert([payload]).select();
+        if (insertErr) {
+          console.warn('Payload insert warning, falling back:', insertErr.message);
+          const { show_video, video_url, ...safePayload } = payload;
+          const res = await supabase.from('products').insert([safePayload]).select();
+          data = res.data;
+        }
+        productId = data?.[0]?.id;
       }
+
       if (productId) {
         await supabase.from('product_parts').delete().eq('product_id', productId);
         if (parts.length > 0) {
@@ -258,9 +292,18 @@ export const ProductArchitecture: React.FC = () => {
                     {divisions.find(d => d.id === item.division_id)?.name || 'UNMAPPED'}
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className={`px-2 py-0.5 text-[7px] font-black uppercase tracking-widest rounded ${item.show_video !== false ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-slate-800 text-slate-500'}`}>
-                      {item.show_video !== false ? 'VIDEO: ON' : 'VIDEO: OFF'}
-                    </span>
+                    {(() => {
+                      const isVidOn = item.show_video !== false && 
+                        item.show_video !== 'false' && 
+                        item.show_video !== 0 && 
+                        item.show_video !== '0' && 
+                        item.technical_specs?._show_video !== 'false';
+                      return (
+                        <span className={`px-2 py-0.5 text-[7px] font-black uppercase tracking-widest rounded ${isVidOn ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}>
+                          {isVidOn ? 'VIDEO: ON' : 'VIDEO: OFF'}
+                        </span>
+                      );
+                    })()}
                     <div className={`flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest ${item.is_published ? 'text-emerald-500' : 'text-amber-500'}`}>
                       <div className={`w-1.5 h-1.5 rounded-full ${item.is_published ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500 opacity-30'}`} />
                       {item.is_published ? 'LIVE' : 'DRAFT'}

@@ -55,6 +55,32 @@ export const ProductDetails: React.FC = () => {
     fetchFullSpecification();
   }, [productSlug]);
 
+  const isVideoEnabled = Boolean(
+    product &&
+    product.show_video !== false &&
+    product.show_video !== 'false' &&
+    product.show_video !== 0 &&
+    product.show_video !== '0' &&
+    product.technical_specs?._show_video !== 'false'
+  );
+
+  const handleOpenVideo = () => {
+    if (!product) return;
+    const rawVideoUrl = product.video_url || product.technical_specs?._video_url || '';
+    const finalVideoUrl = rawVideoUrl.trim() || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+    const finalDetails = product.short_description || product.long_description || `Official high-definition operational overview for ${product.name} (${product.model_number}).`;
+
+    setActiveVideo({
+      title: `${product.name} - Product Video`,
+      badge: product.category_tag || 'Product Video',
+      video_url: finalVideoUrl,
+      thumbnail_url: product.main_image,
+      duration: '04:15',
+      details: finalDetails
+    });
+    setIsTheatreOpen(true);
+  };
+
   const handleDownload = () => {
     if (product?.brochure_url) {
       const link = document.createElement('a');
@@ -210,19 +236,9 @@ export const ProductDetails: React.FC = () => {
                     Request Quote <ArrowUpRight size={16} />
                  </Link>
                  
-                 {product.show_video !== false && (
+                 {isVideoEnabled && (
                    <button 
-                    onClick={() => {
-                      setActiveVideo({
-                        title: `${product.name} - Product Demonstration`,
-                        badge: product.category_tag || 'Product Demonstration',
-                        video_url: product.video_url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-                        thumbnail_url: product.main_image,
-                        duration: '04:15',
-                        details: `Official high-definition operational overview for ${product.name} (${product.model_number}).`
-                      });
-                      setIsTheatreOpen(true);
-                    }}
+                    onClick={handleOpenVideo}
                     className="px-6 py-4 bg-slate-900 hover:bg-blue-600 text-white rounded-2xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2.5 shadow-md"
                     title="Watch Product Video"
                    >
@@ -249,7 +265,7 @@ export const ProductDetails: React.FC = () => {
               {[
                 { id: 'architecture', label: 'System Components' },
                 { id: 'specs', label: 'Technical Data' },
-                ...(product.show_video !== false ? [{ id: 'video', label: 'Product Video' }] : []),
+                ...(isVideoEnabled ? [{ id: 'video', label: 'Product Video' }] : []),
                 { id: 'docs', label: 'Brochures & Certs' }
               ].map(tab => (
                 <button
@@ -323,7 +339,7 @@ export const ProductDetails: React.FC = () => {
                     animate={{ opacity: 1 }} 
                     className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-2"
                   >
-                    {Object.entries(product.technical_specs || {}).map(([k, v], i) => (
+                    {Object.entries(product.technical_specs || {}).filter(([k]) => !k.startsWith('_')).map(([k, v], i) => (
                        <div key={i} className="flex justify-between items-center py-5 border-b border-slate-100 hover:bg-slate-50 px-4 transition-all">
                           <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{k}</span>
                           <span className="text-xs font-bold text-slate-800 tracking-tight">{v}</span>
@@ -332,7 +348,7 @@ export const ProductDetails: React.FC = () => {
                   </motion.div>
                 )}
 
-                {activeTab === 'video' && (
+                {activeTab === 'video' && isVideoEnabled && (
                   <motion.div 
                     key="video" 
                     initial={{ opacity: 0, scale: 0.98 }} 
@@ -340,17 +356,7 @@ export const ProductDetails: React.FC = () => {
                     className="max-w-5xl mx-auto space-y-8"
                   >
                     <div 
-                      onClick={() => {
-                        setActiveVideo({
-                          title: `${product.name} - Clinical Demonstration`,
-                          badge: product.category_tag || 'Clinical Demonstration',
-                          video_url: product.video_url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-                          thumbnail_url: product.main_image,
-                          duration: '04:15',
-                          details: `Official high-definition operational showcase for ${product.name} (${product.model_number}).`
-                        });
-                        setIsTheatreOpen(true);
-                      }}
+                      onClick={handleOpenVideo}
                       className="group relative aspect-[21/9] min-h-[320px] bg-slate-950 rounded-[2.5rem] border border-slate-800 overflow-hidden cursor-pointer shadow-2xl flex items-center justify-center"
                     >
                       <img src={product.main_image} alt="" className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700" />
@@ -374,10 +380,10 @@ export const ProductDetails: React.FC = () => {
 
                     <div className="p-8 bg-slate-50 border border-slate-200/80 rounded-3xl space-y-4">
                       <div className="flex items-center gap-2 text-xs font-bold text-blue-600 uppercase tracking-widest">
-                        <Sparkles size={16} /> Technical Video Highlights
+                        <Sparkles size={16} /> Overview & Technical Details
                       </div>
                       <p className="text-sm font-medium text-slate-600 leading-relaxed">
-                        Watch direct factory operational procedures, patient safety positioning, high-density telemetry data output, and maintenance protocol checklists for {product.name}.
+                        {product.short_description || product.long_description || `Watch direct operational procedures, positioning, technical specs output, and features for ${product.name}.`}
                       </p>
                     </div>
                   </motion.div>
