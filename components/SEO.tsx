@@ -156,6 +156,80 @@ export const SEO: React.FC<SEOProps> = ({
       }
     });
 
+    // 2. WebSite Schema with SearchAction (Google Sitelinks Search Box)
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Carelink Healthineers",
+      "url": siteUrl,
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": `${siteUrl}/products?search={search_term_string}`
+        },
+        "query-input": "required name=search_term_string"
+      }
+    });
+
+    // 3. SiteNavigationElement Schema (Google Navbar / Sitelinks Branches)
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      "name": "Site Navigation Sitelinks",
+      "itemListElement": [
+        {
+          "@type": "SiteNavigationElement",
+          "position": 1,
+          "name": "Home",
+          "description": "Carelink Healthineers Medical Equipment Sourcing & Dürr Dental Partner",
+          "url": `${siteUrl}/`
+        },
+        {
+          "@type": "SiteNavigationElement",
+          "position": 2,
+          "name": "Products",
+          "description": "Certified Medical & Dental Equipment Catalog",
+          "url": `${siteUrl}/products`
+        },
+        {
+          "@type": "SiteNavigationElement",
+          "position": 3,
+          "name": "Clinical Divisions",
+          "description": "Specialized Healthcare & Dental Departments",
+          "url": `${siteUrl}/divisions`
+        },
+        {
+          "@type": "SiteNavigationElement",
+          "position": 4,
+          "name": "Partners",
+          "description": "Dürr Dental & Global Medical Manufacturers",
+          "url": `${siteUrl}/alliances`
+        },
+        {
+          "@type": "SiteNavigationElement",
+          "position": 5,
+          "name": "Clinical Insights",
+          "description": "Medical Technology Articles & Intelligence Briefings",
+          "url": `${siteUrl}/intelligence`
+        },
+        {
+          "@type": "SiteNavigationElement",
+          "position": 6,
+          "name": "Request Quote",
+          "description": "Get Custom Direct Factory Quotes Fast",
+          "url": `${siteUrl}/acquisition`
+        },
+        {
+          "@type": "SiteNavigationElement",
+          "position": 7,
+          "name": "About Us",
+          "description": "Carelink Healthineers Mission & Global Sourcing",
+          "url": `${siteUrl}/foundation`
+        }
+      ]
+    });
+
     // 2. Breadcrumb Schema
     if (breadcrumbs) {
       schemas.push({

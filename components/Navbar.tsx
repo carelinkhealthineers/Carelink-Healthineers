@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, ChevronDown, LayoutGrid, Activity, ArrowRight, User, Shield, LogOut, Settings } from 'lucide-react';
-import { supabase } from '../supabaseClient';
+import { supabase, performSignOut } from '../supabaseClient';
 import { Division } from '../types';
 
 const NAV_ITEMS = [
@@ -78,16 +78,8 @@ export const Navbar: React.FC = () => {
   }, []);
 
   const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      setShowUserMenu(false);
-      // Use window.location.href for a full state flush to prevent session ghosting
-      window.location.href = '/';
-    } catch (error) {
-      console.error('Logout error:', error);
-      // Fallback
-      window.location.href = '/';
-    }
+    setShowUserMenu(false);
+    await performSignOut();
   };
 
   return (

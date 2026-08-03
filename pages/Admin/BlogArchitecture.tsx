@@ -26,8 +26,34 @@ export const BlogArchitecture: React.FC = () => {
   const [tagInput, setTagInput] = useState('');
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
+  const [subPicCaption, setSubPicCaption] = useState('');
+  const [subPicUrl, setSubPicUrl] = useState('');
+  const [isSubPicModalOpen, setIsSubPicModalOpen] = useState(false);
+  const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const subPicInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  const insertSubPicture = (url: string, caption: string) => {
+    const markdownImg = `\n\n![${caption || 'Clinical Asset Sub-Picture'}](${url})\n*${caption || 'Figure: Clinical Sub-Picture'}*\n\n`;
+    setFormData(prev => ({
+      ...prev,
+      content: (prev.content || '') + markdownImg,
+      gallery: prev.gallery?.includes(url) ? prev.gallery : [...(prev.gallery || []), url]
+    }));
+    setIsSubPicModalOpen(false);
+    setSubPicUrl('');
+    setSubPicCaption('');
+  };
+
+  const handleSubPicFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const url = await handleFileUpload(e.target.files[0]);
+      if (url) {
+        insertSubPicture(url, subPicCaption || e.target.files[0].name.split('.')[0]);
+      }
+    }
+  };
 
   const [formData, setFormData] = useState<Partial<Blog>>({
     title: '',
@@ -322,9 +348,53 @@ export const BlogArchitecture: React.FC = () => {
                           <textarea rows={3} className="w-full px-8 py-5 bg-white/[0.02] border border-white/5 rounded-2xl outline-none font-medium leading-relaxed text-slate-300 focus:border-blue-600 transition-all italic" value={formData.excerpt} onChange={e => setFormData({...formData, excerpt: e.target.value})} placeholder="Catchy summary for social sharing..." />
                        </div>
 
-                       <div className="space-y-3">
-                          <label className="text-[9px] font-black text-slate-700 uppercase tracking-[0.4em] px-1">Primary Intellectual Content</label>
-                          <textarea rows={15} className="w-full px-10 py-10 bg-white/[0.01] border border-white/5 rounded-[3.5rem] outline-none font-medium leading-relaxed text-slate-400 focus:border-blue-600 transition-all text-lg custom-scrollbar" value={formData.content} onChange={e => setFormData({...formData, content: e.target.value})} placeholder="Write the main briefing content here..." />
+                       <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                             <label className="text-[9px] font-black text-slate-700 uppercase tracking-[0.4em] px-1">Primary Intellectual Content</label>
+                             
+                             {/* Sub-Picture & Article Quick Tool Bar */}
+                             <div className="flex items-center gap-3">
+                                <span className="text-[9px] font-mono text-blue-400/80 bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-lg">
+                                   ⏱️ ~{Math.ceil((formData.content?.trim().split(/\s+/).filter(Boolean).length || 0) / 200)} min read
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsSubPicModalOpen(true)}
+                                  className="px-4 py-2 bg-blue-600/20 border border-blue-500/30 text-blue-400 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all flex items-center gap-2 cursor-pointer"
+                                >
+                                   <ImagePlus size={14} /> + Add Sub-Picture
+                                </button>
+                             </div>
+                          </div>
+
+                          <textarea 
+                            ref={contentTextareaRef}
+                            rows={15} 
+                            className="w-full px-10 py-10 bg-white/[0.01] border border-white/5 rounded-[3.5rem] outline-none font-medium leading-relaxed text-slate-300 focus:border-blue-600 transition-all text-lg custom-scrollbar" 
+                            value={formData.content} 
+                            onChange={e => setFormData({...formData, content: e.target.value})} 
+                            placeholder="Write the main briefing content here... Use markdown image tags like ![Caption](Url) or click '+ Add Sub-Picture' above to insert images inline!" 
+                          />
+
+                          {/* Quick Sub-Picture Gallery Strip */}
+                          {formData.gallery && formData.gallery.length > 0 && (
+                            <div className="p-6 bg-white/[0.01] border border-white/5 rounded-3xl space-y-3">
+                               <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">Available Sub-Pictures (Click to Insert into Content):</span>
+                               <div className="flex flex-wrap gap-4">
+                                  {formData.gallery.map((url, idx) => (
+                                    <button
+                                      key={idx}
+                                      type="button"
+                                      onClick={() => insertSubPicture(url, `Sub-Picture Figure ${idx + 1}`)}
+                                      className="flex items-center gap-2 p-1.5 bg-white/5 border border-white/10 rounded-2xl hover:border-blue-500 transition-all group cursor-pointer"
+                                    >
+                                       <img src={url} className="w-10 h-10 object-cover rounded-xl" />
+                                       <span className="text-[8px] font-bold text-slate-400 group-hover:text-blue-400 pr-2">+ Insert Fig #{idx + 1}</span>
+                                    </button>
+                                  ))}
+                               </div>
+                            </div>
+                          )}
                        </div>
                     </motion.div>
                   )}
@@ -435,10 +505,97 @@ export const BlogArchitecture: React.FC = () => {
                              <input type="date" className="w-full px-8 py-5 bg-white/[0.02] border border-white/5 rounded-2xl outline-none font-black text-white text-sm" value={formData.published_at?.split('T')[0]} onChange={e => setFormData({...formData, published_at: new Date(e.target.value).toISOString()})} />
                           </div>
                        </div>
+
+                       {/* Google Search Result Preview Component */}
+                       <div className="p-8 bg-slate-900/60 border border-slate-800 rounded-[2.5rem] space-y-4">
+                          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                             <Globe size={14} /> Live Google SERP Index Simulation
+                          </div>
+                          <div className="p-6 bg-[#202124] rounded-2xl font-sans text-left space-y-1">
+                             <div className="flex items-center gap-2 text-xs text-[#bdc1c6]">
+                                <span className="bg-[#303134] px-2 py-0.5 rounded text-[10px] text-white">carelink-healthineers.app</span>
+                                <span>https://carelink-healthineers.vercel.app › insights › {slugify(formData.title || 'briefing')}</span>
+                             </div>
+                             <h3 className="text-xl text-[#8ab4f8] hover:underline font-normal cursor-pointer leading-snug">
+                                {formData.title || 'Untitled Clinical Intelligence Briefing'} | Carelink Healthineers
+                             </h3>
+                             <p className="text-sm text-[#bdc1c6] line-clamp-2 leading-relaxed">
+                                {formData.excerpt || 'Access high-performance clinical insights and technical equipment briefings from Carelink Healthineers.'}
+                             </p>
+                          </div>
+                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
+
+              {/* Inline Sub-Picture Modal */}
+              <AnimatePresence>
+                {isSubPicModalOpen && (
+                  <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md">
+                     <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="w-full max-w-xl bg-[#090d16] border border-white/10 rounded-[2.5rem] p-8 space-y-6 shadow-3xl text-left">
+                        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                           <h3 className="text-xl font-black text-white flex items-center gap-3">
+                              <ImagePlus className="text-blue-500" size={20} /> Attach Sub-Picture Image
+                           </h3>
+                           <button onClick={() => setIsSubPicModalOpen(false)} className="p-2 text-slate-400 hover:text-white"><X size={18} /></button>
+                        </div>
+
+                        <div className="space-y-4">
+                           <div>
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">1. Upload Image File</label>
+                              <button 
+                                onClick={() => subPicInputRef.current?.click()} 
+                                className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-500 transition-all flex items-center justify-center gap-3"
+                              >
+                                 <UploadCloud size={16} /> Choose & Upload Sub-Picture
+                              </button>
+                              <input ref={subPicInputRef} type="file" className="hidden" accept="image/*" onChange={handleSubPicFileUpload} />
+                           </div>
+
+                           <div className="relative flex items-center justify-center py-2">
+                              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
+                              <span className="relative bg-[#090d16] px-4 text-[9px] font-black text-slate-500 uppercase">OR PASTE URL</span>
+                           </div>
+
+                           <div className="space-y-3">
+                              <div>
+                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Image URL</label>
+                                 <input 
+                                   type="text" 
+                                   className="w-full px-5 py-3 bg-white/5 border border-white/10 rounded-xl text-xs text-white outline-none focus:border-blue-500"
+                                   placeholder="https://images.unsplash.com/photo-..." 
+                                   value={subPicUrl}
+                                   onChange={e => setSubPicUrl(e.target.value)}
+                                 />
+                              </div>
+                              <div>
+                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Caption / Figure Description</label>
+                                 <input 
+                                   type="text" 
+                                   className="w-full px-5 py-3 bg-white/5 border border-white/10 rounded-xl text-xs text-white outline-none focus:border-blue-500"
+                                   placeholder="e.g. Figure 2: Dürr Dental Suction System Setup" 
+                                   value={subPicCaption}
+                                   onChange={e => setSubPicCaption(e.target.value)}
+                                 />
+                              </div>
+                           </div>
+
+                           <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+                              <button onClick={() => setIsSubPicModalOpen(false)} className="px-6 py-3 text-xs font-bold text-slate-400 hover:text-white">Cancel</button>
+                              <button 
+                                onClick={() => subPicUrl && insertSubPicture(subPicUrl, subPicCaption)}
+                                disabled={!subPicUrl}
+                                className="px-8 py-3 bg-white text-black font-black text-xs uppercase tracking-widest rounded-xl hover:bg-blue-500 hover:text-white disabled:opacity-40 transition-all"
+                              >
+                                Insert Into Post
+                              </button>
+                           </div>
+                        </div>
+                     </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
 
               <footer className="p-10 border-t border-white/5 bg-white/[0.01] flex flex-col md:flex-row items-center justify-between gap-10">
                  <div className="flex items-center gap-10">
