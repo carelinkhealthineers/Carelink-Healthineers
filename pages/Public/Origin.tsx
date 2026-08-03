@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { SEO } from '../../components/SEO';
+import { HomepageVideoShowcase } from '../../components/HomepageVideoShowcase';
 import { supabase } from '../../supabaseClient';
 import { Product, Blog } from '../../types';
 
@@ -607,6 +608,9 @@ export const Origin: React.FC = () => {
 
         </div>
       </section>
+
+      {/* 3.5 LANDSCAPE VIDEO THEATRE & CLINICAL SHOWCASE */}
+      <HomepageVideoShowcase />
 
       {/* 4. INTERACTIVE STEP-BY-STEP PROCUREMENT CONFIGURATOR (HIGH CONVERSION) */}
       <section id="procurement-wizard" className="py-24 bg-slate-50 border-t border-b border-slate-200/50">

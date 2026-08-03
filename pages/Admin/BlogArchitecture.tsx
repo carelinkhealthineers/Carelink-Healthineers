@@ -513,8 +513,8 @@ export const BlogArchitecture: React.FC = () => {
                           </div>
                           <div className="p-6 bg-[#202124] rounded-2xl font-sans text-left space-y-1">
                              <div className="flex items-center gap-2 text-xs text-[#bdc1c6]">
-                                <span className="bg-[#303134] px-2 py-0.5 rounded text-[10px] text-white">carelink-healthineers.app</span>
-                                <span>https://carelink-healthineers.vercel.app › insights › {slugify(formData.title || 'briefing')}</span>
+                                <span className="bg-[#303134] px-2 py-0.5 rounded text-[10px] text-white">carelinkhealthineers.com</span>
+                                <span>https://carelinkhealthineers.com › insights › {slugify(formData.title || 'briefing')}</span>
                              </div>
                              <h3 className="text-xl text-[#8ab4f8] hover:underline font-normal cursor-pointer leading-snug">
                                 {formData.title || 'Untitled Clinical Intelligence Briefing'} | Carelink Healthineers

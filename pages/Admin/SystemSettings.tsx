@@ -1,15 +1,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Save, RefreshCw, Loader2, Globe, ShieldAlert, Database, Settings, Server, Terminal, Info, Layout, Activity } from 'lucide-react';
+import { Save, RefreshCw, Loader2, Globe, ShieldAlert, Database, Settings, Server, Terminal, Info, Layout, Activity, Tv, Film } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import { Setting } from '../../types';
+import { AdminVideoManager } from '../../components/AdminVideoManager';
 
 export const SystemSettings: React.FC = () => {
   const [settings, setSettings] = useState<Setting[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState<'nominal' | 'degraded' | 'offline'>('nominal');
+  const [activeTab, setActiveTab] = useState<'videos' | 'config'>('videos');
 
   const fetchSettings = async () => {
     setIsLoading(true);
@@ -66,7 +68,37 @@ export const SystemSettings: React.FC = () => {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
+      {/* Tab Controls */}
+      <div className="flex gap-4 mb-12 border-b border-white/10 pb-4 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab('videos')}
+          className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center gap-2.5 transition-all ${
+            activeTab === 'videos' 
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' 
+              : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          <Tv size={16} />
+          <span>Homepage Video Theatre</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('config')}
+          className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center gap-2.5 transition-all ${
+            activeTab === 'config' 
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' 
+              : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          <Settings size={16} />
+          <span>Core System Variables</span>
+        </button>
+      </div>
+
+      {activeTab === 'videos' ? (
+        <AdminVideoManager />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
         {/* Settings Terminal Area */}
         <div className="lg:col-span-7 space-y-16">
           {isLoading ? (
@@ -146,6 +178,7 @@ export const SystemSettings: React.FC = () => {
            </div>
         </div>
       </div>
+      )}
     </div>
   );
 };

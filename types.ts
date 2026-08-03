@@ -32,6 +32,7 @@ export interface Product {
   technical_specs: Record<string, string>;
   brochure_url?: string;
   video_url?: string;
+  show_video?: boolean;
   warranty_info?: string;
   is_published: boolean;
   meta_title?: string;

@@ -63,7 +63,7 @@ export const SEO: React.FC<SEOProps> = ({
     fetchDynamicSEO();
   }, [location.pathname, disableDynamicFetch, initialTitle, initialDescription, initialKeywords, initialImage]);
 
-  const siteUrl = 'https://carelink-healthineers.vercel.app';
+  const siteUrl = 'https://carelinkhealthineers.com';
   const currentUrl = canonicalUrl || `${siteUrl}${location.pathname}`;
   const defaultImage = 'https://i.imgur.com/y0UvXGu.png';
   const finalImage = meta.image || defaultImage;
@@ -144,15 +144,17 @@ export const SEO: React.FC<SEOProps> = ({
       "url": siteUrl,
       "logo": defaultImage,
       "sameAs": [
-        "https://www.linkedin.com/company/carelink-healthineers",
-        "https://twitter.com/CarelinkHealth"
+        "https://www.facebook.com/carelinkhealthineers/",
+        "https://www.instagram.com/carelinkhealthineers/",
+        "https://www.twitter.com/carelinkhealthineers/",
+        "https://www.youtube.com/@carelinkhealthineers"
       ],
       "contactPoint": {
         "@type": "ContactPoint",
-        "telephone": "+1-800-555-0199",
+        "telephone": "+8801339482917",
         "contactType": "customer service",
         "areaServed": "Global",
-        "availableLanguage": ["English", "Spanish", "German"]
+        "availableLanguage": ["English", "Bengali"]
       }
     });
 
@@ -162,6 +164,11 @@ export const SEO: React.FC<SEOProps> = ({
       "@type": "WebSite",
       "name": "Carelink Healthineers",
       "url": siteUrl,
+      "creator": {
+        "@type": "Person",
+        "name": "Mohibbul Wara Orjon",
+        "url": "https://zaironx.top"
+      },
       "potentialAction": {
         "@type": "SearchAction",
         "target": {

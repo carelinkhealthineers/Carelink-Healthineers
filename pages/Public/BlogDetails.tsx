@@ -74,7 +74,7 @@ export const BlogDetails: React.FC = () => {
     "@type": "BlogPosting",
     "mainEntityOfPage": {
       "@type": "WebPage",
-      "@id": `https://carelink-healthineers.vercel.app/insights/${blog.slug}`
+      "@id": `https://carelinkhealthineers.com/insights/${blog.slug}`
     },
     "headline": blog.title,
     "image": allImages,

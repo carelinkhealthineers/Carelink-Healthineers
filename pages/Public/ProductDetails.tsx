@@ -6,9 +6,11 @@ import {
   Download, ChevronLeft, Loader2, 
   Layers, ArrowUpRight, ShieldCheck, 
   CheckCircle2, Box, Info, FileText,
-  FileDown, ChevronRight, Activity
+  FileDown, ChevronRight, Activity, Tv, Play, Sparkles
 } from 'lucide-react';
 import { SEO } from '../../components/SEO';
+import { VideoTheatreModal } from '../../components/VideoTheatreModal';
+import { VideoItem } from '../../utils/videoUtils';
 import { supabase } from '../../supabaseClient';
 import { Product, ProductPart } from '../../types';
 
@@ -18,7 +20,9 @@ export const ProductDetails: React.FC = () => {
   const [parts, setParts] = useState<ProductPart[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeImage, setActiveImage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'architecture' | 'specs' | 'docs'>('architecture');
+  const [activeTab, setActiveTab] = useState<'architecture' | 'specs' | 'docs' | 'video'>('architecture');
+  const [isTheatreOpen, setIsTheatreOpen] = useState(false);
+  const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null);
 
   useEffect(() => {
     const fetchFullSpecification = async () => {
@@ -201,10 +205,32 @@ export const ProductDetails: React.FC = () => {
               </div>
 
               {/* Action Hub */}
-              <div className="flex gap-4">
-                 <Link to={`/acquisition?product=${encodeURIComponent(product.name)}`} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-blue-700 transition-all text-center flex items-center justify-center gap-3 shadow-md">
+              <div className="flex flex-wrap gap-4">
+                 <Link to={`/acquisition?product=${encodeURIComponent(product.name)}`} className="flex-1 min-w-[160px] py-4 bg-blue-600 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-blue-700 transition-all text-center flex items-center justify-center gap-3 shadow-md">
                     Request Quote <ArrowUpRight size={16} />
                  </Link>
+                 
+                 {product.show_video !== false && (
+                   <button 
+                    onClick={() => {
+                      setActiveVideo({
+                        title: `${product.name} - Product Demonstration`,
+                        badge: product.category_tag || 'Product Demonstration',
+                        video_url: product.video_url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+                        thumbnail_url: product.main_image,
+                        duration: '04:15',
+                        details: `Official high-definition operational overview for ${product.name} (${product.model_number}).`
+                      });
+                      setIsTheatreOpen(true);
+                    }}
+                    className="px-6 py-4 bg-slate-900 hover:bg-blue-600 text-white rounded-2xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2.5 shadow-md"
+                    title="Watch Product Video"
+                   >
+                      <Tv size={18} className="text-blue-400" />
+                      <span className="text-xs font-bold uppercase tracking-widest">Watch Video</span>
+                   </button>
+                 )}
+
                  <button 
                   onClick={handleDownload}
                   className="px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-700 hover:bg-slate-100 transition-all flex items-center gap-2"
@@ -223,6 +249,7 @@ export const ProductDetails: React.FC = () => {
               {[
                 { id: 'architecture', label: 'System Components' },
                 { id: 'specs', label: 'Technical Data' },
+                ...(product.show_video !== false ? [{ id: 'video', label: 'Product Video' }] : []),
                 { id: 'docs', label: 'Brochures & Certs' }
               ].map(tab => (
                 <button
@@ -305,6 +332,57 @@ export const ProductDetails: React.FC = () => {
                   </motion.div>
                 )}
 
+                {activeTab === 'video' && (
+                  <motion.div 
+                    key="video" 
+                    initial={{ opacity: 0, scale: 0.98 }} 
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="max-w-5xl mx-auto space-y-8"
+                  >
+                    <div 
+                      onClick={() => {
+                        setActiveVideo({
+                          title: `${product.name} - Clinical Demonstration`,
+                          badge: product.category_tag || 'Clinical Demonstration',
+                          video_url: product.video_url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+                          thumbnail_url: product.main_image,
+                          duration: '04:15',
+                          details: `Official high-definition operational showcase for ${product.name} (${product.model_number}).`
+                        });
+                        setIsTheatreOpen(true);
+                      }}
+                      className="group relative aspect-[21/9] min-h-[320px] bg-slate-950 rounded-[2.5rem] border border-slate-800 overflow-hidden cursor-pointer shadow-2xl flex items-center justify-center"
+                    >
+                      <img src={product.main_image} alt="" className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
+                      
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-center p-6">
+                        <motion.div 
+                          whileHover={{ scale: 1.1 }}
+                          className="w-20 h-20 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-2xl shadow-blue-500/50 border border-white/20 backdrop-blur-md"
+                        >
+                          <Play size={32} className="fill-white ml-1" />
+                        </motion.div>
+                        <div className="space-y-1">
+                          <span className="px-3 py-1 bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[10px] font-black uppercase tracking-widest rounded-full">
+                            Click to Watch Video
+                          </span>
+                          <h3 className="text-xl md:text-2xl font-bold text-white tracking-tight">{product.name} Video Demo</h3>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-8 bg-slate-50 border border-slate-200/80 rounded-3xl space-y-4">
+                      <div className="flex items-center gap-2 text-xs font-bold text-blue-600 uppercase tracking-widest">
+                        <Sparkles size={16} /> Technical Video Highlights
+                      </div>
+                      <p className="text-sm font-medium text-slate-600 leading-relaxed">
+                        Watch direct factory operational procedures, patient safety positioning, high-density telemetry data output, and maintenance protocol checklists for {product.name}.
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+
                 {activeTab === 'docs' && (
                   <motion.div 
                     key="docs" 
@@ -366,6 +444,12 @@ export const ProductDetails: React.FC = () => {
            </Link>
         </div>
       </div>
+
+      <VideoTheatreModal 
+        isOpen={isTheatreOpen}
+        onClose={() => setIsTheatreOpen(false)}
+        video={activeVideo}
+      />
     </div>
   );
 };

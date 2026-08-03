@@ -7,7 +7,7 @@ import {
   Box, Terminal, Layout, FileUp, ImagePlus, 
   CheckCircle2, AlertCircle, ChevronRight, 
   UploadCloud, ImageIcon, Maximize2, Trash,
-  PlusCircle, FileText, Download, Link2, Eye, FileX
+  PlusCircle, FileText, Download, Link2, Eye, FileX, Tv, VideoOff
 } from 'lucide-react';
 import { slugify } from '../../utils/slugify';
 import { supabase } from '../../supabaseClient';
@@ -41,6 +41,8 @@ export const ProductArchitecture: React.FC = () => {
     technical_specs: {},
     is_published: true,
     brochure_url: '',
+    video_url: '',
+    show_video: true,
   });
 
   const [parts, setParts] = useState<ProductPart[]>([]);
@@ -139,7 +141,9 @@ export const ProductArchitecture: React.FC = () => {
       setFormData({ 
         ...product, 
         image_gallery: product.image_gallery || [],
-        technical_specs: product.technical_specs || {}
+        technical_specs: product.technical_specs || {},
+        show_video: product.show_video !== false,
+        video_url: product.video_url || ''
       });
       const { data } = await supabase.from('product_parts').select('*').eq('product_id', product.id).order('order_index');
       setParts(data || []);
@@ -157,6 +161,8 @@ export const ProductArchitecture: React.FC = () => {
         technical_specs: { 'Resolution': '4K Cinematic', 'Precision': 'Ultra' },
         is_published: true,
         brochure_url: '',
+        video_url: '',
+        show_video: true,
       });
       setParts([]);
     }
@@ -251,9 +257,14 @@ export const ProductArchitecture: React.FC = () => {
                   <span className="px-3 py-1 bg-blue-500/10 text-blue-400 text-[8px] font-black uppercase tracking-widest rounded-lg border border-blue-500/20">
                     {divisions.find(d => d.id === item.division_id)?.name || 'UNMAPPED'}
                   </span>
-                  <div className={`flex items-center gap-2 text-[8px] font-black uppercase tracking-widest ${item.is_published ? 'text-emerald-500' : 'text-amber-500'}`}>
-                    <div className={`w-1.5 h-1.5 rounded-full ${item.is_published ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500 opacity-30'}`} />
-                    {item.is_published ? 'LIVE' : 'DRAFT'}
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-0.5 text-[7px] font-black uppercase tracking-widest rounded ${item.show_video !== false ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-slate-800 text-slate-500'}`}>
+                      {item.show_video !== false ? 'VIDEO: ON' : 'VIDEO: OFF'}
+                    </span>
+                    <div className={`flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest ${item.is_published ? 'text-emerald-500' : 'text-amber-500'}`}>
+                      <div className={`w-1.5 h-1.5 rounded-full ${item.is_published ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500 opacity-30'}`} />
+                      {item.is_published ? 'LIVE' : 'DRAFT'}
+                    </div>
                   </div>
                </div>
                <h3 className="text-xl font-black text-white mb-2 tracking-tight group-hover:text-blue-500 transition-colors line-clamp-1">{item.name}</h3>
@@ -368,6 +379,52 @@ export const ProductArchitecture: React.FC = () => {
                              <label className="text-[9px] font-black text-slate-700 uppercase tracking-[0.4em] px-1">Protocol Tag</label>
                              <input className="w-full px-8 py-5 bg-white/[0.02] border border-white/5 rounded-2xl outline-none font-bold text-white focus:border-blue-600 transition-all" value={formData.category_tag} onChange={e => setFormData({...formData, category_tag: e.target.value})} />
                           </div>
+                       </div>
+
+                       {/* Product Video Control Box */}
+                       <div className="p-8 bg-[#0a0f18] rounded-[2.5rem] border border-white/10 flex flex-col gap-6">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                             <div className="flex items-center gap-5">
+                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border ${formData.show_video !== false ? 'bg-blue-600/20 text-blue-400 border-blue-500/30' : 'bg-white/5 text-slate-500 border-white/10'}`}>
+                                   <Tv size={26} />
+                                </div>
+                                <div>
+                                   <h4 className="text-xl font-black text-white tracking-tight">Product Video Button</h4>
+                                   <p className="text-xs text-slate-400 font-medium">Enable or disable the "Watch Video" button and video tab on this product's detail page.</p>
+                                </div>
+                             </div>
+
+                             <button 
+                                type="button"
+                                onClick={() => setFormData(prev => ({ ...prev, show_video: prev.show_video === false }))}
+                                className={`px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-3 transition-all ${
+                                  formData.show_video !== false 
+                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' 
+                                    : 'bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10'
+                                }`}
+                             >
+                                <div className={`w-3 h-3 rounded-full ${formData.show_video !== false ? 'bg-white animate-pulse' : 'bg-rose-500'}`} />
+                                <span>{formData.show_video !== false ? 'Button Status: ENABLED' : 'Button Status: DISABLED'}</span>
+                             </button>
+                          </div>
+
+                          {formData.show_video !== false && (
+                            <div className="space-y-3 pt-4 border-t border-white/10">
+                               <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2">
+                                  <Tv size={14} /> Product Video Link (YouTube, Vimeo, Google Drive, MP4, or Website Video)
+                               </label>
+                               <input 
+                                  type="text" 
+                                  placeholder="Paste YouTube, Vimeo, Google Drive, or MP4 video link..." 
+                                  className="w-full px-6 py-4 bg-black/60 border border-white/10 rounded-2xl outline-none font-mono text-xs text-blue-400 focus:border-blue-600 transition-all"
+                                  value={formData.video_url || ''} 
+                                  onChange={e => setFormData({ ...formData, video_url: e.target.value })}
+                               />
+                               <p className="text-[11px] text-slate-400 font-medium">
+                                  Paste any YouTube link, Vimeo, Google Drive video link, or direct MP4. It will play directly on your website when visitors click "Watch Video".
+                               </p>
+                            </div>
+                          )}
                        </div>
                        <div className="space-y-3">
                           <label className="text-[9px] font-black text-slate-700 uppercase tracking-[0.4em] px-1">Technical Summary</label>
