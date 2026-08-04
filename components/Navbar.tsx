@@ -8,7 +8,6 @@ import { Division } from '../types';
 
 const NAV_ITEMS = [
   { label: 'Home', path: '/' },
-  { label: 'Instant Meeting', path: '/interface' },
   { label: 'Products', path: '/portfolio' },
   { label: 'Partners', path: '/alliances' },
   { label: 'AI', path: '/intelligence' },
