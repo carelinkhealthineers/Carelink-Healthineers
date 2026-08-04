@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, useLocation, Link, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { LayoutGrid, Package, FolderTree, Mail, Settings, LogOut, Handshake, BookOpen, Users, Terminal, Globe, Menu, X, Home, ExternalLink } from 'lucide-react';
+import { LayoutGrid, Package, FolderTree, Mail, Settings, LogOut, Handshake, BookOpen, Users, Terminal, Globe, Menu, X, Home, ExternalLink, Video } from 'lucide-react';
 import { supabase, performSignOut } from './supabaseClient';
 
 // Layout Components
@@ -34,6 +34,7 @@ import { SystemSettings } from './pages/Admin/SystemSettings';
 import { BlogArchitecture } from './pages/Admin/BlogArchitecture';
 import { UserRegistry } from './pages/Admin/UserRegistry';
 import { SEOControl } from './pages/Admin/SEOControl';
+import { MeetingControl } from './pages/Admin/MeetingControl';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> = ({ children, adminOnly = false }) => {
@@ -103,6 +104,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
 
 const NAV_ADMIN_ITEMS = [
   { label: 'Overview', path: '/command-nexus', icon: <LayoutGrid size={18} /> },
+  { label: 'Tele-Meetings', path: '/command-nexus/meetings', icon: <Video size={18} /> },
   { label: 'Products', path: '/command-nexus/architecture', icon: <Package size={18} /> },
   { label: 'User Registry', path: '/command-nexus/users', icon: <Users size={18} /> },
   { label: 'Insights', path: '/command-nexus/editorial', icon: <BookOpen size={18} /> },
@@ -143,6 +145,7 @@ const App: React.FC = () => {
           <Route path="/intelligence" element={<Intelligence />} />
           <Route path="/foundation" element={<Foundation />} />
           <Route path="/interface" element={<Interface />} />
+          <Route path="/meeting/:roomCode" element={<Interface />} />
           <Route path="/insights" element={<BlogList />} />
           <Route path="/insights/:blogSlug" element={<BlogDetails />} />
           <Route path="/login" element={<Login />} />
@@ -303,6 +306,7 @@ const App: React.FC = () => {
                   <div className="max-w-[1600px] mx-auto min-h-screen p-6 lg:p-10">
                     <Routes>
                         <Route path="/" element={<NexusDashboard />} />
+                        <Route path="/meetings" element={<MeetingControl />} />
                         <Route path="/architecture" element={<ProductArchitecture />} />
                         <Route path="/users" element={<UserRegistry />} />
                         <Route path="/editorial" element={<BlogArchitecture />} />

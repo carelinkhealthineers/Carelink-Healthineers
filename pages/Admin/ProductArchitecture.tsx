@@ -138,10 +138,9 @@ export const ProductArchitecture: React.FC = () => {
   const toggleEditor = async (product: Product | null = null) => {
     if (product) {
       setEditingId(product.id);
-      const isVidOn = product.show_video !== false && 
-        product.show_video !== 'false' && 
-        product.show_video !== 0 && 
-        product.show_video !== '0' && 
+      const isVidOn = Boolean(product.show_video) !== false && 
+        String(product.show_video) !== 'false' && 
+        String(product.show_video) !== '0' && 
         product.technical_specs?._show_video !== 'false';
 
       const vidUrl = product.video_url || product.technical_specs?._video_url || '';

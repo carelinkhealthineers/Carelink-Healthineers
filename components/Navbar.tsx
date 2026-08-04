@@ -2,12 +2,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, ChevronDown, LayoutGrid, Activity, ArrowRight, User, Shield, LogOut, Settings } from 'lucide-react';
+import { Menu, X, ChevronDown, LayoutGrid, Activity, ArrowRight, User, Shield, LogOut, Settings, Video } from 'lucide-react';
 import { supabase, performSignOut } from '../supabaseClient';
 import { Division } from '../types';
 
 const NAV_ITEMS = [
   { label: 'Home', path: '/' },
+  { label: 'Instant Meeting', path: '/interface' },
   { label: 'Products', path: '/portfolio' },
   { label: 'Partners', path: '/alliances' },
   { label: 'AI', path: '/intelligence' },
