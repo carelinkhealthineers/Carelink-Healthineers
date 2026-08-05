@@ -6,11 +6,11 @@ import {
   Download, ChevronLeft, Loader2, 
   Layers, ArrowUpRight, ShieldCheck, 
   CheckCircle2, Box, Info, FileText,
-  FileDown, ChevronRight, Activity, Tv, Play, Sparkles
+  FileDown, ChevronRight, Activity, Tv, Play, Sparkles, Maximize2
 } from 'lucide-react';
 import { SEO } from '../../components/SEO';
 import { VideoTheatreModal } from '../../components/VideoTheatreModal';
-import { VideoItem } from '../../utils/videoUtils';
+import { VideoItem, parseVideoUrl } from '../../utils/videoUtils';
 import { supabase } from '../../supabaseClient';
 import { Product, ProductPart } from '../../types';
 
@@ -351,46 +351,66 @@ export const ProductDetails: React.FC = () => {
                   </motion.div>
                 )}
 
-                {activeTab === 'video' && isVideoEnabled && (
-                  <motion.div 
-                    key="video" 
-                    initial={{ opacity: 0, scale: 0.98 }} 
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="max-w-5xl mx-auto space-y-8"
-                  >
-                    <div 
-                      onClick={handleOpenVideo}
-                      className="group relative aspect-[21/9] min-h-[320px] bg-slate-950 rounded-[2.5rem] border border-slate-800 overflow-hidden cursor-pointer shadow-2xl flex items-center justify-center"
-                    >
-                      <img src={product.main_image} alt="" className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
-                      
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-center p-6">
-                        <motion.div 
-                          whileHover={{ scale: 1.1 }}
-                          className="w-20 h-20 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-2xl shadow-blue-500/50 border border-white/20 backdrop-blur-md"
-                        >
-                          <Play size={32} className="fill-white ml-1" />
-                        </motion.div>
-                        <div className="space-y-1">
-                          <span className="px-3 py-1 bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[10px] font-black uppercase tracking-widest rounded-full">
-                            Click to Watch Video
-                          </span>
-                          <h3 className="text-xl md:text-2xl font-bold text-white tracking-tight">{product.name} Video Demo</h3>
-                        </div>
-                      </div>
-                    </div>
+                {activeTab === 'video' && isVideoEnabled && (() => {
+                  const rawVideoUrl = product.video_url || product.technical_specs?._video_url || '';
+                  const finalVideoUrl = rawVideoUrl.trim() || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+                  const parsedTabVideo = parseVideoUrl(finalVideoUrl);
 
-                    <div className="p-8 bg-slate-50 border border-slate-200/80 rounded-3xl space-y-4">
-                      <div className="flex items-center gap-2 text-xs font-bold text-blue-600 uppercase tracking-widest">
-                        <Sparkles size={16} /> Overview & Technical Details
+                  return (
+                    <motion.div 
+                      key="video" 
+                      initial={{ opacity: 0, scale: 0.98 }} 
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="max-w-5xl mx-auto space-y-8"
+                    >
+                      <div className="relative aspect-video w-full bg-slate-950 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl flex items-center justify-center group">
+                        {parsedTabVideo.type === 'youtube' || parsedTabVideo.type === 'vimeo' || parsedTabVideo.type === 'iframe' ? (
+                          <iframe 
+                            src={parsedTabVideo.embedUrl}
+                            title={`${product.name} Video`}
+                            className="w-full h-full border-0 aspect-video"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            allowFullScreen
+                          />
+                        ) : (
+                          <video 
+                            src={parsedTabVideo.embedUrl}
+                            poster={product.main_image}
+                            controls
+                            playsInline
+                            className="w-full h-full object-contain max-h-[70vh] bg-black"
+                          />
+                        )}
+
+                        <button
+                          onClick={handleOpenVideo}
+                          className="absolute top-4 right-4 z-20 px-4 py-2 bg-slate-900/90 hover:bg-blue-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider backdrop-blur-md border border-slate-700/80 transition-all flex items-center gap-2 shadow-lg"
+                          title="Open Fullscreen Theater Mode"
+                        >
+                          <Maximize2 size={14} />
+                          <span>Theater Mode</span>
+                        </button>
                       </div>
-                      <p className="text-sm font-medium text-slate-600 leading-relaxed">
-                        {product.short_description || product.long_description || `Watch direct operational procedures, positioning, technical specs output, and features for ${product.name}.`}
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
+
+                      <div className="p-8 bg-slate-50 border border-slate-200/80 rounded-3xl space-y-4">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div className="flex items-center gap-2 text-xs font-bold text-blue-600 uppercase tracking-widest">
+                            <Sparkles size={16} /> Overview & Technical Details
+                          </div>
+                          <button
+                            onClick={handleOpenVideo}
+                            className="text-xs font-bold uppercase tracking-wider text-blue-600 hover:text-blue-700 underline flex items-center gap-1"
+                          >
+                            <Tv size={14} /> Fullscreen Theater Mode
+                          </button>
+                        </div>
+                        <p className="text-sm font-medium text-slate-600 leading-relaxed">
+                          {product.short_description || product.long_description || `Watch direct operational procedures, positioning, technical specs output, and features for ${product.name}.`}
+                        </p>
+                      </div>
+                    </motion.div>
+                  );
+                })()}
 
                 {activeTab === 'docs' && (
                   <motion.div 
