@@ -25,7 +25,7 @@ const FALLBACK_PRODUCTS: Product[] = [
     model_number: "SIEMENS-ML-3T",
     slug: "magnetom-lumina-3t",
     short_description: "Deep-tissue diagnostic MRI scanner featuring BioMatrix patient personalization.",
-    long_description: "A premium clinical 3 Tesla MRI scanner delivering exceptional diagnostic resolution, shorter scanning times, and direct HL7 system synchronization.",
+    long_description: "A premium medical 3 Tesla MRI scanner delivering exceptional diagnostic resolution, shorter scanning times, and direct HL7 system synchronization.",
     main_image: "https://vrtipkxoldcqhtvznpok.supabase.co/storage/v1/object/public/products/uploads/Extron%207_921_5e39e.png",
     image_gallery: [],
     category_tag: "Imaging & Radiology",
@@ -36,7 +36,7 @@ const FALLBACK_PRODUCTS: Product[] = [
       "Personalization": "BioMatrix Sensors",
       "Power Grid": "380-480V 3-Phase",
       "Helium Boil-Off": "Zero Boil-Off Guarantee",
-      "Manufacturer": "Dürr Dental Partner"
+      "Distributor": "Dürr Dental Partner"
     },
     is_published: true,
     created_at: "2026-07-18"
@@ -80,7 +80,7 @@ const FALLBACK_PRODUCTS: Product[] = [
       "Active Cooling": "Bilateral Anode Oil Circulation",
       "Dosage Mode": "Pulse-Dose Radiation Reduction",
       "Laser Guide": "Dual Red Target Positioning",
-      "Support": "Direct Manufacturer Service"
+      "Support": "Direct Distributor Service"
     },
     is_published: true,
     created_at: "2026-07-18"
@@ -210,7 +210,7 @@ export const Origin: React.FC = () => {
           {/* Left Column: Sourcing Narrative & Fast CTAs */}
           <div className="xl:col-span-5 space-y-8 text-left">
             
-            {/* Featured Dürr Dental Manufacturer Trust badge */}
+            {/* Featured Dürr Dental Distributor Trust badge */}
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -219,7 +219,7 @@ export const Origin: React.FC = () => {
             >
               <img src="/durr-dental-logo.svg" alt="Dürr Dental Logo" className="h-4 w-auto object-contain" />
               <span className="w-px h-3.5 bg-slate-200" />
-              <span className="text-blue-600 font-extrabold tracking-wider">OFFICIAL MANUFACTURER</span>
+              <span className="text-blue-600 font-extrabold tracking-wider">OFFICIAL DISTRIBUTOR</span>
             </motion.div>
 
             {/* Powerful conversion headline */}
@@ -229,7 +229,7 @@ export const Origin: React.FC = () => {
               transition={{ duration: 0.8, delay: 0.1 }}
               className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-normal text-slate-900 tracking-tight leading-[1.08] font-serif-classical"
             >
-              Procure Clinical <br />
+              Procure Medical <br />
               Equipment. <span className="italic text-blue-600 font-serif-classical">Direct.</span>
             </motion.h1>
 
@@ -430,7 +430,7 @@ export const Origin: React.FC = () => {
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 tracking-tight">Direct Sourcing</h3>
                 <p className="text-slate-500 text-xs font-medium leading-relaxed">
-                  Carelink connects healthcare providers directly with certified manufacturer lines, optimizing delivery speed and supply security.
+                  Carelink connects healthcare providers directly with certified distributor lines, optimizing delivery speed and supply security.
                 </p>
               </div>
               <div className="pt-6 border-t border-slate-100 text-[10px] font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1.5 mt-6">
@@ -438,7 +438,7 @@ export const Origin: React.FC = () => {
               </div>
             </div>
 
-            {/* Bento Card 2: Dürr Dental Official Manufacturer */}
+            {/* Bento Card 2: Dürr Dental Official Distributor */}
             <div className="p-8 bg-white border border-blue-200/80 rounded-3xl flex flex-col justify-between shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -446,12 +446,12 @@ export const Origin: React.FC = () => {
                     <img src="/durr-dental-logo.svg" alt="Dürr Dental" className="h-6 w-auto object-contain" />
                   </div>
                   <span className="text-[9px] font-black bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full uppercase tracking-wider border border-blue-100">
-                    Official Manufacturer
+                    Official Distributor
                   </span>
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 tracking-tight">Dürr Dental Quality Standards</h3>
                 <p className="text-slate-500 text-xs font-medium leading-relaxed">
-                  Every asset is engineered, tested, and calibrated in direct partnership with Dürr Dental according to German precision clinical standards before dispatch.
+                  Every asset is engineered, tested, and calibrated in direct partnership with Dürr Dental according to German precision medical standards before dispatch.
                 </p>
               </div>
               <div className="pt-6 border-t border-slate-100 text-[10px] font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1.5 mt-6">
@@ -483,7 +483,7 @@ export const Origin: React.FC = () => {
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 tracking-tight">Q3 Delivery Dispatch</h3>
                 <p className="text-slate-500 text-xs font-medium leading-relaxed">
-                  Avoid long manufacturer waitlists. Carelink secures active production quotas, delivering assets to clinic doors under 30 days.
+                  Avoid long distributor waitlists. Carelink secures active production quotas, delivering assets to clinic doors under 30 days.
                 </p>
               </div>
               <div className="pt-6 border-t border-slate-100 text-[10px] font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1.5 mt-6">
@@ -624,13 +624,13 @@ export const Origin: React.FC = () => {
               <span className="italic text-blue-600 font-serif-classical">Procurement Plan</span>
             </h2>
             <p className="text-slate-500 text-base font-medium leading-relaxed font-sans max-w-md">
-              Complete this step-by-step custom order configuration, and our senior clinical logistics engineers will compile a tailored, fully customized capital proposal in under 4 hours.
+              Complete this step-by-step custom order configuration, and our senior medical logistics engineers will compile a tailored, fully customized capital proposal in under 4 hours.
             </p>
 
             <div className="space-y-4 pt-4">
               {[
-                { title: "Direct Manufacturer Negotiation", text: "We handle bilateral discussions to guarantee best-tier pricing structures." },
-                { title: "Custom Integration Assessment", text: "Ensuring HL7 synchronization match with existing clinical infrastructures." }
+                { title: "Direct Distributor Negotiation", text: "We handle bilateral discussions to guarantee best-tier pricing structures." },
+                { title: "Custom Integration Assessment", text: "Ensuring HL7 synchronization match with existing medical infrastructures." }
               ].map((item, i) => (
                 <div key={i} className="flex gap-4">
                   <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mt-1 shrink-0">
@@ -700,7 +700,7 @@ export const Origin: React.FC = () => {
                               <option value="Imaging & Radiology">Imaging &amp; Radiology (MRI, CT, X-Ray)</option>
                               <option value="ICU Care Systems">ICU Patient Monitoring Systems</option>
                               <option value="Surgical Infrastructure">Surgical Devices &amp; Theaters</option>
-                              <option value="Laboratory Diagnostics">Clinical Lab &amp; Pathology Hub</option>
+                              <option value="Laboratory Diagnostics">Medical Lab &amp; Pathology Hub</option>
                             </select>
                           </div>
                         </div>
@@ -818,7 +818,7 @@ export const Origin: React.FC = () => {
                               required 
                               type="email" 
                               className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 text-sm font-semibold text-slate-800 placeholder:text-slate-400"
-                              placeholder="Clinical / Facility Email (e.g. carter@hospital.org)"
+                              placeholder="Medical / Facility Email (e.g. carter@hospital.org)"
                               value={configData.contactEmail}
                               onChange={e => setConfigData({...configData, contactEmail: e.target.value})}
                             />
@@ -882,7 +882,7 @@ export const Origin: React.FC = () => {
                     <div className="space-y-2">
                       <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Configuration Submitted</h3>
                       <p className="text-sm text-slate-500 font-medium max-w-sm mx-auto leading-relaxed">
-                        Your clinical infrastructure specs have been logged. A regional logistics manager is preparing your cost-optimized quote. Expect response inside 4 hours.
+                        Your medical infrastructure specs have been logged. A regional logistics manager is preparing your cost-optimized quote. Expect response inside 4 hours.
                       </p>
                     </div>
                     <button 
@@ -901,7 +901,7 @@ export const Origin: React.FC = () => {
         </div>
       </section>
 
-      {/* 5. CLINICAL INSIGHTS & INTEL BRIEFINGS */}
+      {/* 5. MEDICAL INSIGHTS & INTEL BRIEFINGS */}
       {latestBlogs.length > 0 && (
         <section className="py-24 bg-white border-t border-slate-200/50 relative overflow-hidden">
           <div className="max-w-[1600px] mx-auto px-6 md:px-16">
@@ -913,7 +913,7 @@ export const Origin: React.FC = () => {
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">KNOWLEDGE BASE</span>
                 </div>
                 <h2 className="text-3xl md:text-5xl font-normal text-slate-900 tracking-tight leading-none font-serif-classical">
-                  Clinical Insights <span className="italic text-blue-600 font-serif-classical">&amp; Updates</span>
+                  Medical Insights <span className="italic text-blue-600 font-serif-classical">&amp; Updates</span>
                 </h2>
               </div>
               <Link to="/insights" className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-300 pb-1 hover:text-blue-600 hover:border-blue-600 transition-all flex items-center gap-2">
@@ -950,9 +950,9 @@ export const Origin: React.FC = () => {
       {/* 6. TRUST HARBINGER BAR */}
       <section className="py-12 bg-white border-t border-b border-slate-200">
         <div className="max-w-[1600px] mx-auto px-10 flex flex-wrap justify-center md:justify-between items-center gap-8 text-[11px] font-bold text-slate-500 uppercase tracking-widest">
-          <div className="flex items-center gap-2 text-slate-900"><img src="/durr-dental-logo.svg" alt="Dürr Dental" className="h-4 w-auto object-contain inline" /><span className="text-blue-600 font-extrabold ml-1">OFFICIAL MANUFACTURER NETWORK</span></div>
+          <div className="flex items-center gap-2 text-slate-900"><img src="/durr-dental-logo.svg" alt="Dürr Dental" className="h-4 w-auto object-contain inline" /><span className="text-blue-600 font-extrabold ml-1">OFFICIAL DISTRIBUTOR NETWORK</span></div>
           <div className="flex items-center gap-2"><Globe size={12} className="text-blue-600" /> INTERNATIONAL SUPPLY HUBS: ACTIVE</div>
-          <div className="flex items-center gap-2"><HeartPulse size={12} className="text-emerald-500 animate-pulse" /> VITAL CLINICAL SERVICES: SYSTEM OK</div>
+          <div className="flex items-center gap-2"><HeartPulse size={12} className="text-emerald-500 animate-pulse" /> VITAL MEDICAL SERVICES: SYSTEM OK</div>
           <div className="flex items-center gap-2"><Database size={12} className="text-indigo-600" /> PRODUCT REGISTRY: IN SYNC</div>
         </div>
       </section>

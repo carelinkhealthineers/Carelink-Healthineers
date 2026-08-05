@@ -39,29 +39,48 @@ export const SEO: React.FC<SEOProps> = ({
     image: initialImage
   });
 
+  // Sync state if initial props change
+  useEffect(() => {
+    setMeta({
+      title: initialTitle,
+      description: initialDescription,
+      keywords: initialKeywords,
+      image: initialImage
+    });
+  }, [initialTitle, initialDescription, initialImage, JSON.stringify(initialKeywords)]);
+
   // Dynamic SEO Fetching (Client-Side "Pro" Feature)
   useEffect(() => {
     if (disableDynamicFetch) return;
+    let isCancelled = false;
 
     const fetchDynamicSEO = async () => {
-      const { data } = await supabase
-        .from('page_seo_settings')
-        .select('*')
-        .eq('page_path', location.pathname)
-        .single();
+      try {
+        const { data } = await supabase
+          .from('page_seo_settings')
+          .select('*')
+          .eq('page_path', location.pathname)
+          .maybeSingle();
 
-      if (data) {
-        setMeta({
-          title: data.title || initialTitle,
-          description: data.meta_description || initialDescription,
-          keywords: data.keywords || initialKeywords,
-          image: data.og_image || initialImage
-        });
+        if (data && !isCancelled) {
+          setMeta({
+            title: data.title || initialTitle,
+            description: data.meta_description || initialDescription,
+            keywords: data.keywords || initialKeywords,
+            image: data.og_image || initialImage
+          });
+        }
+      } catch (err) {
+        console.warn('SEO dynamic fetch notice:', err);
       }
     };
 
     fetchDynamicSEO();
-  }, [location.pathname, disableDynamicFetch, initialTitle, initialDescription, initialKeywords, initialImage]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [location.pathname, disableDynamicFetch]);
 
   const siteUrl = 'https://carelinkhealthineers.com';
   const currentUrl = canonicalUrl || `${siteUrl}${location.pathname}`;
@@ -202,7 +221,7 @@ export const SEO: React.FC<SEOProps> = ({
         {
           "@type": "SiteNavigationElement",
           "position": 3,
-          "name": "Clinical Divisions",
+          "name": "Medical Divisions",
           "description": "Specialized Healthcare & Dental Departments",
           "url": `${siteUrl}/divisions`
         },
@@ -210,13 +229,13 @@ export const SEO: React.FC<SEOProps> = ({
           "@type": "SiteNavigationElement",
           "position": 4,
           "name": "Partners",
-          "description": "Dürr Dental & Global Medical Manufacturers",
+          "description": "Dürr Dental & Global Medical Distributors",
           "url": `${siteUrl}/alliances`
         },
         {
           "@type": "SiteNavigationElement",
           "position": 5,
-          "name": "Clinical Insights",
+          "name": "Medical Insights",
           "description": "Medical Technology Articles & Intelligence Briefings",
           "url": `${siteUrl}/intelligence`
         },

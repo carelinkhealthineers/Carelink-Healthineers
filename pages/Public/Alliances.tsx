@@ -21,9 +21,9 @@ export const Alliances: React.FC = () => {
   return (
     <div className="pt-24 bg-white text-slate-800 overflow-hidden min-h-screen font-sans selection:bg-blue-600">
       <SEO 
-        title="Our Partners | Global Manufacturers & Dürr Dental" 
-        description="Explore Carelink Healthineers' direct partnerships with world-leading medical and dental manufacturers including Dürr Dental, Siemens, GE, and Philips."
-        keywords={['medical partners', 'Dürr Dental partner', 'medical equipment manufacturers', 'Siemens Healthineers', 'GE Healthcare']}
+        title="Our Partners | Global Manufacturers & Dürr Dental Distributor" 
+        description="Explore Carelink Healthineers' direct partnerships with world-leading medical and dental distributors and manufacturers including Dürr Dental, Siemens, GE, and Philips."
+        keywords={['medical partners', 'Dürr Dental distributor', 'medical equipment manufacturers', 'Siemens Healthineers', 'GE Healthcare']}
       />
 
       {/* 1. HERO SECTION - Classical Light Theme */}
@@ -52,7 +52,7 @@ export const Alliances: React.FC = () => {
              </h1>
              
              <p className="text-lg md:text-xl text-slate-500 font-medium leading-relaxed max-w-2xl mx-auto mb-10">
-               We partner directly with leading tier-1 medical manufacturers around the globe to bring exceptional clinical equipment to healthcare facilities.
+               We partner directly with leading tier-1 medical manufacturers around the globe to bring exceptional medical equipment to healthcare facilities.
              </p>
              
              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -153,7 +153,7 @@ export const Alliances: React.FC = () => {
                     <span className="text-[10px] font-bold uppercase tracking-widest">THE CARELINK ADVANTAGE</span>
                  </div>
                  <h2 className="text-4xl md:text-5xl font-normal text-slate-900 tracking-tight leading-tight font-serif-classical">
-                    Making clinical procurement <br /> 
+                    Making medical procurement <br /> 
                     <span className="text-blue-600 italic font-serif-classical">beautifully simple.</span>
                  </h2>
               </div>
@@ -161,8 +161,8 @@ export const Alliances: React.FC = () => {
               <div className="space-y-6">
                  {[
                    { title: "Direct Sourcing Pathways", desc: "We eliminate procurement intermediaries. Ship direct from certified factory production lines, maximizing your capital budget efficiency.", icon: <Link2 size={22}/> },
-                   { title: "Rigorous Technical Compliance", desc: "Every clinical asset is produced by Dürr Dental and thoroughly vetted to conform with top clinical standards.", icon: <ShieldCheck size={22}/> },
-                   { title: "Sovereign Engineering Support", desc: "Our certified medical technicians assemble, test, and provide personal training directly at your clinical facility.", icon: <Activity size={22}/> }
+                   { title: "Rigorous Technical Compliance", desc: "Every medical asset is distributed in partnership with Dürr Dental and thoroughly vetted to conform with top medical standards.", icon: <ShieldCheck size={22}/> },
+                   { title: "Sovereign Engineering Support", desc: "Our certified medical technicians assemble, test, and provide personal training directly at your medical facility.", icon: <Activity size={22}/> }
                  ].map((item, i) => (
                    <div key={i} className="flex gap-6 p-6 rounded-[2rem] bg-slate-50 border border-slate-200/80 hover:bg-slate-100/50 transition-all group">
                        <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">

@@ -4,6 +4,7 @@ import { Routes, Route, useLocation, Link, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LayoutGrid, Package, FolderTree, Mail, Settings, LogOut, Handshake, BookOpen, Users, Terminal, Globe, Menu, X, Home, ExternalLink, Video } from 'lucide-react';
 import { supabase, performSignOut } from './supabaseClient';
+import { getOrProvisionUserRole } from './utils/authHelpers';
 
 // Layout Components
 import { Navbar } from './components/Navbar';
@@ -46,22 +47,23 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
     let mounted = true;
 
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        if (mounted) setUser(session.user);
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
-        if (mounted) setRole(profile?.role || 'buyer');
-      } else {
-        if (mounted) {
-          setUser(null);
-          setRole(null);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          if (mounted) setUser(session.user);
+          const r = await getOrProvisionUserRole(session.user);
+          if (mounted) setRole(r);
+        } else {
+          if (mounted) {
+            setUser(null);
+            setRole(null);
+          }
         }
+      } catch (err) {
+        console.error('Auth check error:', err);
+      } finally {
+        if (mounted) setLoading(false);
       }
-      if (mounted) setLoading(false);
     };
 
     checkAuth();
@@ -69,18 +71,15 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session) {
         if (mounted) setUser(session.user);
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
-        if (mounted) setRole(profile?.role || 'buyer');
+        const r = await getOrProvisionUserRole(session.user);
+        if (mounted) setRole(r);
       } else {
         if (mounted) {
           setUser(null);
           setRole(null);
         }
       }
+      if (mounted) setLoading(false);
     });
 
     return () => {

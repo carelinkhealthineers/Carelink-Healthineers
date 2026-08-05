@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, Loader2, ArrowRight } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
+import { getOrProvisionUserRole } from '../../utils/authHelpers';
 import { SEO } from '../../components/SEO';
 import { motion } from 'framer-motion';
 
@@ -26,13 +27,9 @@ export const Login: React.FC = () => {
 
       if (authError) throw authError;
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .single();
+      const userRole = await getOrProvisionUserRole(data.user);
 
-      if (profile?.role === 'admin') {
+      if (userRole === 'admin') {
         navigate('/command-nexus');
       } else {
         navigate('/');

@@ -189,6 +189,14 @@ export const LiveKitVideoConsultation: React.FC<LiveKitVideoConsultationProps> =
     setError(null);
     try {
       const response = await fetch(`/api/livekit/token?room=${encodeURIComponent(roomName)}&username=${encodeURIComponent(finalUserName)}&identity=${encodeURIComponent(currentUser.id)}`);
+      
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const rawText = await response.text();
+        console.error("Non-JSON token response from API:", rawText.slice(0, 300));
+        throw new Error("LiveKit token endpoint returned non-JSON response. Please check server status.");
+      }
+
       const data = await response.json();
       
       if (!response.ok || !data.token) {

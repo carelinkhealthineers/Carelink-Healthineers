@@ -26,7 +26,7 @@ export const BlogList: React.FC = () => {
     fetchBlogs();
   }, []);
 
-  const categories = ['All', 'Intelligence', 'Innovation', 'Industry', 'Clinical'];
+  const categories = ['All', 'Intelligence', 'Innovation', 'Industry', 'Medical'];
 
   const filtered = blogs.filter(b => {
     const matchesCategory = selectedCategory === 'All' || b.category.toLowerCase() === selectedCategory.toLowerCase();
@@ -42,9 +42,9 @@ export const BlogList: React.FC = () => {
   return (
     <div className="pt-36 pb-32 bg-[#020408] min-h-screen selection:bg-blue-600 selection:text-white">
       <SEO 
-        title="Clinical Insights & Medical Briefings | Carelink Healthineers" 
-        description="Explore high-impact clinical intelligence, medical equipment technical guides, and industry news from Carelink Healthineers and Dürr Dental." 
-        keywords={['medical news', 'clinical insights', 'healthcare technology', 'dental equipment updates', 'Dürr Dental technical briefs']}
+        title="Medical Insights & Technical Briefings | Carelink Healthineers" 
+        description="Explore high-impact medical intelligence, medical equipment technical guides, and industry news from Carelink Healthineers and Dürr Dental." 
+        keywords={['medical news', 'medical insights', 'healthcare technology', 'dental equipment updates', 'Dürr Dental technical briefs']}
         breadcrumbs={[
           { name: 'Home', item: '/' },
           { name: 'Insights', item: '/intelligence' }
@@ -60,10 +60,10 @@ export const BlogList: React.FC = () => {
               <span className="text-[10px] font-black text-blue-400 uppercase tracking-[0.8em]">Carelink Intelligence Hub</span>
             </div>
             <h1 className="text-4xl md:text-7xl font-black text-white tracking-tighter leading-tight">
-              Clinical Insights & <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500 italic">Technical Briefings.</span>
+              Medical Insights & <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500 italic">Technical Briefings.</span>
             </h1>
             <p className="text-slate-400 text-sm md:text-base font-normal leading-relaxed">
-              Stay ahead with verified technical specifications, clinical equipment guidelines, and dental workflow innovations.
+              Stay ahead with verified technical specifications, medical equipment guidelines, and dental workflow innovations.
             </p>
           </div>
           

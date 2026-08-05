@@ -81,7 +81,7 @@ export const AdminVideoManager: React.FC = () => {
     } catch (err) {
       console.error("Failed to save homepage video registry:", err);
       alert("Error saving video registry to database settings.");
-    } fontally: {
+    } finally {
       setIsSaving(false);
     }
   };

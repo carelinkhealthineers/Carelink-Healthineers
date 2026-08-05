@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, ChevronDown, LayoutGrid, Activity, ArrowRight, User, Shield, LogOut, Settings, Video } from 'lucide-react';
 import { supabase, performSignOut } from '../supabaseClient';
+import { getOrProvisionUserRole } from '../utils/authHelpers';
 import { Division } from '../types';
 
 const NAV_ITEMS = [
@@ -31,35 +32,35 @@ export const Navbar: React.FC = () => {
       .then(({ data }) => setDivisions(data || []));
 
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setUser(session.user);
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
-        setRole(profile?.role || 'buyer');
-      } else {
-        setUser(null);
-        setRole(null);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setUser(session.user);
+          const r = await getOrProvisionUserRole(session.user);
+          setRole(r);
+        } else {
+          setUser(null);
+          setRole(null);
+        }
+      } catch (err) {
+        console.warn('Navbar auth error:', err);
       }
     };
 
     checkSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session) {
-        setUser(session.user);
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
-        setRole(profile?.role || 'buyer');
-      } else {
-        setUser(null);
-        setRole(null);
+      try {
+        if (session) {
+          setUser(session.user);
+          const r = await getOrProvisionUserRole(session.user);
+          setRole(r);
+        } else {
+          setUser(null);
+          setRole(null);
+        }
+      } catch (err) {
+        console.warn('Navbar auth state notice:', err);
       }
     });
 
@@ -79,6 +80,8 @@ export const Navbar: React.FC = () => {
 
   const handleLogout = async () => {
     setShowUserMenu(false);
+    setUser(null);
+    setRole(null);
     await performSignOut();
   };
 
