@@ -47,6 +47,8 @@ import {
 import { 
   getStoredMeetings, 
   saveMeetings, 
+  deleteMeeting,
+  clearAllMeetings,
   toggleFavouriteMeeting, 
   getDefaultSettings, 
   saveSettings, 
@@ -67,6 +69,7 @@ export const MeetingControl: React.FC = () => {
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'scheduled' | 'favourite'>('all');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // New Meeting Form State
   const [formData, setFormData] = useState({
@@ -147,11 +150,17 @@ export const MeetingControl: React.FC = () => {
   };
 
   const handleDeleteMeeting = (id: string) => {
-    if (!confirm('Remove this meeting entry?')) return;
-    const filtered = meetings.filter(m => m.id !== id);
-    setMeetings(filtered);
-    saveMeetings(filtered);
-    triggerToast('Meeting entry removed.');
+    const updated = deleteMeeting(id);
+    setMeetings(updated);
+    setDeleteConfirmId(null);
+    triggerToast('Meeting entry removed permanently.');
+  };
+
+  const handleClearAllMeetings = () => {
+    const updated = clearAllMeetings();
+    setMeetings(updated);
+    setDeleteConfirmId(null);
+    triggerToast('All meeting history cleared.');
   };
 
   const handleToggleFav = (id: string) => {
@@ -167,9 +176,9 @@ export const MeetingControl: React.FC = () => {
   };
 
   const handleDeleteUser = (userId: string) => {
-    if (!confirm('Permanently remove user account?')) return;
     const updated = deleteUserAccount(userId);
     setUsers(updated);
+    setDeleteConfirmId(null);
     triggerToast('User account deleted.');
   };
 
@@ -249,13 +258,20 @@ export const MeetingControl: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 shrink-0 flex-wrap">
             <button
               onClick={loadData}
               className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-2xl border border-slate-700/60 transition-all"
               title="Refresh Data"
             >
               <RefreshCw size={18} />
+            </button>
+            <button
+              onClick={handleClearAllMeetings}
+              className="px-4 py-3 bg-rose-500/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 rounded-2xl font-bold text-xs transition-all flex items-center gap-2"
+              title="Clear all stored meeting history"
+            >
+              <Trash2 size={16} /> Clear History
             </button>
             <button
               onClick={() => setShowCreateModal(true)}
