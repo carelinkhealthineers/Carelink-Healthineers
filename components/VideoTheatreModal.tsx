@@ -56,7 +56,7 @@ export const VideoTheatreModal: React.FC<VideoTheatreModalProps> = ({
   return (
     <AnimatePresence>
       <div 
-        className="fixed inset-0 z-[9999] overflow-y-auto bg-slate-950/95 backdrop-blur-2xl p-2 sm:p-4 selection:bg-blue-600 selection:text-white"
+        className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-slate-950/95 backdrop-blur-2xl p-2 sm:p-4 selection:bg-blue-600 selection:text-white overflow-hidden"
         onClick={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}
@@ -65,117 +65,116 @@ export const VideoTheatreModal: React.FC<VideoTheatreModalProps> = ({
         {/* Glow ambient background element */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(37,99,235,0.15),transparent_60%)] pointer-events-none" />
 
-        <div className="flex min-h-full items-center justify-center py-2 sm:py-6">
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.96, y: 15 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 15 }}
-            transition={{ duration: 0.3 }}
-            className={`relative w-full ${isTheatreExpanded ? 'max-w-6xl' : 'max-w-4xl'} max-h-[90vh] sm:max-h-[92vh] bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col transition-all duration-300 z-10 shrink-0`}
-          >
-            {/* Top Bar / Controls */}
-            <div className="flex items-center justify-between px-4 sm:px-6 py-3 bg-slate-950/95 border-b border-slate-800 text-white z-10 shrink-0">
-              <div className="flex items-center gap-3 min-w-0 pr-2">
-                <div className="w-8 h-8 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
-                  <Tv size={16} />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-black uppercase tracking-[0.25em] text-blue-400 truncate">
-                      {video.badge || 'Product Video Showcase'}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.96, y: 15 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96, y: 15 }}
+          transition={{ duration: 0.3 }}
+          className={`relative w-full ${isTheatreExpanded ? 'max-w-6xl' : 'max-w-4xl'} max-h-[94vh] bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col my-auto transition-all duration-300 z-10 shrink-0`}
+        >
+          {/* Top Bar / Controls - ALWAYS VISIBLE AT TOP */}
+          <div className="flex items-center justify-between px-4 sm:px-6 py-3 bg-slate-950 border-b border-slate-800 text-white z-20 shrink-0">
+            <div className="flex items-center gap-3 min-w-0 pr-2">
+              <div className="w-8 h-8 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+                <Tv size={16} />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-black uppercase tracking-[0.25em] text-blue-400 truncate">
+                    {video.badge || 'Product Video Showcase'}
+                  </span>
+                  {video.duration && (
+                    <span className="px-2 py-0.5 bg-slate-800 text-slate-300 text-[9px] font-mono rounded shrink-0 hidden sm:inline-block">
+                      {video.duration}
                     </span>
-                    {video.duration && (
-                      <span className="px-2 py-0.5 bg-slate-800 text-slate-300 text-[9px] font-mono rounded shrink-0 hidden sm:inline-block">
-                        {video.duration}
-                      </span>
-                    )}
-                  </div>
-                  <h3 className="text-xs sm:text-sm font-bold text-white tracking-tight truncate max-w-xs sm:max-w-md">
-                    {video.title}
-                  </h3>
+                  )}
                 </div>
-              </div>
-
-              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                <button
-                  onClick={() => setIsTheatreExpanded(!isTheatreExpanded)}
-                  className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${
-                    isTheatreExpanded 
-                      ? 'bg-blue-600/20 text-blue-400 border-blue-500/40' 
-                      : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
-                  }`}
-                  title="Toggle Fullscreen Width"
-                >
-                  {isTheatreExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-                  <span>{isTheatreExpanded ? 'Normal' : 'Wide'}</span>
-                </button>
-
-                <button
-                  onClick={handleCopyLink}
-                  className="p-2 sm:p-2.5 bg-slate-800 text-slate-400 hover:text-white rounded-xl border border-slate-700 hover:border-slate-600 transition-all"
-                  title="Copy Video Link"
-                >
-                  {copied ? <Check size={16} className="text-emerald-400" /> : <Share2 size={16} />}
-                </button>
-
-                <button
-                  onClick={onClose}
-                  className="p-2 sm:p-2.5 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white rounded-xl border border-rose-500/30 transition-all ml-1"
-                  title="Close Video (ESC)"
-                >
-                  <X size={18} />
-                </button>
+                <h3 className="text-xs sm:text-sm font-bold text-white tracking-tight truncate max-w-xs sm:max-w-md">
+                  {video.title}
+                </h3>
               </div>
             </div>
 
-            {/* Main Video View Canvas */}
-            <div className="relative bg-black w-full flex-1 min-h-0 flex items-center justify-center overflow-hidden">
-              <div className="w-full h-full max-h-[55vh] sm:max-h-[60vh] aspect-video mx-auto relative flex items-center justify-center">
-                {parsed.type === 'youtube' || parsed.type === 'vimeo' || parsed.type === 'iframe' ? (
-                  <iframe 
-                    src={parsed.embedUrl}
-                    title={video.title}
-                    className="w-full h-full border-0 aspect-video"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                  />
-                ) : (
-                  <video 
-                    src={parsed.embedUrl}
-                    poster={video.thumbnail_url}
-                    controls
-                    autoPlay
-                    playsInline
-                    className="w-full h-full object-contain max-h-[55vh] sm:max-h-[60vh] bg-black"
-                  />
-                )}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <button
+                onClick={() => setIsTheatreExpanded(!isTheatreExpanded)}
+                className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${
+                  isTheatreExpanded 
+                    ? 'bg-blue-600/20 text-blue-400 border-blue-500/40' 
+                    : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                }`}
+                title="Toggle Fullscreen Width"
+              >
+                {isTheatreExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                <span>{isTheatreExpanded ? 'Normal' : 'Wide'}</span>
+              </button>
 
-                {/* Playlist Navigation Overlay Buttons */}
-                {playlist.length > 1 && (
-                  <>
-                    <button
-                      disabled={currentIndex <= 0}
-                      onClick={() => currentIndex > 0 && onSelectVideo && onSelectVideo(playlist[currentIndex - 1])}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 sm:p-3 rounded-2xl bg-slate-900/80 hover:bg-blue-600 text-white border border-slate-700/60 disabled:opacity-20 disabled:pointer-events-none transition-all shadow-xl backdrop-blur-md z-20"
-                      title="Previous Video"
-                    >
-                      <ChevronLeft size={20} />
-                    </button>
-                    <button
-                      disabled={currentIndex < 0 || currentIndex >= playlist.length - 1}
-                      onClick={() => currentIndex < playlist.length - 1 && onSelectVideo && onSelectVideo(playlist[currentIndex + 1])}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 sm:p-3 rounded-2xl bg-slate-900/80 hover:bg-blue-600 text-white border border-slate-700/60 disabled:opacity-20 disabled:pointer-events-none transition-all shadow-xl backdrop-blur-md z-20"
-                      title="Next Video"
-                    >
-                      <ChevronRight size={20} />
-                    </button>
-                  </>
-                )}
-              </div>
+              <button
+                onClick={handleCopyLink}
+                className="p-2 sm:p-2.5 bg-slate-800 text-slate-400 hover:text-white rounded-xl border border-slate-700 hover:border-slate-600 transition-all"
+                title="Copy Video Link"
+              >
+                {copied ? <Check size={16} className="text-emerald-400" /> : <Share2 size={16} />}
+              </button>
+
+              <button
+                onClick={onClose}
+                className="p-2 sm:p-2.5 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white rounded-xl border border-rose-500/30 transition-all ml-1"
+                title="Close Video (ESC)"
+              >
+                <X size={18} />
+              </button>
             </div>
+          </div>
+
+          {/* Main Video View Canvas */}
+          <div className="relative bg-black w-full flex-1 min-h-[220px] max-h-[60vh] flex items-center justify-center overflow-hidden">
+            <div className="w-full h-full aspect-video mx-auto relative flex items-center justify-center">
+              {parsed.type === 'youtube' || parsed.type === 'vimeo' || parsed.type === 'iframe' ? (
+                <iframe 
+                  src={parsed.embedUrl}
+                  title={video.title}
+                  className="w-full h-full border-0 aspect-video"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              ) : (
+                <video 
+                  src={parsed.embedUrl}
+                  poster={video.thumbnail_url}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-contain max-h-[60vh] bg-black"
+                />
+              )}
+
+              {/* Playlist Navigation Overlay Buttons */}
+              {playlist.length > 1 && (
+                <>
+                  <button
+                    disabled={currentIndex <= 0}
+                    onClick={() => currentIndex > 0 && onSelectVideo && onSelectVideo(playlist[currentIndex - 1])}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 sm:p-3 rounded-2xl bg-slate-900/80 hover:bg-blue-600 text-white border border-slate-700/60 disabled:opacity-20 disabled:pointer-events-none transition-all shadow-xl backdrop-blur-md z-20"
+                    title="Previous Video"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                  <button
+                    disabled={currentIndex < 0 || currentIndex >= playlist.length - 1}
+                    onClick={() => currentIndex < playlist.length - 1 && onSelectVideo && onSelectVideo(playlist[currentIndex + 1])}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 sm:p-3 rounded-2xl bg-slate-900/80 hover:bg-blue-600 text-white border border-slate-700/60 disabled:opacity-20 disabled:pointer-events-none transition-all shadow-xl backdrop-blur-md z-20"
+                    title="Next Video"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
 
           {/* Video Narrative & Details Accordion / Footer */}
-          <div className="bg-slate-950 p-4 sm:p-6 border-t border-slate-800 space-y-3 shrink-0 max-h-[30vh] overflow-y-auto custom-scrollbar">
+          <div className="bg-slate-950 p-4 sm:p-5 border-t border-slate-800 space-y-3 shrink-0 max-h-[30vh] overflow-y-auto custom-scrollbar">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
@@ -273,7 +272,6 @@ export const VideoTheatreModal: React.FC<VideoTheatreModalProps> = ({
             )}
           </div>
         </motion.div>
-        </div>
       </div>
     </AnimatePresence>
   );
