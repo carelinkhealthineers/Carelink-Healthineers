@@ -19,7 +19,22 @@ export const getOrProvisionUserRole = async (userObj: any): Promise<string> => {
   if (!userObj) return 'buyer';
   const email = userObj.email || '';
   const isOwner = isAdminEmail(email);
-  const targetRole = isOwner ? 'admin' : 'buyer';
+  if (isOwner) {
+    // Background profile sync
+    (async () => {
+      try {
+        await supabase.from('profiles').upsert({
+          id: userObj.id,
+          email: email,
+          full_name: userObj.user_metadata?.full_name || email.split('@')[0] || 'Operator',
+          role: 'admin'
+        }, { onConflict: 'id' });
+      } catch (err) {}
+    })();
+    return 'admin';
+  }
+
+  const targetRole = 'buyer';
 
   try {
     const { data: profile } = await supabase
@@ -29,14 +44,6 @@ export const getOrProvisionUserRole = async (userObj: any): Promise<string> => {
       .maybeSingle();
 
     if (profile) {
-      // If user is owner/admin email but DB role is not 'admin', correct it in database
-      if (isOwner && profile.role !== 'admin') {
-        await supabase
-          .from('profiles')
-          .update({ role: 'admin' })
-          .eq('id', userObj.id);
-        return 'admin';
-      }
       return profile.role || targetRole;
     }
 

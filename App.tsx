@@ -4,7 +4,7 @@ import { Routes, Route, useLocation, Link, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LayoutGrid, Package, FolderTree, Mail, Settings, LogOut, Handshake, BookOpen, Users, Terminal, Globe, Menu, X, Home, ExternalLink, Video } from 'lucide-react';
 import { supabase, performSignOut } from './supabaseClient';
-import { getOrProvisionUserRole } from './utils/authHelpers';
+import { getOrProvisionUserRole, isAdminEmail } from './utils/authHelpers';
 
 // Layout Components
 import { Navbar } from './components/Navbar';
@@ -40,11 +40,34 @@ import { MeetingControl } from './pages/Admin/MeetingControl';
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> = ({ children, adminOnly = false }) => {
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
-  const [role, setRole] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(() => {
+    try {
+      const cached = localStorage.getItem('carelink_admin_auth');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.user) return parsed.user;
+      }
+    } catch (e) {}
+    return null;
+  });
+  const [role, setRole] = useState<string | null>(() => {
+    try {
+      const cached = localStorage.getItem('carelink_admin_auth');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.role) return parsed.role;
+      }
+    } catch (e) {}
+    return null;
+  });
 
   useEffect(() => {
     let mounted = true;
+
+    // Safety timeout to prevent infinite stuck loading
+    const timer = setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 1200);
 
     const checkAuth = async () => {
       try {
@@ -53,8 +76,34 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
           if (mounted) setUser(session.user);
           const r = await getOrProvisionUserRole(session.user);
           if (mounted) setRole(r);
+          try {
+            localStorage.setItem('carelink_admin_auth', JSON.stringify({
+              user: session.user,
+              role: r,
+              email: session.user.email
+            }));
+          } catch (e) {}
         } else {
-          if (mounted) {
+          const cached = localStorage.getItem('carelink_admin_auth');
+          if (cached) {
+            try {
+              const parsed = JSON.parse(cached);
+              if (parsed?.user) {
+                if (mounted) {
+                  setUser(parsed.user);
+                  setRole(parsed.role || 'admin');
+                }
+              } else if (mounted) {
+                setUser(null);
+                setRole(null);
+              }
+            } catch (e) {
+              if (mounted) {
+                setUser(null);
+                setRole(null);
+              }
+            }
+          } else if (mounted) {
             setUser(null);
             setRole(null);
           }
@@ -73,8 +122,16 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
         if (mounted) setUser(session.user);
         const r = await getOrProvisionUserRole(session.user);
         if (mounted) setRole(r);
+        try {
+          localStorage.setItem('carelink_admin_auth', JSON.stringify({
+            user: session.user,
+            role: r,
+            email: session.user.email
+          }));
+        } catch (e) {}
       } else {
-        if (mounted) {
+        const cached = localStorage.getItem('carelink_admin_auth');
+        if (!cached && mounted) {
           setUser(null);
           setRole(null);
         }
@@ -84,11 +141,12 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
 
     return () => {
       mounted = false;
+      clearTimeout(timer);
       subscription.unsubscribe();
     };
   }, []);
 
-  if (loading) return (
+  if (loading && !user) return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
       <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
       <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">Verifying Admin Permissions...</span>
@@ -96,7 +154,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
   );
 
   if (!user) return <Navigate to="/login" replace />;
-  if (adminOnly && role !== 'admin') return <Navigate to="/" replace />;
+  if (adminOnly && role !== 'admin' && !isAdminEmail(user?.email)) return <Navigate to="/" replace />;
 
   return <>{children}</>;
 };

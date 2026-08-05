@@ -29,6 +29,14 @@ export const Login: React.FC = () => {
 
       const userRole = await getOrProvisionUserRole(data.user);
 
+      try {
+        localStorage.setItem('carelink_admin_auth', JSON.stringify({
+          user: data.user,
+          role: userRole,
+          email: data.user.email
+        }));
+      } catch (e) {}
+
       if (userRole === 'admin') {
         navigate('/command-nexus');
       } else {
