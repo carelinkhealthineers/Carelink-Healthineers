@@ -221,7 +221,7 @@ export const SEO: React.FC<SEOProps> = ({
         {
           "@type": "SiteNavigationElement",
           "position": 3,
-          "name": "Medical Divisions",
+          "name": "Clinical Divisions",
           "description": "Specialized Healthcare & Dental Departments",
           "url": `${siteUrl}/divisions`
         },
@@ -229,13 +229,13 @@ export const SEO: React.FC<SEOProps> = ({
           "@type": "SiteNavigationElement",
           "position": 4,
           "name": "Partners",
-          "description": "Dürr Dental & Global Medical Distributors",
+          "description": "Dürr Dental & Global Medical Manufacturers",
           "url": `${siteUrl}/alliances`
         },
         {
           "@type": "SiteNavigationElement",
           "position": 5,
-          "name": "Medical Insights",
+          "name": "Clinical Insights",
           "description": "Medical Technology Articles & Intelligence Briefings",
           "url": `${siteUrl}/intelligence`
         },

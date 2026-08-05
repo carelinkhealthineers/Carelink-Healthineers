@@ -4,7 +4,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, ChevronDown, LayoutGrid, Activity, ArrowRight, User, Shield, LogOut, Settings, Video } from 'lucide-react';
 import { supabase, performSignOut } from '../supabaseClient';
-import { getOrProvisionUserRole } from '../utils/authHelpers';
 import { Division } from '../types';
 
 const NAV_ITEMS = [
@@ -36,8 +35,12 @@ export const Navbar: React.FC = () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
           setUser(session.user);
-          const r = await getOrProvisionUserRole(session.user);
-          setRole(r);
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .maybeSingle();
+          setRole(profile?.role || (session.user.email === 'carelinkhealthineers@gmail.com' || session.user.email?.includes('admin') ? 'admin' : 'buyer'));
         } else {
           setUser(null);
           setRole(null);
@@ -53,8 +56,12 @@ export const Navbar: React.FC = () => {
       try {
         if (session) {
           setUser(session.user);
-          const r = await getOrProvisionUserRole(session.user);
-          setRole(r);
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .maybeSingle();
+          setRole(profile?.role || (session.user.email === 'carelinkhealthineers@gmail.com' || session.user.email?.includes('admin') ? 'admin' : 'buyer'));
         } else {
           setUser(null);
           setRole(null);
@@ -80,8 +87,6 @@ export const Navbar: React.FC = () => {
 
   const handleLogout = async () => {
     setShowUserMenu(false);
-    setUser(null);
-    setRole(null);
     await performSignOut();
   };
 

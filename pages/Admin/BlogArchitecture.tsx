@@ -266,14 +266,10 @@ export const BlogArchitecture: React.FC = () => {
                <div className="mt-auto flex gap-3 pt-6 border-t border-white/5">
                   <button onClick={() => toggleEditor(blog)} className="flex-1 py-4 bg-white/5 text-white border border-white/5 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all">Modify_Intel</button>
                   <button onClick={async () => { 
-                    if (confirm('Purge from Archive?')) { 
+                    if(confirm('Purge from Archive?')) { 
                       const { error } = await supabase.from('blogs').delete().eq('id', blog.id); 
-                      if (error) { 
-                        alert('Deletion failed: ' + error.message); 
-                      } else {
-                        alert('Briefing purged successfully from database!');
-                        fetchBlogs(); 
-                      }
+                      if (error) { alert('Deletion failed: ' + error.message); }
+                      fetchBlogs(); 
                     } 
                   }} className="p-4 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-2xl hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={16} /></button>
                </div>

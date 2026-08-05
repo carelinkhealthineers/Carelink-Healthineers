@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, Loader2, ArrowRight } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
-import { getOrProvisionUserRole } from '../../utils/authHelpers';
 import { SEO } from '../../components/SEO';
 import { motion } from 'framer-motion';
 
@@ -27,15 +26,13 @@ export const Login: React.FC = () => {
 
       if (authError) throw authError;
 
-      const userRole = await getOrProvisionUserRole(data.user);
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .maybeSingle();
 
-      try {
-        localStorage.setItem('carelink_admin_auth', JSON.stringify({
-          user: data.user,
-          role: userRole,
-          email: data.user.email
-        }));
-      } catch (e) {}
+      const userRole = profile?.role || (data.user.email === 'carelinkhealthineers@gmail.com' || data.user.email?.includes('admin') ? 'admin' : 'buyer');
 
       if (userRole === 'admin') {
         navigate('/command-nexus');

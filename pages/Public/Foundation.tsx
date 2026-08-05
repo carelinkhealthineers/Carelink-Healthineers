@@ -19,8 +19,8 @@ import { SEO } from '../../components/SEO';
 
 const PILLARS = [
   {
-    title: "Medical Integrity",
-    desc: "Every component we source is distributed to peak German precision standards in direct partnership with Dürr Dental.",
+    title: "Clinical Integrity",
+    desc: "Every component we source is manufactured to peak German precision standards in direct partnership with Dürr Dental.",
     icon: <ShieldCheck size={28} />,
     color: "blue"
   },
@@ -32,7 +32,7 @@ const PILLARS = [
   },
   {
     title: "Sustainable Innovation",
-    desc: "Focusing on hardware that isn't just advanced today, but upgradable for the medical needs of tomorrow.",
+    desc: "Focusing on hardware that isn't just advanced today, but upgradable for the clinical needs of tomorrow.",
     icon: <Zap size={28} />,
     color: "emerald"
   }
@@ -50,9 +50,9 @@ export const Foundation: React.FC = () => {
   return (
     <div className="bg-white pt-20 overflow-hidden">
       <SEO 
-        title="About Us | Carelink Healthineers & Dürr Dental Distributor" 
+        title="About Us | Carelink Healthineers & Dürr Dental Partner" 
         description="Learn about Carelink Healthineers — connecting healthcare providers with certified medical and dental equipment directly from top manufacturers." 
-        keywords={['about Carelink Healthineers', 'medical equipment sourcing company', 'Dürr Dental distributor', 'medical equipment company']}
+        keywords={['about Carelink Healthineers', 'medical equipment sourcing company', 'Dürr Dental partner', 'medical equipment company']}
       />
 
       {/* Hero Section */}
@@ -91,7 +91,7 @@ export const Foundation: React.FC = () => {
              viewport={{ once: true }}
            >
               <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-8 leading-tight">
-                Our Mission is to <span className="text-blue-600">Sovereignize</span> Local Medical Capabilities.
+                Our Mission is to <span className="text-blue-600">Sovereignize</span> Local Clinical Capabilities.
               </h2>
               <p className="text-lg text-gray-500 leading-relaxed font-medium mb-10">
                 We don't just sell equipment; we architect the backbone of hospitals. By integrating global sourcing intelligence with local logistical mastery, we empower healthcare providers to focus on what matters most: patient recovery.
@@ -102,7 +102,7 @@ export const Foundation: React.FC = () => {
                        <Target size={24} />
                     </div>
                     <h4 className="text-lg font-bold text-gray-900">Precision Focus</h4>
-                    <p className="text-sm text-gray-500 leading-relaxed">Dedicated units for every medical department from Radiology to CSSD.</p>
+                    <p className="text-sm text-gray-500 leading-relaxed">Dedicated units for every clinical department from Radiology to CSSD.</p>
                  </div>
                  <div className="space-y-4">
                     <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
@@ -212,7 +212,7 @@ export const Foundation: React.FC = () => {
                  </p>
                  <div className="space-y-4">
                     {[
-                      "Dürr Dental Authorized Distributor Systems",
+                      "Dürr Dental Authorized Manufacturer Systems",
                       "CE Medical Device Directive (MDD) Compliance",
                       "FDA Cleared Technology Pathways",
                       "Global Traceability & Ethical Sourcing Protocols"

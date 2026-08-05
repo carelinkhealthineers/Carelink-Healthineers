@@ -9,21 +9,13 @@ async function startServer() {
 
   app.use(express.json());
 
-  // CORS headers
-  app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    next();
-  });
-
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", service: "Carelink Healthineers API" });
   });
 
-  // LiveKit Token Minting Handler
-  const handleLiveKitToken = async (req: express.Request, res: express.Response) => {
-    res.setHeader("Content-Type", "application/json");
+  // LiveKit Token Minting Endpoint
+  app.all("/api/livekit/token", async (req, res) => {
     try {
       const room = (req.query.room || req.body?.room || "Clinical-Suite-Alpha") as string;
       const username = (req.query.username || req.body?.username || `Clinician_${Math.floor(Math.random() * 8999 + 1000)}`) as string;
@@ -57,16 +49,6 @@ async function startServer() {
       console.error("Error generating LiveKit token:", err);
       return res.status(500).json({ error: err.message || "Failed to generate LiveKit token" });
     }
-  };
-
-  app.all("/api/livekit/token", handleLiveKitToken);
-  app.all("/api/livekit-token", handleLiveKitToken);
-  app.all("/api/token", handleLiveKitToken);
-
-  // Catch-all 404 handler for API routes to avoid returning HTML fallback
-  app.use("/api/*all", (req, res) => {
-    res.setHeader("Content-Type", "application/json");
-    res.status(404).json({ error: "API endpoint not found", path: req.originalUrl });
   });
 
   // Vite middleware for development

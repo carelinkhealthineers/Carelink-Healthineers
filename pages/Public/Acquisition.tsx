@@ -203,7 +203,7 @@ export const Acquisition: React.FC = () => {
       <section className="py-24 bg-slate-50/50">
          <div className="max-w-[1400px] mx-auto px-6 md:px-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
             {[
-              { label: "Consultation", icon: <Sparkles size={24} />, desc: "We sit down to understand your facility’s precise medical requirements." },
+              { label: "Consultation", icon: <Sparkles size={24} />, desc: "We sit down to understand your facility’s precise clinical requirements." },
               { label: "Global Sourcing", icon: <Globe size={24} />, desc: "We procure directly from Tier-1 manufacturing partners worldwide." },
               { label: "Deployment", icon: <Box size={24} />, desc: "Enjoy seamless field installation and operational training." },
               { label: "Lifecycle Support", icon: <Zap size={24} />, desc: "Receive continuous technical monitoring and dedicated support." }

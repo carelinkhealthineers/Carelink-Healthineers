@@ -99,9 +99,7 @@ export const saveSettings = (settings: AdminMeetingSettings) => {
 export const getStoredMeetings = (): ExtendedMeeting[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_MEETINGS);
-    if (raw !== null) {
-      return JSON.parse(raw);
-    }
+    if (raw) return JSON.parse(raw);
   } catch (err) {
     console.warn('Failed to read stored meetings:', err);
   }
@@ -160,18 +158,6 @@ export const getStoredMeetings = (): ExtendedMeeting[] => {
 
 export const saveMeetings = (meetings: ExtendedMeeting[]) => {
   localStorage.setItem(STORAGE_KEY_MEETINGS, JSON.stringify(meetings));
-};
-
-export const deleteMeeting = (meetingId: string): ExtendedMeeting[] => {
-  const current = getStoredMeetings();
-  const updated = current.filter(m => m.id !== meetingId);
-  saveMeetings(updated);
-  return updated;
-};
-
-export const clearAllMeetings = (): ExtendedMeeting[] => {
-  saveMeetings([]);
-  return [];
 };
 
 export const toggleFavouriteMeeting = (meetingId: string): ExtendedMeeting[] => {

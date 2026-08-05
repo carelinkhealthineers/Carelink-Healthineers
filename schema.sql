@@ -45,12 +45,14 @@ BEGIN
     new.email, 
     COALESCE(new.raw_user_metadata->>'full_name', 'New Operator'), 
     CASE 
-      WHEN new.email IN ('orjon220@gmail.com', 'carelinkhealthineers@gmail.com') OR new.email LIKE '%admin%' THEN 'admin' 
+      WHEN new.email = 'orjon220@gmail.com' THEN 'admin' 
       ELSE 'buyer' 
     END
   );
   RETURN new;
 EXCEPTION WHEN OTHERS THEN
+  -- Log the error but don't fail the user creation if profile sync has a minor hitch
+  -- In production, we usually want this to succeed or fail the whole thing
   RETURN new;
 END;
 $$;
@@ -64,10 +66,10 @@ CREATE TRIGGER on_auth_user_created
 -- ==========================================
 -- ADMIN BOOTSTRAP MIGRATION
 -- ==========================================
--- Ensure existing admin users are promoted to admin
+-- Ensure existing user with this email is promoted to admin
 UPDATE public.profiles 
 SET role = 'admin' 
-WHERE email IN ('orjon220@gmail.com', 'carelinkhealthineers@gmail.com');
+WHERE email = 'orjon220@gmail.com';
 
 -- ==========================================
 -- BLOGS / EDITORIAL REGISTRY

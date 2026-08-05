@@ -18,26 +18,16 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
  */
 export const performSignOut = async () => {
   try {
-    await supabase.auth.signOut({ scope: 'global' });
+    await supabase.auth.signOut();
   } catch (err) {
     console.warn('Supabase auth.signOut notice:', err);
   } finally {
     try {
       localStorage.clear();
       sessionStorage.clear();
-      if (typeof window !== 'undefined' && window.localStorage) {
-        for (let i = window.localStorage.length - 1; i >= 0; i--) {
-          const key = window.localStorage.key(i);
-          if (key && (key.includes('sb-') || key.includes('supabase'))) {
-            window.localStorage.removeItem(key);
-          }
-        }
-      }
     } catch (e) {
       console.error('Storage clear notice:', e);
     }
-    // Hard reset location with hash route to login and reload browser context
-    window.location.hash = '#/login';
-    window.location.reload();
+    window.location.href = '/';
   }
 };

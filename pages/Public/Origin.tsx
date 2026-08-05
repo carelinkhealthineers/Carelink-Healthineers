@@ -25,7 +25,7 @@ const FALLBACK_PRODUCTS: Product[] = [
     model_number: "SIEMENS-ML-3T",
     slug: "magnetom-lumina-3t",
     short_description: "Deep-tissue diagnostic MRI scanner featuring BioMatrix patient personalization.",
-    long_description: "A premium medical 3 Tesla MRI scanner delivering exceptional diagnostic resolution, shorter scanning times, and direct HL7 system synchronization.",
+    long_description: "A premium clinical 3 Tesla MRI scanner delivering exceptional diagnostic resolution, shorter scanning times, and direct HL7 system synchronization.",
     main_image: "https://vrtipkxoldcqhtvznpok.supabase.co/storage/v1/object/public/products/uploads/Extron%207_921_5e39e.png",
     image_gallery: [],
     category_tag: "Imaging & Radiology",
@@ -36,7 +36,7 @@ const FALLBACK_PRODUCTS: Product[] = [
       "Personalization": "BioMatrix Sensors",
       "Power Grid": "380-480V 3-Phase",
       "Helium Boil-Off": "Zero Boil-Off Guarantee",
-      "Distributor": "Dürr Dental Partner"
+      "Manufacturer": "Dürr Dental Partner"
     },
     is_published: true,
     created_at: "2026-07-18"
@@ -80,7 +80,7 @@ const FALLBACK_PRODUCTS: Product[] = [
       "Active Cooling": "Bilateral Anode Oil Circulation",
       "Dosage Mode": "Pulse-Dose Radiation Reduction",
       "Laser Guide": "Dual Red Target Positioning",
-      "Support": "Direct Distributor Service"
+      "Support": "Direct Manufacturer Service"
     },
     is_published: true,
     created_at: "2026-07-18"
@@ -210,7 +210,7 @@ export const Origin: React.FC = () => {
           {/* Left Column: Sourcing Narrative & Fast CTAs */}
           <div className="xl:col-span-5 space-y-8 text-left">
             
-            {/* Featured Dürr Dental Distributor Trust badge */}
+            {/* Featured Dürr Dental Manufacturer Trust badge */}
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -219,7 +219,7 @@ export const Origin: React.FC = () => {
             >
               <img src="/durr-dental-logo.svg" alt="Dürr Dental Logo" className="h-4 w-auto object-contain" />
               <span className="w-px h-3.5 bg-slate-200" />
-              <span className="text-blue-600 font-extrabold tracking-wider">OFFICIAL DISTRIBUTOR</span>
+              <span className="text-blue-600 font-extrabold tracking-wider">OFFICIAL MANUFACTURER</span>
             </motion.div>
 
             {/* Powerful conversion headline */}
@@ -229,7 +229,7 @@ export const Origin: React.FC = () => {
               transition={{ duration: 0.8, delay: 0.1 }}
               className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-normal text-slate-900 tracking-tight leading-[1.08] font-serif-classical"
             >
-              Procure Medical <br />
+              Procure Clinical <br />
               Equipment. <span className="italic text-blue-600 font-serif-classical">Direct.</span>
             </motion.h1>
 
@@ -430,7 +430,7 @@ export const Origin: React.FC = () => {
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 tracking-tight">Direct Sourcing</h3>
                 <p className="text-slate-500 text-xs font-medium leading-relaxed">
-                  Carelink connects healthcare providers directly with certified distributor lines, optimizing delivery speed and supply security.
+                  Carelink connects healthcare providers directly with certified manufacturer lines, optimizing delivery speed and supply security.
                 </p>
               </div>
               <div className="pt-6 border-t border-slate-100 text-[10px] font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1.5 mt-6">
@@ -438,7 +438,7 @@ export const Origin: React.FC = () => {
               </div>
             </div>
 
-            {/* Bento Card 2: Dürr Dental Official Distributor */}
+            {/* Bento Card 2: Dürr Dental Official Manufacturer */}
             <div className="p-8 bg-white border border-blue-200/80 rounded-3xl flex flex-col justify-between shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -446,12 +446,12 @@ export const Origin: React.FC = () => {
                     <img src="/durr-dental-logo.svg" alt="Dürr Dental" className="h-6 w-auto object-contain" />
                   </div>
                   <span className="text-[9px] font-black bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full uppercase tracking-wider border border-blue-100">
-                    Official Distributor
+                    Official Manufacturer
                   </span>
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 tracking-tight">Dürr Dental Quality Standards</h3>
                 <p className="text-slate-500 text-xs font-medium leading-relaxed">
-                  Every asset is engineered, tested, and calibrated in direct partnership with Dürr Dental according to German precision medical standards before dispatch.
+                  Every asset is engineered, tested, and calibrated in direct partnership with Dürr Dental according to German precision clinical standards before dispatch.
                 </p>
               </div>
               <div className="pt-6 border-t border-slate-100 text-[10px] font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1.5 mt-6">
@@ -483,7 +483,7 @@ export const Origin: React.FC = () => {
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 tracking-tight">Q3 Delivery Dispatch</h3>
                 <p className="text-slate-500 text-xs font-medium leading-relaxed">
-                  Avoid long distributor waitlists. Carelink secures active production quotas, delivering assets to clinic doors under 30 days.
+                  Avoid long manufacturer waitlists. Carelink secures active production quotas, delivering assets to clinic doors under 30 days.
                 </p>
               </div>
               <div className="pt-6 border-t border-slate-100 text-[10px] font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1.5 mt-6">
@@ -541,11 +541,11 @@ export const Origin: React.FC = () => {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.5 }}
-                    className="group relative min-h-[490px] sm:min-h-[510px] h-auto bg-white border border-slate-200 rounded-[2.2rem] overflow-hidden hover:border-blue-500/20 shadow-sm hover:shadow-md flex flex-col justify-between transition-all duration-300"
+                    className="group relative h-[470px] bg-white border border-slate-200 rounded-[2.2rem] overflow-hidden hover:border-blue-500/20 shadow-sm hover:shadow-md flex flex-col justify-between transition-all duration-300"
                   >
                     {/* Visual box */}
                     <div className="p-3 pb-0">
-                      <div className="w-full h-48 sm:h-56 rounded-[1.8rem] overflow-hidden relative bg-slate-50 border border-slate-100 flex items-center justify-center">
+                      <div className="w-full h-56 rounded-[1.8rem] overflow-hidden relative bg-slate-50 border border-slate-100 flex items-center justify-center">
                         <img 
                           src={product.main_image} 
                           alt={product.name} 
@@ -559,12 +559,12 @@ export const Origin: React.FC = () => {
                     </div>
 
                     {/* Meta detail specifications */}
-                    <div className="px-5 sm:px-7 pb-6 space-y-4 flex-1 flex flex-col justify-between mt-3">
+                    <div className="px-8 pb-8 space-y-4 flex-1 flex flex-col justify-between mt-4">
                       <div className="space-y-1.5">
                         <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block">
                           {product.category_tag}
                         </span>
-                        <h3 className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight tracking-tight group-hover:text-blue-600 transition-colors">
+                        <h3 className="text-lg font-extrabold text-slate-900 leading-tight tracking-tight group-hover:text-blue-600 transition-colors">
                           {product.name.replace("Newelectrosurgical", "New Electrosurgical")}
                         </h3>
                       </div>
@@ -573,9 +573,9 @@ export const Origin: React.FC = () => {
                       <div className="space-y-1.5 bg-slate-50 border border-slate-150 p-3.5 rounded-xl text-[11px]">
                         {specEntries.length > 0 ? (
                           specEntries.map(([k, v], idx) => (
-                            <div key={idx} className="flex justify-between items-center gap-2">
-                              <span className="text-slate-400 font-semibold uppercase tracking-wider shrink-0">{k}</span>
-                              <span className="text-slate-800 font-bold font-mono text-right truncate max-w-[140px] sm:max-w-[160px]">{v}</span>
+                            <div key={idx} className="flex justify-between items-center">
+                              <span className="text-slate-400 font-semibold uppercase tracking-wider">{k}</span>
+                              <span className="text-slate-800 font-bold font-mono text-right truncate max-w-[130px]">{v}</span>
                             </div>
                           ))
                         ) : (
@@ -584,16 +584,16 @@ export const Origin: React.FC = () => {
                       </div>
 
                       {/* CTA Buttons */}
-                      <div className="flex gap-2.5 pt-2">
+                      <div className="flex gap-3 pt-2">
                         <Link 
                           to={`/acquisition?product=${encodeURIComponent(product.name)}`}
-                          className="flex-1 py-3 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] text-center uppercase tracking-widest rounded-xl shadow-sm transition-all flex items-center justify-center gap-1 shrink-0"
+                          className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] text-center uppercase tracking-widest rounded-lg shadow-sm transition-all flex items-center justify-center gap-1"
                         >
                           Buy/Inquire <ArrowUpRight size={12} />
                         </Link>
                         <Link 
                           to={`/portfolio/${product.slug}`}
-                          className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] text-center uppercase tracking-widest rounded-xl transition-all flex items-center justify-center shrink-0"
+                          className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] text-center uppercase tracking-widest rounded-lg transition-all"
                         >
                           Details
                         </Link>
@@ -624,13 +624,13 @@ export const Origin: React.FC = () => {
               <span className="italic text-blue-600 font-serif-classical">Procurement Plan</span>
             </h2>
             <p className="text-slate-500 text-base font-medium leading-relaxed font-sans max-w-md">
-              Complete this step-by-step custom order configuration, and our senior medical logistics engineers will compile a tailored, fully customized capital proposal in under 4 hours.
+              Complete this step-by-step custom order configuration, and our senior clinical logistics engineers will compile a tailored, fully customized capital proposal in under 4 hours.
             </p>
 
             <div className="space-y-4 pt-4">
               {[
-                { title: "Direct Distributor Negotiation", text: "We handle bilateral discussions to guarantee best-tier pricing structures." },
-                { title: "Custom Integration Assessment", text: "Ensuring HL7 synchronization match with existing medical infrastructures." }
+                { title: "Direct Manufacturer Negotiation", text: "We handle bilateral discussions to guarantee best-tier pricing structures." },
+                { title: "Custom Integration Assessment", text: "Ensuring HL7 synchronization match with existing clinical infrastructures." }
               ].map((item, i) => (
                 <div key={i} className="flex gap-4">
                   <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mt-1 shrink-0">
@@ -700,7 +700,7 @@ export const Origin: React.FC = () => {
                               <option value="Imaging & Radiology">Imaging &amp; Radiology (MRI, CT, X-Ray)</option>
                               <option value="ICU Care Systems">ICU Patient Monitoring Systems</option>
                               <option value="Surgical Infrastructure">Surgical Devices &amp; Theaters</option>
-                              <option value="Laboratory Diagnostics">Medical Lab &amp; Pathology Hub</option>
+                              <option value="Laboratory Diagnostics">Clinical Lab &amp; Pathology Hub</option>
                             </select>
                           </div>
                         </div>
@@ -818,7 +818,7 @@ export const Origin: React.FC = () => {
                               required 
                               type="email" 
                               className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 text-sm font-semibold text-slate-800 placeholder:text-slate-400"
-                              placeholder="Medical / Facility Email (e.g. carter@hospital.org)"
+                              placeholder="Clinical / Facility Email (e.g. carter@hospital.org)"
                               value={configData.contactEmail}
                               onChange={e => setConfigData({...configData, contactEmail: e.target.value})}
                             />
@@ -882,7 +882,7 @@ export const Origin: React.FC = () => {
                     <div className="space-y-2">
                       <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Configuration Submitted</h3>
                       <p className="text-sm text-slate-500 font-medium max-w-sm mx-auto leading-relaxed">
-                        Your medical infrastructure specs have been logged. A regional logistics manager is preparing your cost-optimized quote. Expect response inside 4 hours.
+                        Your clinical infrastructure specs have been logged. A regional logistics manager is preparing your cost-optimized quote. Expect response inside 4 hours.
                       </p>
                     </div>
                     <button 
@@ -901,7 +901,7 @@ export const Origin: React.FC = () => {
         </div>
       </section>
 
-      {/* 5. MEDICAL INSIGHTS & INTEL BRIEFINGS */}
+      {/* 5. CLINICAL INSIGHTS & INTEL BRIEFINGS */}
       {latestBlogs.length > 0 && (
         <section className="py-24 bg-white border-t border-slate-200/50 relative overflow-hidden">
           <div className="max-w-[1600px] mx-auto px-6 md:px-16">
@@ -913,7 +913,7 @@ export const Origin: React.FC = () => {
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">KNOWLEDGE BASE</span>
                 </div>
                 <h2 className="text-3xl md:text-5xl font-normal text-slate-900 tracking-tight leading-none font-serif-classical">
-                  Medical Insights <span className="italic text-blue-600 font-serif-classical">&amp; Updates</span>
+                  Clinical Insights <span className="italic text-blue-600 font-serif-classical">&amp; Updates</span>
                 </h2>
               </div>
               <Link to="/insights" className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-300 pb-1 hover:text-blue-600 hover:border-blue-600 transition-all flex items-center gap-2">
@@ -950,9 +950,9 @@ export const Origin: React.FC = () => {
       {/* 6. TRUST HARBINGER BAR */}
       <section className="py-12 bg-white border-t border-b border-slate-200">
         <div className="max-w-[1600px] mx-auto px-10 flex flex-wrap justify-center md:justify-between items-center gap-8 text-[11px] font-bold text-slate-500 uppercase tracking-widest">
-          <div className="flex items-center gap-2 text-slate-900"><img src="/durr-dental-logo.svg" alt="Dürr Dental" className="h-4 w-auto object-contain inline" /><span className="text-blue-600 font-extrabold ml-1">OFFICIAL DISTRIBUTOR NETWORK</span></div>
+          <div className="flex items-center gap-2 text-slate-900"><img src="/durr-dental-logo.svg" alt="Dürr Dental" className="h-4 w-auto object-contain inline" /><span className="text-blue-600 font-extrabold ml-1">OFFICIAL MANUFACTURER NETWORK</span></div>
           <div className="flex items-center gap-2"><Globe size={12} className="text-blue-600" /> INTERNATIONAL SUPPLY HUBS: ACTIVE</div>
-          <div className="flex items-center gap-2"><HeartPulse size={12} className="text-emerald-500 animate-pulse" /> VITAL MEDICAL SERVICES: SYSTEM OK</div>
+          <div className="flex items-center gap-2"><HeartPulse size={12} className="text-emerald-500 animate-pulse" /> VITAL CLINICAL SERVICES: SYSTEM OK</div>
           <div className="flex items-center gap-2"><Database size={12} className="text-indigo-600" /> PRODUCT REGISTRY: IN SYNC</div>
         </div>
       </section>
