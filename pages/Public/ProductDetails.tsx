@@ -55,13 +55,16 @@ export const ProductDetails: React.FC = () => {
     fetchFullSpecification();
   }, [productSlug]);
 
+  const hasCustomVideoUrl = Boolean(product?.video_url?.trim() || product?.technical_specs?._video_url?.trim());
   const isVideoEnabled = Boolean(
     product &&
-    product.show_video !== false &&
-    product.show_video !== 'false' &&
-    product.show_video !== 0 &&
-    product.show_video !== '0' &&
-    product.technical_specs?._show_video !== 'false'
+    (hasCustomVideoUrl || (
+      product.show_video !== false &&
+      product.show_video !== 'false' &&
+      product.show_video !== 0 &&
+      product.show_video !== '0' &&
+      product.technical_specs?._show_video !== 'false'
+    ))
   );
 
   const handleOpenVideo = () => {

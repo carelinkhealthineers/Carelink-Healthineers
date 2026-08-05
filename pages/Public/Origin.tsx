@@ -541,11 +541,11 @@ export const Origin: React.FC = () => {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.5 }}
-                    className="group relative h-[470px] bg-white border border-slate-200 rounded-[2.2rem] overflow-hidden hover:border-blue-500/20 shadow-sm hover:shadow-md flex flex-col justify-between transition-all duration-300"
+                    className="group relative min-h-[490px] sm:min-h-[510px] h-auto bg-white border border-slate-200 rounded-[2.2rem] overflow-hidden hover:border-blue-500/20 shadow-sm hover:shadow-md flex flex-col justify-between transition-all duration-300"
                   >
                     {/* Visual box */}
                     <div className="p-3 pb-0">
-                      <div className="w-full h-56 rounded-[1.8rem] overflow-hidden relative bg-slate-50 border border-slate-100 flex items-center justify-center">
+                      <div className="w-full h-48 sm:h-56 rounded-[1.8rem] overflow-hidden relative bg-slate-50 border border-slate-100 flex items-center justify-center">
                         <img 
                           src={product.main_image} 
                           alt={product.name} 
@@ -559,12 +559,12 @@ export const Origin: React.FC = () => {
                     </div>
 
                     {/* Meta detail specifications */}
-                    <div className="px-8 pb-8 space-y-4 flex-1 flex flex-col justify-between mt-4">
+                    <div className="px-5 sm:px-7 pb-6 space-y-4 flex-1 flex flex-col justify-between mt-3">
                       <div className="space-y-1.5">
                         <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block">
                           {product.category_tag}
                         </span>
-                        <h3 className="text-lg font-extrabold text-slate-900 leading-tight tracking-tight group-hover:text-blue-600 transition-colors">
+                        <h3 className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight tracking-tight group-hover:text-blue-600 transition-colors">
                           {product.name.replace("Newelectrosurgical", "New Electrosurgical")}
                         </h3>
                       </div>
@@ -573,9 +573,9 @@ export const Origin: React.FC = () => {
                       <div className="space-y-1.5 bg-slate-50 border border-slate-150 p-3.5 rounded-xl text-[11px]">
                         {specEntries.length > 0 ? (
                           specEntries.map(([k, v], idx) => (
-                            <div key={idx} className="flex justify-between items-center">
-                              <span className="text-slate-400 font-semibold uppercase tracking-wider">{k}</span>
-                              <span className="text-slate-800 font-bold font-mono text-right truncate max-w-[130px]">{v}</span>
+                            <div key={idx} className="flex justify-between items-center gap-2">
+                              <span className="text-slate-400 font-semibold uppercase tracking-wider shrink-0">{k}</span>
+                              <span className="text-slate-800 font-bold font-mono text-right truncate max-w-[140px] sm:max-w-[160px]">{v}</span>
                             </div>
                           ))
                         ) : (
@@ -584,16 +584,16 @@ export const Origin: React.FC = () => {
                       </div>
 
                       {/* CTA Buttons */}
-                      <div className="flex gap-3 pt-2">
+                      <div className="flex gap-2.5 pt-2">
                         <Link 
                           to={`/acquisition?product=${encodeURIComponent(product.name)}`}
-                          className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] text-center uppercase tracking-widest rounded-lg shadow-sm transition-all flex items-center justify-center gap-1"
+                          className="flex-1 py-3 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] text-center uppercase tracking-widest rounded-xl shadow-sm transition-all flex items-center justify-center gap-1 shrink-0"
                         >
                           Buy/Inquire <ArrowUpRight size={12} />
                         </Link>
                         <Link 
                           to={`/portfolio/${product.slug}`}
-                          className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] text-center uppercase tracking-widest rounded-lg transition-all"
+                          className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] text-center uppercase tracking-widest rounded-xl transition-all flex items-center justify-center shrink-0"
                         >
                           Details
                         </Link>
