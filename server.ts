@@ -17,8 +17,8 @@ async function startServer() {
   // LiveKit Token Minting Endpoint
   app.all("/api/livekit/token", async (req, res) => {
     try {
-      const room = (req.query.room || req.body?.room || "Clinical-Suite-Alpha") as string;
-      const username = (req.query.username || req.body?.username || `Clinician_${Math.floor(Math.random() * 8999 + 1000)}`) as string;
+      const room = (req.query.room || req.body?.room || "Medical-Suite-Alpha") as string;
+      const username = (req.query.username || req.body?.username || `Medical_${Math.floor(Math.random() * 8999 + 1000)}`) as string;
       const identity = (req.query.identity || req.body?.identity || username) as string;
 
       const apiKey = process.env.LIVEKIT_API_KEY || "APIPbw6RFXjhgF5";

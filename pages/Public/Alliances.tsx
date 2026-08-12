@@ -8,22 +8,23 @@ import {
 import { Link } from 'react-router-dom';
 import { SEO } from '../../components/SEO';
 
-const FEATURED_MANUFACTURERS = [
-  { name: "Siemens Healthineers", origin: "Germany", sector: "Imaging Systems", desc: "Pioneering breakthroughs in healthcare with advanced diagnostic and therapeutic imaging.", status: "Verified Manufacturer", icon: <Activity size={28}/>, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
-  { name: "GE Healthcare", origin: "USA", sector: "Radiology", desc: "Delivering transformational medical technologies and services that are shaping a new age of patient care.", status: "Verified Manufacturer", icon: <Layers size={28}/>, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" },
-  { name: "Philips Medical", origin: "Netherlands", sector: "Diagnostics", desc: "Meaningful innovations that improve people's health and well-being across the health continuum.", status: "Verified Manufacturer", icon: <Stethoscope size={28}/>, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
-  { name: "Mindray Global", origin: "China", sector: "Laboratory Hub", desc: "Advanced medical devices and solutions accessible to humanity, focusing on patient monitoring and IT.", status: "Verified Manufacturer", icon: <Microscope size={28}/>, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100" },
-  { name: "Roche Diagnostics", origin: "Switzerland", sector: "Pathology", desc: "World leader in in-vitro diagnostics and tissue-based cancer diagnostics.", status: "Verified Manufacturer", icon: <Target size={28}/>, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100" },
-  { name: "Medtronic Systems", origin: "Ireland", sector: "Surgical", desc: "Transforming the lives of two people every second with medical technology, services, and solutions.", status: "Verified Manufacturer", icon: <Database size={28}/>, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" }
+const FEATURED_DISTRIBUTORS = [
+  { name: "Dürr Dental", origin: "Germany", sector: "Dental & Imaging Systems", desc: "Premier German dental equipment distributor and official global distributor network partner.", status: "Verified Distributor", icon: <Activity size={28}/>, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
+  { name: "Siemens Healthineers", origin: "Germany", sector: "Imaging Systems", desc: "Pioneering breakthroughs in healthcare with advanced diagnostic and therapeutic imaging.", status: "Verified Distributor", icon: <Activity size={28}/>, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
+  { name: "GE Healthcare", origin: "USA", sector: "Radiology", desc: "Delivering transformational medical technologies and services that are shaping a new age of patient care.", status: "Verified Distributor", icon: <Layers size={28}/>, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" },
+  { name: "Philips Medical", origin: "Netherlands", sector: "Diagnostics", desc: "Meaningful innovations that improve people's health and well-being across the health continuum.", status: "Verified Distributor", icon: <Stethoscope size={28}/>, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
+  { name: "Mindray Global", origin: "China", sector: "Laboratory Hub", desc: "Advanced medical devices and solutions accessible to humanity, focusing on patient monitoring and IT.", status: "Verified Distributor", icon: <Microscope size={28}/>, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100" },
+  { name: "Roche Diagnostics", origin: "Switzerland", sector: "Pathology", desc: "World leader in in-vitro diagnostics and tissue-based cancer diagnostics.", status: "Verified Distributor", icon: <Target size={28}/>, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100" },
+  { name: "Medtronic Systems", origin: "Ireland", sector: "Surgical", desc: "Transforming the lives of two people every second with medical technology, services, and solutions.", status: "Verified Distributor", icon: <Database size={28}/>, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" }
 ];
 
 export const Alliances: React.FC = () => {
   return (
     <div className="pt-24 bg-white text-slate-800 overflow-hidden min-h-screen font-sans selection:bg-blue-600">
       <SEO 
-        title="Our Partners | Global Manufacturers & Dürr Dental" 
-        description="Explore Carelink Healthineers' direct partnerships with world-leading medical and dental manufacturers including Dürr Dental, Siemens, GE, and Philips."
-        keywords={['medical partners', 'Dürr Dental partner', 'medical equipment manufacturers', 'Siemens Healthineers', 'GE Healthcare']}
+        title="Our Partners | Global Distributors & Dürr Dental" 
+        description="Explore Carelink Healthineers' direct partnerships with world-leading medical and dental distributors including Dürr Dental, Siemens, GE, and Philips."
+        keywords={['medical partners', 'Dürr Dental distributor', 'medical equipment distributors', 'Siemens Healthineers', 'GE Healthcare']}
       />
 
       {/* 1. HERO SECTION - Classical Light Theme */}
@@ -52,7 +53,7 @@ export const Alliances: React.FC = () => {
              </h1>
              
              <p className="text-lg md:text-xl text-slate-500 font-medium leading-relaxed max-w-2xl mx-auto mb-10">
-               We partner directly with leading tier-1 medical manufacturers around the globe to bring exceptional clinical equipment to healthcare facilities.
+               We partner directly with leading tier-1 medical distributors around the globe to bring exceptional medical equipment to healthcare facilities.
              </p>
              
              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -67,11 +68,11 @@ export const Alliances: React.FC = () => {
         </div>
       </section>
 
-      {/* 2. MANUFACTURERS GRID - Light Classical Design */}
+      {/* 2. DISTRIBUTORS GRID - Light Classical Design */}
       <section className="py-24 bg-slate-50 border-b border-slate-200/50">
         <div className="max-w-[1400px] mx-auto px-6 md:px-12">
           <header className="text-center mb-16 space-y-4">
-             <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">TRUSTED MANUFACTURERS</span>
+             <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">TRUSTED DISTRIBUTORS</span>
              <h2 className="text-3xl md:text-5xl font-normal text-slate-900 tracking-tight font-serif-classical">
                Featured Partners
              </h2>
@@ -81,7 +82,7 @@ export const Alliances: React.FC = () => {
           </header>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-             {FEATURED_MANUFACTURERS.map((node, i) => (
+             {FEATURED_DISTRIBUTORS.map((node, i) => (
                <motion.div 
                  key={i} 
                  whileHover={{ y: -6 }}
@@ -131,11 +132,11 @@ export const Alliances: React.FC = () => {
             {[...Array(12)].map((_, i) => (
               <div key={i} className="flex items-center mx-8 shrink-0">
                  <span className="text-xs font-bold text-slate-700 tracking-wider">
-                   {FEATURED_MANUFACTURERS[i % 6].name}
+                   {FEATURED_DISTRIBUTORS[i % 7].name}
                  </span>
                  <span className="mx-8 text-slate-300">•</span>
                  <span className="text-xs font-semibold text-blue-600 uppercase tracking-wider">
-                   {FEATURED_MANUFACTURERS[i % 6].sector}
+                   {FEATURED_DISTRIBUTORS[i % 7].sector}
                  </span>
                  <span className="mx-8 text-slate-300">•</span>
               </div>
@@ -153,16 +154,16 @@ export const Alliances: React.FC = () => {
                     <span className="text-[10px] font-bold uppercase tracking-widest">THE CARELINK ADVANTAGE</span>
                  </div>
                  <h2 className="text-4xl md:text-5xl font-normal text-slate-900 tracking-tight leading-tight font-serif-classical">
-                    Making clinical procurement <br /> 
+                    Making medical procurement <br /> 
                     <span className="text-blue-600 italic font-serif-classical">beautifully simple.</span>
                  </h2>
               </div>
               
               <div className="space-y-6">
                  {[
-                   { title: "Direct Sourcing Pathways", desc: "We eliminate procurement intermediaries. Ship direct from certified factory production lines, maximizing your capital budget efficiency.", icon: <Link2 size={22}/> },
-                   { title: "Rigorous Technical Compliance", desc: "Every clinical asset is produced by Dürr Dental and thoroughly vetted to conform with top clinical standards.", icon: <ShieldCheck size={22}/> },
-                   { title: "Sovereign Engineering Support", desc: "Our certified medical technicians assemble, test, and provide personal training directly at your clinical facility.", icon: <Activity size={22}/> }
+                   { title: "Direct Sourcing Pathways", desc: "We eliminate procurement intermediaries. Ship direct from certified distributor networks, maximizing your capital budget efficiency.", icon: <Link2 size={22}/> },
+                   { title: "Rigorous Technical Compliance", desc: "Every medical asset is distributed by Dürr Dental and thoroughly vetted to conform with top medical standards.", icon: <ShieldCheck size={22}/> },
+                   { title: "Sovereign Engineering Support", desc: "Our certified medical technicians assemble, test, and provide personal training directly at your medical facility.", icon: <Activity size={22}/> }
                  ].map((item, i) => (
                    <div key={i} className="flex gap-6 p-6 rounded-[2rem] bg-slate-50 border border-slate-200/80 hover:bg-slate-100/50 transition-all group">
                        <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">

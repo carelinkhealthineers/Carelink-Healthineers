@@ -36,7 +36,7 @@ const FALLBACK_PRODUCTS: Product[] = [
       "Personalization": "BioMatrix Sensors",
       "Power Grid": "380-480V 3-Phase",
       "Helium Boil-Off": "Zero Boil-Off Guarantee",
-      "Manufacturer": "Dürr Dental Partner"
+      "Distributor": "Dürr Dental Partner"
     },
     is_published: true,
     created_at: "2026-07-18"
@@ -80,7 +80,7 @@ const FALLBACK_PRODUCTS: Product[] = [
       "Active Cooling": "Bilateral Anode Oil Circulation",
       "Dosage Mode": "Pulse-Dose Radiation Reduction",
       "Laser Guide": "Dual Red Target Positioning",
-      "Support": "Direct Manufacturer Service"
+      "Support": "Direct Distributor Service"
     },
     is_published: true,
     created_at: "2026-07-18"
@@ -210,7 +210,7 @@ export const Origin: React.FC = () => {
           {/* Left Column: Sourcing Narrative & Fast CTAs */}
           <div className="xl:col-span-5 space-y-8 text-left">
             
-            {/* Featured Dürr Dental Manufacturer Trust badge */}
+            {/* Featured Dürr Dental Distributor Trust badge */}
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -219,7 +219,7 @@ export const Origin: React.FC = () => {
             >
               <img src="/durr-dental-logo.svg" alt="Dürr Dental Logo" className="h-4 w-auto object-contain" />
               <span className="w-px h-3.5 bg-slate-200" />
-              <span className="text-blue-600 font-extrabold tracking-wider">OFFICIAL MANUFACTURER</span>
+              <span className="text-blue-600 font-extrabold tracking-wider">OFFICIAL DISTRIBUTOR</span>
             </motion.div>
 
             {/* Powerful conversion headline */}
@@ -430,7 +430,7 @@ export const Origin: React.FC = () => {
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 tracking-tight">Direct Sourcing</h3>
                 <p className="text-slate-500 text-xs font-medium leading-relaxed">
-                  Carelink connects healthcare providers directly with certified manufacturer lines, optimizing delivery speed and supply security.
+                  Carelink connects healthcare providers directly with certified distributor lines, optimizing delivery speed and supply security.
                 </p>
               </div>
               <div className="pt-6 border-t border-slate-100 text-[10px] font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1.5 mt-6">
@@ -438,7 +438,7 @@ export const Origin: React.FC = () => {
               </div>
             </div>
 
-            {/* Bento Card 2: Dürr Dental Official Manufacturer */}
+            {/* Bento Card 2: Dürr Dental Official Distributor */}
             <div className="p-8 bg-white border border-blue-200/80 rounded-3xl flex flex-col justify-between shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -446,7 +446,7 @@ export const Origin: React.FC = () => {
                     <img src="/durr-dental-logo.svg" alt="Dürr Dental" className="h-6 w-auto object-contain" />
                   </div>
                   <span className="text-[9px] font-black bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full uppercase tracking-wider border border-blue-100">
-                    Official Manufacturer
+                    Official Distributor
                   </span>
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 tracking-tight">Dürr Dental Quality Standards</h3>
@@ -483,7 +483,7 @@ export const Origin: React.FC = () => {
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 tracking-tight">Q3 Delivery Dispatch</h3>
                 <p className="text-slate-500 text-xs font-medium leading-relaxed">
-                  Avoid long manufacturer waitlists. Carelink secures active production quotas, delivering assets to clinic doors under 30 days.
+                  Avoid long distributor waitlists. Carelink secures active production quotas, delivering assets to clinic doors under 30 days.
                 </p>
               </div>
               <div className="pt-6 border-t border-slate-100 text-[10px] font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1.5 mt-6">
@@ -629,7 +629,7 @@ export const Origin: React.FC = () => {
 
             <div className="space-y-4 pt-4">
               {[
-                { title: "Direct Manufacturer Negotiation", text: "We handle bilateral discussions to guarantee best-tier pricing structures." },
+                { title: "Direct Distributor Negotiation", text: "We handle bilateral discussions to guarantee best-tier pricing structures." },
                 { title: "Custom Integration Assessment", text: "Ensuring HL7 synchronization match with existing clinical infrastructures." }
               ].map((item, i) => (
                 <div key={i} className="flex gap-4">
@@ -950,9 +950,9 @@ export const Origin: React.FC = () => {
       {/* 6. TRUST HARBINGER BAR */}
       <section className="py-12 bg-white border-t border-b border-slate-200">
         <div className="max-w-[1600px] mx-auto px-10 flex flex-wrap justify-center md:justify-between items-center gap-8 text-[11px] font-bold text-slate-500 uppercase tracking-widest">
-          <div className="flex items-center gap-2 text-slate-900"><img src="/durr-dental-logo.svg" alt="Dürr Dental" className="h-4 w-auto object-contain inline" /><span className="text-blue-600 font-extrabold ml-1">OFFICIAL MANUFACTURER NETWORK</span></div>
+          <div className="flex items-center gap-2 text-slate-900"><img src="/durr-dental-logo.svg" alt="Dürr Dental" className="h-4 w-auto object-contain inline" /><span className="text-blue-600 font-extrabold ml-1">OFFICIAL DISTRIBUTOR NETWORK</span></div>
           <div className="flex items-center gap-2"><Globe size={12} className="text-blue-600" /> INTERNATIONAL SUPPLY HUBS: ACTIVE</div>
-          <div className="flex items-center gap-2"><HeartPulse size={12} className="text-emerald-500 animate-pulse" /> VITAL CLINICAL SERVICES: SYSTEM OK</div>
+          <div className="flex items-center gap-2"><HeartPulse size={12} className="text-emerald-500 animate-pulse" /> VITAL MEDICAL SERVICES: SYSTEM OK</div>
           <div className="flex items-center gap-2"><Database size={12} className="text-indigo-600" /> PRODUCT REGISTRY: IN SYNC</div>
         </div>
       </section>

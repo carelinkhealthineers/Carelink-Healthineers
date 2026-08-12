@@ -142,7 +142,7 @@ export const ProductDetails: React.FC = () => {
         description={product.short_description} 
         image={product.main_image}
         type="product"
-        keywords={[product.name, product.model_number, product.category_tag, 'medical equipment', 'clinical asset']}
+        keywords={[product.name, product.model_number, product.category_tag, 'medical equipment', 'medical asset']}
         jsonLd={productSchema}
       />
       
@@ -221,7 +221,7 @@ export const ProductDetails: React.FC = () => {
                    { label: "Model Number", val: product.model_number },
                    { label: "Category", val: product.category_tag },
                    { label: "Support", val: "Direct Factory Support" },
-                   { label: "Manufacturer", val: "Dürr Dental Authorized" }
+                   { label: "Distributor", val: "Dürr Dental Authorized" }
                  ].map((stat, i) => (
                     <div key={i} className="flex items-center justify-between p-5 hover:bg-slate-100/40 transition-colors">
                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{stat.label}</span>
@@ -404,7 +404,7 @@ export const ProductDetails: React.FC = () => {
                           </div>
                           <div>
                              <h4 className="text-sm font-bold text-slate-800 uppercase tracking-tight">Official Dürr Dental Partner</h4>
-                             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Direct Certified Manufacturer Standards</p>
+                             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Direct Certified Distributor Standards</p>
                           </div>
                        </div>
                        <CheckCircle2 size={24} className="text-emerald-500" />

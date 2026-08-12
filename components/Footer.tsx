@@ -24,7 +24,7 @@ const SECTIONS = [
     links: [
       { label: "Product Portfolio", path: "/portfolio" },
       { label: "Medical Divisions", path: "/divisions" },
-      { label: "Clinical Insights & Blog", path: "/insights" },
+      { label: "Medical Insights & Blog", path: "/insights" },
       { label: "Global Alliances", path: "/alliances" },
       { label: "Request a Quote", path: "/acquisition" },
       { label: "Medical AI Solutions", path: "/intelligence" },
@@ -34,7 +34,6 @@ const SECTIONS = [
     title: "Quality & Corporate",
     links: [
       { label: "Certified Standards", path: "/foundation" },
-      { label: "Enterprise Client Portal", path: "/interface" },
       { label: "Procurement Workflow", path: "/acquisition" },
       { label: "Technical Assistance", path: "/alliances" },
     ]
@@ -98,7 +97,7 @@ export const Footer: React.FC = () => {
               </div>
             </Link>
             <p className="text-slate-400 font-medium leading-relaxed max-w-sm text-sm">
-              The premier B2B medical equipment procurement standard. Connecting healthcare networks with direct factory pricing and certified clinical equipment.
+              The premier B2B medical equipment procurement standard. Connecting healthcare networks with direct factory pricing and certified medical equipment.
             </p>
             <div className="flex gap-3 pt-1">
               {SOCIAL_LINKS.map((social, i) => (
@@ -162,7 +161,7 @@ export const Footer: React.FC = () => {
            <div className="flex flex-wrap items-center gap-6 md:gap-10">
               <div className="flex items-center gap-2 text-white font-bold bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700 shadow-sm">
                 <img src="/durr-dental-logo-white.svg" alt="Dürr Dental Logo" className="h-4 w-auto object-contain" />
-                <span className="text-blue-400 font-extrabold text-[10px] tracking-widest ml-1">OFFICIAL MANUFACTURER</span>
+                <span className="text-blue-400 font-extrabold text-[10px] tracking-widest ml-1">OFFICIAL DISTRIBUTOR</span>
               </div>
               <div className="flex items-center gap-2">
                 <Globe size={12} className="text-blue-400" /> DIRECT FACTORY SOURCING

@@ -26,15 +26,15 @@ const INTELLIGENCE_FEATURES = [
     bg: "bg-indigo-500/10"
   },
   {
-    title: "Clinical System Sync",
-    desc: "Seamless HL7/FHIR data synchronization across disparate clinical hardware and EMR systems.",
+    title: "Medical System Sync",
+    desc: "Seamless HL7/FHIR data synchronization across disparate medical hardware and EMR systems.",
     icon: <Layers size={24} />,
     color: "text-emerald-500",
     bg: "bg-emerald-500/10"
   },
   {
     title: "Compliance & Security",
-    desc: "End-to-end encrypted medical data pipelines meeting HIPAA, GDPR, and global clinical standards.",
+    desc: "End-to-end encrypted medical data pipelines meeting HIPAA, GDPR, and global medical standards.",
     icon: <ShieldAlert size={24} />,
     color: "text-rose-500",
     bg: "bg-rose-500/10"
@@ -45,8 +45,8 @@ export const Intelligence: React.FC = () => {
   return (
     <div className="bg-white text-slate-800 pt-20 overflow-hidden min-h-screen">
       <SEO 
-        title="Clinical Intelligence" 
-        description="Carelink Intelligence: Convergence of clinical data, AI diagnostics, and high-performance healthcare analytics." 
+        title="Medical Intelligence" 
+        description="Carelink Intelligence: Convergence of medical data, AI diagnostics, and high-performance healthcare analytics." 
       />
 
       {/* Hero Section */}
@@ -65,15 +65,15 @@ export const Intelligence: React.FC = () => {
               <Zap size={12} className="animate-pulse" /> Intelligent Medical Systems
             </div>
             <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-normal leading-[1] tracking-tight mb-8 text-slate-900 font-serif-classical">
-              Clinical <br />
+              Medical <br />
               <span className="italic text-blue-600 font-serif-classical">Intelligence</span>
             </h1>
             <p className="text-base sm:text-lg md:text-xl text-slate-500 font-medium max-w-2xl mx-auto leading-relaxed mb-12 font-sans">
               Powering modern healthcare infrastructure with certified predictive diagnostics, equipment efficiency analytics, and secure data sync protocols.
             </p>
             <div className="flex flex-wrap justify-center gap-6">
-              <Link to="/interface" className="px-10 py-5 rounded-2xl bg-blue-600 text-white font-black hover:bg-blue-700 transition-all shadow-md flex items-center gap-3">
-                Deploy Interface <ArrowRight size={20} />
+              <Link to="/acquisition" className="px-10 py-5 rounded-2xl bg-blue-600 text-white font-black hover:bg-blue-700 transition-all shadow-md flex items-center gap-3">
+                Request Consultation <ArrowRight size={20} />
               </Link>
               <button className="px-10 py-5 rounded-2xl bg-slate-50 border border-slate-200 text-slate-700 font-black hover:bg-slate-100 transition-all">
                 Request Data Audit
@@ -171,7 +171,7 @@ export const Intelligence: React.FC = () => {
            <Globe size={120} className="mx-auto text-blue-600 mb-12 animate-pulse" />
            <h2 className="text-5xl font-black mb-8 text-slate-900">Decentralized Intelligence Network</h2>
            <p className="text-slate-500 text-lg mb-16 max-w-2xl mx-auto">
-             Carelink's intelligence framework operates across 40+ global data nodes, ensuring low-latency clinical insights regardless of geographic site placement.
+             Carelink's intelligence framework operates across 40+ global data nodes, ensuring low-latency medical insights regardless of geographic site placement.
            </p>
            
            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -185,7 +185,7 @@ export const Intelligence: React.FC = () => {
               </div>
               <div className="p-8 rounded-3xl bg-slate-50 border border-slate-200 text-center shadow-sm">
                  <div className="text-4xl font-black text-slate-900 mb-2">Petabytes</div>
-                 <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Clinical Assets</div>
+                 <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Medical Assets</div>
               </div>
            </div>
         </div>
@@ -201,7 +201,7 @@ export const Intelligence: React.FC = () => {
               <div className="relative z-10">
                  <h2 className="text-5xl md:text-7xl font-black mb-8 leading-tight">Architect Your <br /> Intelligence Strategy.</h2>
                  <p className="text-blue-50 text-xl mb-12 max-w-xl mx-auto font-medium">
-                    Consult with our clinical data scientists to implement high-performance diagnostics in your facility.
+                    Consult with our medical data scientists to implement high-performance diagnostics in your facility.
                  </p>
                  <div className="flex flex-wrap justify-center gap-6">
                     <button className="px-12 py-6 rounded-full bg-white text-blue-600 font-black text-lg shadow-md hover:scale-105 transition-all">

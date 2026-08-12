@@ -19,20 +19,20 @@ import { SEO } from '../../components/SEO';
 
 const PILLARS = [
   {
-    title: "Clinical Integrity",
+    title: "Medical Integrity",
     desc: "Every component we source is manufactured to peak German precision standards in direct partnership with Dürr Dental.",
     icon: <ShieldCheck size={28} />,
     color: "blue"
   },
   {
     title: "Global Synergy",
-    desc: "Bridging the gap between world-class manufacturers and local healthcare providers through strategic alliances.",
+    desc: "Bridging the gap between world-class distributors and local healthcare providers through strategic alliances.",
     icon: <Compass size={28} />,
     color: "indigo"
   },
   {
     title: "Sustainable Innovation",
-    desc: "Focusing on hardware that isn't just advanced today, but upgradable for the clinical needs of tomorrow.",
+    desc: "Focusing on hardware that isn't just advanced today, but upgradable for the medical needs of tomorrow.",
     icon: <Zap size={28} />,
     color: "emerald"
   }
@@ -41,7 +41,7 @@ const PILLARS = [
 const TIMELINE = [
   { year: "1998", event: "Foundation of Carelink Infrastructure in a localized distribution hub." },
   { year: "2005", event: "Expansion into Radiological Imaging and specialized pathology logistics." },
-  { year: "2012", event: "Inauguration of the Global Strategic Alliance network with Tier 1 manufacturers." },
+  { year: "2012", event: "Inauguration of the Global Strategic Alliance network with Tier 1 distributors." },
   { year: "2018", event: "Launch of the Intelligence Layer for AI-driven diagnostic telemetry." },
   { year: "2024", event: "Deployment of Command Nexus: The world's most transparent B2B medical sourcing matrix." }
 ];
@@ -51,7 +51,7 @@ export const Foundation: React.FC = () => {
     <div className="bg-white pt-20 overflow-hidden">
       <SEO 
         title="About Us | Carelink Healthineers & Dürr Dental Partner" 
-        description="Learn about Carelink Healthineers — connecting healthcare providers with certified medical and dental equipment directly from top manufacturers." 
+        description="Learn about Carelink Healthineers — connecting healthcare providers with certified medical and dental equipment directly from top distributors." 
         keywords={['about Carelink Healthineers', 'medical equipment sourcing company', 'Dürr Dental partner', 'medical equipment company']}
       />
 
@@ -91,7 +91,7 @@ export const Foundation: React.FC = () => {
              viewport={{ once: true }}
            >
               <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-8 leading-tight">
-                Our Mission is to <span className="text-blue-600">Sovereignize</span> Local Clinical Capabilities.
+                Our Mission is to <span className="text-blue-600">Sovereignize</span> Local Medical Capabilities.
               </h2>
               <p className="text-lg text-gray-500 leading-relaxed font-medium mb-10">
                 We don't just sell equipment; we architect the backbone of hospitals. By integrating global sourcing intelligence with local logistical mastery, we empower healthcare providers to focus on what matters most: patient recovery.
@@ -102,14 +102,14 @@ export const Foundation: React.FC = () => {
                        <Target size={24} />
                     </div>
                     <h4 className="text-lg font-bold text-gray-900">Precision Focus</h4>
-                    <p className="text-sm text-gray-500 leading-relaxed">Dedicated units for every clinical department from Radiology to CSSD.</p>
+                    <p className="text-sm text-gray-500 leading-relaxed">Dedicated units for every medical department from Radiology to CSSD.</p>
                  </div>
                  <div className="space-y-4">
                     <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
                        <Scale size={24} />
                     </div>
                     <h4 className="text-lg font-bold text-gray-900">Ethical Sourcing</h4>
-                    <p className="text-sm text-gray-500 leading-relaxed">Strict adherence to transparency and fair clinical infrastructure distribution.</p>
+                    <p className="text-sm text-gray-500 leading-relaxed">Strict adherence to transparency and fair medical infrastructure distribution.</p>
                  </div>
               </div>
            </motion.div>
@@ -125,7 +125,7 @@ export const Foundation: React.FC = () => {
               </div>
               <div className="absolute -bottom-10 -right-10 p-12 bg-white rounded-[3rem] shadow-2xl border border-gray-100 max-w-xs">
                  <Award className="text-blue-600 mb-4" size={40} />
-                 <p className="text-sm font-bold text-gray-900 italic">"Excellence is not an act, but a habit of clinical precision."</p>
+                 <p className="text-sm font-bold text-gray-900 italic">"Excellence is not an act, but a habit of medical precision."</p>
                  <div className="mt-4 pt-4 border-t border-gray-100">
                     <div className="font-black text-xs text-gray-400 uppercase tracking-widest">Leadership Vision</div>
                  </div>
@@ -138,7 +138,7 @@ export const Foundation: React.FC = () => {
       <section className="py-40 bg-gray-900 text-white relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 relative z-10">
            <header className="text-center mb-24">
-              <h2 className="text-4xl md:text-5xl font-black mb-6">Core Clinical Pillars</h2>
+              <h2 className="text-4xl md:text-5xl font-black mb-6">Core Medical Pillars</h2>
               <p className="text-gray-400 text-lg max-w-2xl mx-auto">The fundamental principles that govern every acquisition, alliance, and deployment.</p>
            </header>
            
@@ -208,11 +208,11 @@ export const Foundation: React.FC = () => {
               <div className="max-w-xl">
                  <h2 className="text-4xl font-black text-gray-900 mb-8">Uncompromising <br /><span className="text-blue-600">Compliance Matrix.</span></h2>
                  <p className="text-gray-500 leading-relaxed mb-10 font-medium">
-                   Foundation of our trust is built on rigorous certification cycles. Every alliance partner and hardware unit in our matrix is audited for absolute clinical safety.
+                   Foundation of our trust is built on rigorous certification cycles. Every alliance partner and hardware unit in our matrix is audited for absolute medical safety.
                  </p>
                  <div className="space-y-4">
                     {[
-                      "Dürr Dental Authorized Manufacturer Systems",
+                      "Dürr Dental Authorized Distributor Systems",
                       "CE Medical Device Directive (MDD) Compliance",
                       "FDA Cleared Technology Pathways",
                       "Global Traceability & Ethical Sourcing Protocols"
@@ -233,7 +233,7 @@ export const Foundation: React.FC = () => {
                  <div className="p-10 bg-white rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center text-center">
                     <Users size={40} className="text-indigo-600 mb-4" />
                     <div className="text-2xl font-black">1.2k+</div>
-                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Clinical Users</div>
+                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Medical Users</div>
                  </div>
                  <div className="col-span-2 p-10 bg-gray-900 text-white rounded-3xl shadow-xl flex items-center justify-between">
                     <div>

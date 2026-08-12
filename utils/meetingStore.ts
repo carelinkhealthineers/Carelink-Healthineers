@@ -136,7 +136,7 @@ export const getStoredMeetings = (): ExtendedMeeting[] => {
     },
     {
       id: 'mtg-2',
-      room_id: 'Clinical-Suite-Executive-Alpha',
+      room_id: 'Medical-Suite-Executive-Alpha',
       title: 'Hospital Executive B2B Equipment Briefing',
       host_name: 'Director Elena Rostova',
       client_name: 'Carelink Healthineers Board',
