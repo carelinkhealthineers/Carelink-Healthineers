@@ -9,8 +9,8 @@ import { Division } from '../types';
 const NAV_ITEMS = [
   { label: 'Home', path: '/' },
   { label: 'Products', path: '/portfolio' },
+  { label: 'Corporate', path: '/foundation' },
   { label: 'Partners', path: '/alliances' },
-  { label: 'AI', path: '/intelligence' },
   { label: 'Quote', path: '/acquisition' },
 ];
 

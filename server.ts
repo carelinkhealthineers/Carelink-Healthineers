@@ -7,6 +7,7 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json());
+  app.use("/src/assets", express.static(path.join(process.cwd(), "src/assets")));
 
   // Health check
   app.get("/api/health", (req, res) => {
