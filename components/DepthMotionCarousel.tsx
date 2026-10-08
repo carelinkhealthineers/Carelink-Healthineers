@@ -7,7 +7,7 @@ import {
   ArrowRight,
   Hexagon
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Product } from '../types';
 
 interface DepthMotionCarouselProps {
@@ -15,6 +15,7 @@ interface DepthMotionCarouselProps {
 }
 
 export const DepthMotionCarousel: React.FC<DepthMotionCarouselProps> = ({ products }) => {
+  const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState('All');
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -135,7 +136,7 @@ export const DepthMotionCarousel: React.FC<DepthMotionCarouselProps> = ({ produc
         {/* Single White Corporate 3D Depth Carousel Stage */}
         <div className="relative rounded-[2.5rem] bg-slate-50/70 border border-slate-200/90 shadow-[0_20px_60px_-15px_rgba(15,23,42,0.06)] px-4 sm:px-10 md:px-14 py-10 md:py-14 overflow-hidden">
           {/* Active Product Name Above Center Card */}
-          <div className="text-center mb-8 min-h-[56px] flex flex-col items-center justify-center">
+          <div className="text-center mb-8 min-h-[56px] max-w-2xl mx-auto px-4 flex flex-col items-center justify-center">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeProduct.id}
@@ -143,14 +144,17 @@ export const DepthMotionCarousel: React.FC<DepthMotionCarouselProps> = ({ produc
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.2 }}
-                className="space-y-1"
+                className="space-y-1.5"
               >
                 <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block">
                   {activeProduct.category_tag} · {activeProduct.model_number}
                 </span>
-                <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
+                <Link
+                  to={`/portfolio/${activeProduct.slug}`}
+                  className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 hover:text-blue-600 transition-colors tracking-tight leading-snug block"
+                >
                   {formatName(activeProduct.name)}
-                </h3>
+                </Link>
               </motion.div>
             </AnimatePresence>
           </div>
@@ -178,7 +182,7 @@ export const DepthMotionCarousel: React.FC<DepthMotionCarouselProps> = ({ produc
             {/* Real Product Cards */}
             <div className="flex items-center justify-center gap-3 sm:gap-5 md:gap-7 w-full max-w-[1260px] mx-auto px-10 sm:px-14">
               {offsets.map((offset) => {
-                const { product, index } = getProductAtOffset(offset);
+                const { product } = getProductAtOffset(offset);
                 const isCenter = offset === 0;
                 const isAdjacent = Math.abs(offset) === 1;
                 const rotateY = offset === 0 ? 0 : offset < 0 ? 12 : -12;
@@ -187,7 +191,7 @@ export const DepthMotionCarousel: React.FC<DepthMotionCarouselProps> = ({ produc
                   <motion.div
                     key={`${product.id}-${offset}`}
                     layout
-                    onClick={() => setActiveIndex(index)}
+                    onClick={() => navigate(`/portfolio/${product.slug}`)}
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{
                       opacity: isCenter ? 1 : isAdjacent ? 0.9 : 0.7,
@@ -202,10 +206,10 @@ export const DepthMotionCarousel: React.FC<DepthMotionCarouselProps> = ({ produc
                     }}
                     className={`relative cursor-pointer shrink-0 overflow-hidden bg-white flex flex-col justify-between transition-shadow duration-300 group ${
                       isCenter
-                        ? 'w-[220px] sm:w-[270px] md:w-[300px] h-[290px] sm:h-[340px] md:h-[370px] rounded-[2rem] shadow-xl border-2 border-blue-500/40 z-30 p-5'
+                        ? 'w-[220px] sm:w-[270px] md:w-[300px] h-[290px] sm:h-[340px] md:h-[370px] rounded-[2rem] shadow-xl border-2 border-blue-500/40 hover:border-blue-600 z-30 p-5'
                         : isAdjacent
-                        ? 'w-[140px] sm:w-[185px] md:w-[215px] h-[195px] sm:h-[235px] md:h-[255px] rounded-[1.5rem] shadow-sm border border-slate-200/90 hover:border-blue-300 z-20 p-4'
-                        : 'hidden lg:flex w-[170px] xl:w-[190px] h-[205px] xl:h-[225px] rounded-[1.35rem] border border-slate-200/70 hover:border-blue-200 z-10 p-3.5'
+                        ? 'w-[140px] sm:w-[185px] md:w-[215px] h-[195px] sm:h-[235px] md:h-[255px] rounded-[1.5rem] shadow-sm border border-slate-200/90 hover:border-blue-400 z-20 p-4'
+                        : 'hidden lg:flex w-[170px] xl:w-[190px] h-[205px] xl:h-[225px] rounded-[1.35rem] border border-slate-200/70 hover:border-blue-300 z-10 p-3.5'
                     }`}
                   >
                     {/* Top Model Tag */}
@@ -214,8 +218,8 @@ export const DepthMotionCarousel: React.FC<DepthMotionCarouselProps> = ({ produc
                         {product.model_number}
                       </span>
                       {isCenter && (
-                        <span className="px-2.5 py-1 bg-blue-50 text-blue-600 rounded-lg text-[9px] font-bold uppercase tracking-wider shrink-0">
-                          Selected
+                        <span className="px-2.5 py-1 bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors rounded-lg text-[9px] font-bold uppercase tracking-wider shrink-0">
+                          View Details
                         </span>
                       )}
                     </div>

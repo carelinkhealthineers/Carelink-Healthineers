@@ -285,17 +285,20 @@ export const Origin: React.FC = () => {
                   transition={{ duration: 0.3 }}
                   className="space-y-5"
                 >
-                  <div className="h-56 sm:h-64 w-full rounded-2xl border border-slate-200 bg-white p-6 overflow-hidden relative flex items-center justify-center">
+                  <Link
+                    to={`/portfolio/${currentHeroProduct.slug}`}
+                    className="h-56 sm:h-64 w-full rounded-2xl border border-slate-200 hover:border-blue-400 bg-white p-6 overflow-hidden relative flex items-center justify-center group cursor-pointer transition-all"
+                  >
                     <img 
                       src={currentHeroProduct.main_image} 
                       alt={currentHeroProduct.name} 
-                      className="max-h-full max-w-full object-contain" 
+                      className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-500" 
                       referrerPolicy="no-referrer"
                     />
                     <div className="absolute top-3.5 left-3.5 py-1 px-3 bg-blue-600 text-white rounded-md text-[9px] font-bold uppercase tracking-wider">
                       In Stock
                     </div>
-                  </div>
+                  </Link>
 
                   <div className="space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
@@ -303,9 +306,12 @@ export const Origin: React.FC = () => {
                         <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block">
                           {currentHeroProduct.category_tag}
                         </span>
-                        <h3 className="text-xl sm:text-2xl font-bold text-slate-900">
+                        <Link
+                          to={`/portfolio/${currentHeroProduct.slug}`}
+                          className="text-xl sm:text-2xl font-bold text-slate-900 hover:text-blue-600 transition-colors block"
+                        >
                           {currentHeroProduct.name.replace("Newelectrosurgical", "New Electrosurgical")}
-                        </h3>
+                        </Link>
                       </div>
                       <span className="text-xs font-bold text-slate-500 font-mono">
                         {currentHeroProduct.model_number}
