@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  ShieldCheck, Zap, Globe, 
+import {
+  ShieldCheck, Zap, Globe,
   ArrowUpRight, ArrowRight, Database,
   Headphones, Check, FileText,
   Building2, User, Mail,
-  Award, Clock, ChevronRight
+  Award, Clock, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { SEO } from '../../components/SEO';
@@ -82,6 +82,15 @@ export const Origin: React.FC = () => {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [latestBlogs, setLatestBlogs] = useState<Blog[]>([]);
   const [selectedHeroIndex, setSelectedHeroIndex] = useState(0);
+  const [heroPaused, setHeroPaused] = useState(false);
+
+  useEffect(() => {
+    if (heroPaused || featuredProducts.length <= 1) return;
+    const timer = setInterval(() => {
+      setSelectedHeroIndex((prev) => (prev + 1) % featuredProducts.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [heroPaused, featuredProducts.length]);
 
   // Simple Quote Form State
   const [configStep, setConfigStep] = useState(1);
@@ -112,7 +121,7 @@ export const Origin: React.FC = () => {
           const formatted = productsData.map((p, idx) => ({
             ...p,
             technical_specs: p.technical_specs && Object.keys(p.technical_specs).length > 0
-              ? p.technical_specs 
+              ? p.technical_specs
               : (FALLBACK_PRODUCTS[idx % 3]?.technical_specs || {})
           }));
           setFeaturedProducts(formatted);
@@ -139,7 +148,7 @@ export const Origin: React.FC = () => {
   const handleConfigSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setConfigSubmitting(true);
-    
+
     const formattedMessage = `[Homepage Quote Request]
 - Facility Type: ${configData.facilityType}
 - Equipment Category: ${configData.interest}
@@ -156,7 +165,7 @@ export const Origin: React.FC = () => {
         message: formattedMessage,
         status: 'pending'
       }]);
-      
+
       if (error) throw error;
       setConfigSubmitted(true);
     } catch (err) {
@@ -170,183 +179,185 @@ export const Origin: React.FC = () => {
 
   return (
     <div className="pt-0 bg-white selection:bg-blue-600 selection:text-white">
-      <SEO 
-        title="Carelink Healthineers | Medical & Dental Equipment · Official Dürr Dental Distributor" 
+      <SEO
+        title="Carelink Healthineers | Medical & Dental Equipment · Official Dürr Dental Distributor"
         description="Carelink Healthineers supplies certified medical and dental equipment directly to hospitals and clinics. Official partner of Dürr Dental with direct factory prices and fast delivery."
         keywords={['medical equipment', 'Dürr Dental', 'dental equipment', 'hospital equipment', 'Carelink Healthineers']}
       />
-      
-      {/* 1. HERO SECTION */}
-      <section className="relative pt-28 pb-16 md:pt-32 md:pb-20 xl:pt-36 xl:pb-24 flex items-center bg-white border-b border-slate-100">
-        <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-16 w-full grid grid-cols-1 xl:grid-cols-12 gap-12 xl:gap-16 items-center">
-          
-          {/* Left Column: Simple & Clear Message */}
-          <div className="xl:col-span-5 space-y-7 text-left">
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white border border-slate-200 text-[10px] font-bold text-slate-800 uppercase tracking-widest shadow-xs"
-            >
-              <img src="/durr-dental-logo.svg" alt="Dürr Dental" className="h-4 w-auto object-contain" />
-              <span className="w-px h-3.5 bg-slate-200" />
-              <span className="text-blue-600 font-extrabold tracking-wider">OFFICIAL DISTRIBUTOR</span>
-            </motion.div>
 
-            <motion.h1
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-4xl sm:text-5xl md:text-6xl font-normal text-slate-900 tracking-tight leading-[1.1] font-serif-classical"
-            >
-              Medical &amp; Dental <br />
-              Equipment. <span className="italic text-blue-600 font-serif-classical">Direct.</span>
-            </motion.h1>
+      {/* 1. HERO SECTION: FULL-VIEW REAL PRODUCT SLIDER */}
+      <section
+        className="relative pt-28 pb-14 md:pt-32 md:pb-20 flex items-center bg-white border-b border-slate-100"
+        onMouseEnter={() => setHeroPaused(true)}
+        onMouseLeave={() => setHeroPaused(false)}
+      >
+        <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-16 w-full">
+          <div className="relative rounded-[2.5rem] bg-slate-50/80 border border-slate-200/90 shadow-[0_20px_60px_-15px_rgba(15,23,42,0.07)] p-6 sm:p-10 md:p-14 overflow-hidden">
 
-            <motion.p
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.15 }}
-              className="text-base sm:text-lg text-slate-500 max-w-lg leading-relaxed"
-            >
-              We supply genuine medical and dental equipment directly to hospitals and clinics. Get direct factory prices, full project setup, and fast delivery.
-            </motion.p>
-
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="flex flex-col sm:flex-row gap-4 w-full"
-            >
-              <a 
-                href="#procurement-wizard"
-                onClick={(e) => {
-                  e.preventDefault();
-                  document.getElementById('procurement-wizard')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-blue-600 text-white font-bold text-sm uppercase tracking-wider rounded-xl hover:bg-blue-700 shadow-md transition-all"
-              >
-                Get a Quote <Zap size={14} className="text-amber-300" />
-              </a>
-              <a
-                href="#catalog-section"
-                onClick={(e) => {
-                  e.preventDefault();
-                  document.getElementById('catalog-section')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white border border-slate-200 text-slate-700 font-bold text-sm uppercase tracking-wider rounded-xl hover:bg-slate-50 transition-all shadow-xs"
-              >
-                View Products <ArrowRight size={15} />
-              </a>
-            </motion.div>
-
-            <div className="grid grid-cols-3 gap-6 pt-6 border-t border-slate-100">
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pricing</span>
-                <span className="text-lg sm:text-xl font-bold text-blue-600">Direct Price</span>
+            {/* Top Bar: Official Distributor Badge + Prev/Next Controls */}
+            <div className="flex flex-wrap items-center justify-between gap-4 pb-8 mb-8 border-b border-slate-200/80">
+              <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white border border-slate-200 text-[10px] font-bold text-slate-800 uppercase tracking-widest shadow-xs">
+                <img src="/durr-dental-logo.svg" alt="Dürr Dental" className="h-4 w-auto object-contain" referrerPolicy="no-referrer" />
+                <span className="w-px h-3.5 bg-slate-200" />
+                <span className="text-blue-600 font-extrabold tracking-wider">OFFICIAL DISTRIBUTOR</span>
               </div>
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Partner</span>
-                <span className="text-lg sm:text-xl font-bold text-slate-900">Dürr Dental</span>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Service</span>
-                <span className="text-lg sm:text-xl font-bold text-emerald-600">Fast Setup</span>
+
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-slate-400 font-mono tabular-nums mr-1">
+                  {(selectedHeroIndex % Math.max(1, featuredProducts.length)) + 1} / {Math.max(1, featuredProducts.length)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedHeroIndex((prev) => (prev - 1 + Math.max(1, featuredProducts.length)) % Math.max(1, featuredProducts.length))}
+                  aria-label="Previous slide"
+                  className="w-10 h-10 rounded-full bg-white border border-slate-200 hover:bg-blue-600 hover:text-white hover:border-blue-600 text-slate-700 flex items-center justify-center transition-all shadow-xs cursor-pointer"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedHeroIndex((prev) => (prev + 1) % Math.max(1, featuredProducts.length))}
+                  aria-label="Next slide"
+                  className="w-10 h-10 rounded-full bg-white border border-slate-200 hover:bg-blue-600 hover:text-white hover:border-blue-600 text-slate-700 flex items-center justify-center transition-all shadow-xs cursor-pointer"
+                >
+                  <ChevronRight size={16} />
+                </button>
               </div>
             </div>
-          </div>
 
-          {/* Right Column: Clean Single Real Product Card */}
-          <div className="xl:col-span-7 flex flex-col items-center">
-            <div className="w-full max-w-2xl bg-slate-50 border border-slate-200 rounded-[2.25rem] p-6 md:p-8 shadow-lg">
-              {/* Simple Product Tabs */}
-              <div className="flex gap-2 p-1.5 bg-slate-200/60 rounded-xl mb-6 overflow-x-auto no-scrollbar">
-                {featuredProducts.slice(0, 3).map((prod, idx) => (
-                  <button
-                    key={prod.id}
-                    onClick={() => setSelectedHeroIndex(idx)}
-                    className={`flex-1 py-2 px-4 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                      selectedHeroIndex === idx ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    {prod.name.includes("Newelectrosurgical") 
-                      ? "Electrosurgical" 
-                      : prod.name.split(' ').slice(0, 2).join(' ')}
-                  </button>
-                ))}
-              </div>
+            {/* Active Full-View Product Slide */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentHeroProduct.id || selectedHeroIndex}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.35 }}
+                className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center"
+              >
+                {/* Left Column: Real Product Details */}
+                <div className="lg:col-span-7 space-y-6 text-left">
+                  <div className="flex flex-wrap items-center gap-2.5 text-xs font-bold">
+                    <span className="text-blue-600 uppercase tracking-wider">
+                      {currentHeroProduct.category_tag}
+                    </span>
+                    <span className="text-slate-300">·</span>
+                    <span className="text-slate-500 font-mono">
+                      Model: {currentHeroProduct.model_number}
+                    </span>
+                  </div>
 
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={selectedHeroIndex}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.3 }}
-                  className="space-y-5"
-                >
                   <Link
                     to={`/portfolio/${currentHeroProduct.slug}`}
-                    className="h-56 sm:h-64 w-full rounded-2xl border border-slate-200 hover:border-blue-400 bg-white p-6 overflow-hidden relative flex items-center justify-center group cursor-pointer transition-all"
+                    className="block group"
                   >
-                    <img 
-                      src={currentHeroProduct.main_image} 
-                      alt={currentHeroProduct.name} 
-                      className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-500" 
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute top-3.5 left-3.5 py-1 px-3 bg-blue-600 text-white rounded-md text-[9px] font-bold uppercase tracking-wider">
-                      In Stock
-                    </div>
+                    <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors tracking-tight leading-[1.15]">
+                      {currentHeroProduct.name.replace("Newelectrosurgical", "New Electrosurgical")}
+                    </h1>
                   </Link>
 
-                  <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-                      <div>
-                        <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block">
-                          {currentHeroProduct.category_tag}
-                        </span>
-                        <Link
-                          to={`/portfolio/${currentHeroProduct.slug}`}
-                          className="text-xl sm:text-2xl font-bold text-slate-900 hover:text-blue-600 transition-colors block"
-                        >
-                          {currentHeroProduct.name.replace("Newelectrosurgical", "New Electrosurgical")}
-                        </Link>
-                      </div>
-                      <span className="text-xs font-bold text-slate-500 font-mono">
-                        {currentHeroProduct.model_number}
-                      </span>
-                    </div>
+                  <p className="text-base sm:text-lg text-slate-600 leading-relaxed font-medium max-w-2xl">
+                    {currentHeroProduct.short_description}
+                  </p>
 
-                    <p className="text-slate-500 text-sm leading-relaxed font-medium">
-                      {currentHeroProduct.short_description}
-                    </p>
-
-                    <div className="flex gap-3 pt-1">
-                      <Link 
-                        to={`/acquisition?product=${encodeURIComponent(currentHeroProduct.name)}`}
-                        className="flex-1 py-3.5 bg-blue-600 hover:bg-blue-700 text-white text-center text-xs font-bold uppercase tracking-wider rounded-xl shadow-xs transition-all flex items-center justify-center gap-2"
-                      >
-                        Get a Quote <ArrowUpRight size={14} />
-                      </Link>
-                      <Link 
-                        to={`/portfolio/${currentHeroProduct.slug}`}
-                        className="px-6 py-3.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5"
-                      >
-                        Details <FileText size={14} className="text-slate-400" />
-                      </Link>
+                  {/* Real Product Specs Grid */}
+                  {currentHeroProduct.technical_specs && Object.keys(currentHeroProduct.technical_specs).length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                      {Object.entries(currentHeroProduct.technical_specs).slice(0, 4).map(([k, v], i) => (
+                        <div key={i} className="bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-2xs">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">
+                            {k}
+                          </span>
+                          <span className="text-xs font-bold text-slate-900 font-mono tabular-nums mt-1 block truncate">
+                            {v}
+                          </span>
+                        </div>
+                      ))}
                     </div>
+                  )}
+
+                  {/* Simple Action Buttons */}
+                  <div className="flex flex-wrap items-center gap-4 pt-2">
+                    <Link
+                      to={`/portfolio/${currentHeroProduct.slug}`}
+                      className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center gap-2"
+                    >
+                      View Details <ArrowRight size={15} />
+                    </Link>
+                    <Link
+                      to={`/acquisition?product=${encodeURIComponent(currentHeroProduct.name)}`}
+                      className="px-8 py-4 bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 shadow-2xs"
+                    >
+                      Get a Quote <ArrowUpRight size={15} />
+                    </Link>
                   </div>
-                </motion.div>
-              </AnimatePresence>
-            </div>
-          </div>
+                </div>
 
+                {/* Right Column: Large Clickable Real Product Image */}
+                <div className="lg:col-span-5">
+                  <Link
+                    to={`/portfolio/${currentHeroProduct.slug}`}
+                    className="h-72 sm:h-80 md:h-96 w-full rounded-[2rem] bg-white border border-slate-200 hover:border-blue-400 p-6 sm:p-8 shadow-md flex items-center justify-center relative overflow-hidden group cursor-pointer transition-all"
+                  >
+                    <img
+                      src={currentHeroProduct.main_image}
+                      alt={currentHeroProduct.name}
+                      referrerPolicy="no-referrer"
+                      className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute top-4 left-4 py-1 px-3 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg text-[10px] font-bold uppercase tracking-wider">
+                      Direct Factory Price
+                    </div>
+                    <div className="absolute bottom-4 right-4 py-1.5 px-3.5 bg-slate-900/90 group-hover:bg-blue-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors">
+                      <span>Click for Details</span>
+                      <ArrowUpRight size={12} />
+                    </div>
+                  </Link>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Bottom Product Slide Selector Strip */}
+            {featuredProducts.length > 1 && (
+              <div className="mt-10 pt-6 border-t border-slate-200/80 flex items-center gap-3 overflow-x-auto no-scrollbar">
+                {featuredProducts.map((prod, idx) => {
+                  const isActive = idx === (selectedHeroIndex % featuredProducts.length);
+                  return (
+                    <button
+                      key={prod.id}
+                      type="button"
+                      onClick={() => setSelectedHeroIndex(idx)}
+                      className={`flex items-center gap-3 p-2 pr-4 rounded-2xl border transition-all shrink-0 cursor-pointer text-left ${isActive
+                        ? 'bg-white border-blue-500 shadow-sm ring-1 ring-blue-500/20'
+                        : 'bg-white/60 border-slate-200 hover:bg-white'
+                        }`}
+                    >
+                      <div className="w-11 h-11 rounded-xl bg-slate-50 border border-slate-100 p-1 flex items-center justify-center shrink-0">
+                        <img
+                          src={prod.main_image}
+                          alt={prod.name}
+                          referrerPolicy="no-referrer"
+                          className="max-h-full max-w-full object-contain"
+                        />
+                      </div>
+                      <div className="max-w-[150px]">
+                        <div className="text-[9px] font-bold text-blue-600 uppercase tracking-wider truncate">
+                          {prod.category_tag}
+                        </div>
+                        <div className="text-xs font-bold text-slate-900 truncate">
+                          {prod.name.replace("Newelectrosurgical", "New Electrosurgical")}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+          </div>
         </div>
       </section>
 
-      {/* 2. FEATURED PRODUCTS CAROUSEL SECTION (Real Products Only) */}
-      <DepthMotionCarousel products={featuredProducts} />
 
       {/* 3. CORPORATE & PROJECT SUPPORT (Simple & Clear White Style) */}
       <section className="py-20 bg-slate-50 border-b border-slate-200/60">
@@ -401,6 +412,8 @@ export const Origin: React.FC = () => {
               </div>
             </div>
 
+
+
             {/* Card 3: Direct Factory Pricing */}
             <div className="p-7 bg-white border border-slate-200 rounded-3xl flex flex-col justify-between shadow-xs">
               <div className="space-y-4">
@@ -436,13 +449,16 @@ export const Origin: React.FC = () => {
         </div>
       </section>
 
+      {/* 2. FEATURED PRODUCTS CAROUSEL SECTION (Real Products Only) */}
+      <DepthMotionCarousel products={featuredProducts} />
+
       {/* 4. PRODUCT VIDEOS */}
       <HomepageVideoShowcase />
 
       {/* 5. SIMPLE QUOTE REQUEST FORM */}
       <section id="procurement-wizard" className="py-20 bg-slate-50 border-t border-b border-slate-200/50">
         <div className="max-w-[1400px] mx-auto px-6 md:px-12 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          
+
           <div className="lg:col-span-5 space-y-5 text-left">
             <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block">GET A PRICE QUOTE</span>
             <h2 className="text-3xl md:text-5xl font-normal text-slate-900 tracking-tight leading-tight font-serif-classical">
@@ -474,8 +490,8 @@ export const Origin: React.FC = () => {
           <div className="lg:col-span-7">
             <div className="bg-white border border-slate-200 rounded-[2rem] p-8 md:p-10 shadow-md">
               <div className="w-full bg-slate-100 h-1 rounded-full mb-8">
-                <div 
-                  className="bg-blue-600 h-1 rounded-full transition-all duration-500" 
+                <div
+                  className="bg-blue-600 h-1 rounded-full transition-all duration-500"
                   style={{ width: `${(configStep / 3) * 100}%` }}
                 />
               </div>
@@ -499,10 +515,10 @@ export const Origin: React.FC = () => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                           <div className="space-y-2">
                             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Facility Type</label>
-                            <select 
+                            <select
                               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 text-sm font-semibold text-slate-800"
                               value={configData.facilityType}
-                              onChange={e => setConfigData({...configData, facilityType: e.target.value})}
+                              onChange={e => setConfigData({ ...configData, facilityType: e.target.value })}
                             >
                               <option value="Hospital">Hospital / Medical Center</option>
                               <option value="Dental Clinic">Dental Clinic</option>
@@ -513,10 +529,10 @@ export const Origin: React.FC = () => {
 
                           <div className="space-y-2">
                             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Equipment Needed</label>
-                            <select 
+                            <select
                               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 text-sm font-semibold text-slate-800"
                               value={configData.interest}
-                              onChange={e => setConfigData({...configData, interest: e.target.value})}
+                              onChange={e => setConfigData({ ...configData, interest: e.target.value })}
                             >
                               <option value="Dental & Imaging Equipment">Dürr Dental &amp; Dental Systems</option>
                               <option value="Imaging & Radiology">Imaging &amp; Radiology (MRI, CT, X-Ray)</option>
@@ -526,8 +542,8 @@ export const Origin: React.FC = () => {
                           </div>
                         </div>
 
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={() => setConfigStep(2)}
                           className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 cursor-pointer"
                         >
@@ -552,10 +568,10 @@ export const Origin: React.FC = () => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                           <div className="space-y-2">
                             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">How Many Units?</label>
-                            <select 
+                            <select
                               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 text-sm font-semibold text-slate-800"
                               value={configData.budgetRange}
-                              onChange={e => setConfigData({...configData, budgetRange: e.target.value})}
+                              onChange={e => setConfigData({ ...configData, budgetRange: e.target.value })}
                             >
                               <option value="1-5 units">1 - 5 units</option>
                               <option value="6-15 units">6 - 15 units</option>
@@ -565,10 +581,10 @@ export const Origin: React.FC = () => {
 
                           <div className="space-y-2">
                             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">When Do You Need It?</label>
-                            <select 
+                            <select
                               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 text-sm font-semibold text-slate-800"
                               value={configData.timeline}
-                              onChange={e => setConfigData({...configData, timeline: e.target.value})}
+                              onChange={e => setConfigData({ ...configData, timeline: e.target.value })}
                             >
                               <option value="Urgent (Within 1 Month)">Urgent (Within 1 Month)</option>
                               <option value="Within 1-3 Months">Within 1 - 3 Months</option>
@@ -584,20 +600,20 @@ export const Origin: React.FC = () => {
                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 text-sm text-slate-800 resize-none font-medium placeholder:text-slate-400"
                             placeholder="Write product names or project details here..."
                             value={configData.notes}
-                            onChange={e => setConfigData({...configData, notes: e.target.value})}
+                            onChange={e => setConfigData({ ...configData, notes: e.target.value })}
                           />
                         </div>
 
                         <div className="flex gap-4">
-                          <button 
-                            type="button" 
+                          <button
+                            type="button"
                             onClick={() => setConfigStep(1)}
                             className="flex-1 py-4 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-bold uppercase tracking-widest transition-all cursor-pointer"
                           >
                             Back
                           </button>
-                          <button 
-                            type="button" 
+                          <button
+                            type="button"
                             onClick={() => setConfigStep(3)}
                             className="flex-1 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 cursor-pointer"
                           >
@@ -623,65 +639,65 @@ export const Origin: React.FC = () => {
                         <div className="space-y-4">
                           <div className="relative">
                             <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                            <input 
-                              required 
-                              type="text" 
+                            <input
+                              required
+                              type="text"
                               className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 text-sm font-semibold text-slate-800 placeholder:text-slate-400"
                               placeholder="Your Full Name"
                               value={configData.contactName}
-                              onChange={e => setConfigData({...configData, contactName: e.target.value})}
+                              onChange={e => setConfigData({ ...configData, contactName: e.target.value })}
                             />
                           </div>
 
                           <div className="relative">
                             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                            <input 
-                              required 
-                              type="email" 
+                            <input
+                              required
+                              type="email"
                               className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 text-sm font-semibold text-slate-800 placeholder:text-slate-400"
                               placeholder="Your Email Address"
                               value={configData.contactEmail}
-                              onChange={e => setConfigData({...configData, contactEmail: e.target.value})}
+                              onChange={e => setConfigData({ ...configData, contactEmail: e.target.value })}
                             />
                           </div>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="relative">
                               <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                              <input 
-                                required 
-                                type="text" 
+                              <input
+                                required
+                                type="text"
                                 className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 text-sm font-semibold text-slate-800 placeholder:text-slate-400"
                                 placeholder="Hospital / Clinic Name"
                                 value={configData.contactOrg}
-                                onChange={e => setConfigData({...configData, contactOrg: e.target.value})}
+                                onChange={e => setConfigData({ ...configData, contactOrg: e.target.value })}
                               />
                             </div>
                             <div className="relative">
                               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">PHONE</span>
-                              <input 
-                                required 
-                                type="text" 
+                              <input
+                                required
+                                type="text"
                                 className="w-full pl-16 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 text-sm font-semibold text-slate-800 placeholder:text-slate-400"
                                 placeholder="Phone Number"
                                 value={configData.contactPhone}
-                                onChange={e => setConfigData({...configData, contactPhone: e.target.value})}
+                                onChange={e => setConfigData({ ...configData, contactPhone: e.target.value })}
                               />
                             </div>
                           </div>
                         </div>
 
                         <div className="flex gap-4">
-                          <button 
-                            type="button" 
+                          <button
+                            type="button"
                             onClick={() => setConfigStep(2)}
                             className="flex-1 py-4 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-bold uppercase tracking-widest transition-all cursor-pointer"
                           >
                             Back
                           </button>
-                          <button 
+                          <button
                             disabled={configSubmitting}
-                            type="submit" 
+                            type="submit"
                             className="flex-1 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-md transition-all cursor-pointer"
                           >
                             {configSubmitting ? 'Sending...' : 'Send Quote Request'}
@@ -701,8 +717,8 @@ export const Origin: React.FC = () => {
                         Thank you! Our team has received your request and will contact you shortly with a price quote.
                       </p>
                     </div>
-                    <button 
-                      onClick={() => { setConfigSubmitted(false); setConfigStep(1); }} 
+                    <button
+                      onClick={() => { setConfigSubmitted(false); setConfigStep(1); }}
                       className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer"
                     >
                       Send Another Request
@@ -734,19 +750,19 @@ export const Origin: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {latestBlogs.map((blog) => (
-                <div 
-                  key={blog.id} 
+                <div
+                  key={blog.id}
                   className="group bg-white border border-slate-200 rounded-3xl p-5 hover:shadow-md transition-all"
                 >
                   <div className="aspect-video rounded-2xl overflow-hidden mb-5 bg-slate-50">
-                     <img src={blog.featured_image} alt={blog.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <img src={blog.featured_image} alt={blog.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   </div>
                   <div className="space-y-2.5">
-                     <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-2">{blog.title}</h3>
-                     <p className="text-slate-500 text-xs font-medium leading-relaxed line-clamp-2">{blog.excerpt}</p>
-                     <Link to={`/insights/${blog.slug}`} className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 pt-1">
-                       Read More <ArrowRight size={12} />
-                     </Link>
+                    <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-2">{blog.title}</h3>
+                    <p className="text-slate-500 text-xs font-medium leading-relaxed line-clamp-2">{blog.excerpt}</p>
+                    <Link to={`/insights/${blog.slug}`} className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 pt-1">
+                      Read More <ArrowRight size={12} />
+                    </Link>
                   </div>
                 </div>
               ))}
