@@ -2,12 +2,13 @@
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, useLocation, Link, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { LayoutGrid, Package, FolderTree, Mail, Settings, LogOut, Handshake, BookOpen, Users, Terminal, Globe, Menu, X, Home, ExternalLink, Video } from 'lucide-react';
+import { LayoutGrid, Package, FolderTree, Mail, Settings, LogOut, Handshake, BookOpen, Users, Terminal, Globe, Menu, X, Home, ExternalLink } from 'lucide-react';
 import { supabase, performSignOut } from './supabaseClient';
 
 // Layout Components
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
+import { GlobalLoader } from './components/GlobalLoader';
 
 // Public Pages
 import { Origin } from './pages/Public/Origin';
@@ -18,7 +19,6 @@ import { Alliances } from './pages/Public/Alliances';
 import { Acquisition } from './pages/Public/Acquisition';
 import { Intelligence } from './pages/Public/Intelligence';
 import { Foundation } from './pages/Public/Foundation';
-import { Interface } from './pages/Public/Interface';
 import { BlogList } from './pages/Public/BlogList';
 import { BlogDetails } from './pages/Public/BlogDetails';
 import { Login } from './pages/Auth/Login';
@@ -34,7 +34,6 @@ import { SystemSettings } from './pages/Admin/SystemSettings';
 import { BlogArchitecture } from './pages/Admin/BlogArchitecture';
 import { UserRegistry } from './pages/Admin/UserRegistry';
 import { SEOControl } from './pages/Admin/SEOControl';
-import { MeetingControl } from './pages/Admin/MeetingControl';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> = ({ children, adminOnly = false }) => {
@@ -119,12 +118,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
     };
   }, []);
 
-  if (loading) return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
-      <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-      <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">Verifying Admin Permissions...</span>
-    </div>
-  );
+  if (loading) return <GlobalLoader />;
 
   if (!user) return <Navigate to="/login" replace />;
   if (adminOnly && role !== 'admin') return <Navigate to="/" replace />;
@@ -148,11 +142,36 @@ const App: React.FC = () => {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/command-nexus');
   const [adminMobileOpen, setAdminMobileOpen] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
 
   useEffect(() => {
     window.scrollTo(0, 0);
     setAdminMobileOpen(false);
-  }, [location.pathname]);
+    setPageLoading(true);
+    const timer = setTimeout(() => {
+      setPageLoading(false);
+    }, 650);
+    return () => clearTimeout(timer);
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    const handleGlobalLinkClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      const anchor = target?.closest('a');
+      if (!anchor) return;
+      const href = anchor.getAttribute('href');
+      if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:') || anchor.target === '_blank') {
+        return;
+      }
+      setPageLoading(true);
+      setTimeout(() => {
+        setPageLoading(false);
+      }, 650);
+    };
+
+    document.addEventListener('click', handleGlobalLinkClick);
+    return () => document.removeEventListener('click', handleGlobalLinkClick);
+  }, []);
 
   const handleLogout = async () => {
     await performSignOut();
@@ -160,6 +179,18 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white selection:bg-blue-600 selection:text-white transition-colors duration-500">
+      <AnimatePresence>
+        {pageLoading && (
+          <motion.div
+            key="global-loader"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+            <GlobalLoader />
+          </motion.div>
+        )}
+      </AnimatePresence>
       {!isAdmin && <Navbar />}
       
       <main className={isAdmin ? 'bg-white' : 'min-h-screen'}>

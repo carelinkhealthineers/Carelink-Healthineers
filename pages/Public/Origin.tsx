@@ -92,6 +92,7 @@ export const Origin: React.FC = () => {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [latestBlogs, setLatestBlogs] = useState<Blog[]>([]);
   const [selectedHeroIndex, setSelectedHeroIndex] = useState(0);
+  const [isHeroPaused, setIsHeroPaused] = useState(false);
   const [activeCategoryFilter, setActiveCategoryFilter] = useState('All');
 
   // Interactive Sourcing Form / Configurator State
@@ -185,10 +186,25 @@ export const Origin: React.FC = () => {
     ? featuredProducts 
     : featuredProducts.filter(p => p.category_tag === activeCategoryFilter);
 
-  // Active product selected in the high-fidelity Hero Selector
-  const currentHeroProduct = featuredProducts[selectedHeroIndex] || FALLBACK_PRODUCTS[0];
+  const heroSlides = (featuredProducts.length > 0 ? featuredProducts : FALLBACK_PRODUCTS).slice(0, 4);
+  const currentHeroProduct = heroSlides[selectedHeroIndex % heroSlides.length] || FALLBACK_PRODUCTS[0];
+  const highlightedLatestProducts = (featuredProducts.length > 0 ? featuredProducts : FALLBACK_PRODUCTS).slice(0, 2);
 
+  useEffect(() => {
+    if (isHeroPaused || heroSlides.length <= 1) return;
+    const timer = setInterval(() => {
+      setSelectedHeroIndex((prev) => (prev + 1) % heroSlides.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [isHeroPaused, heroSlides.length]);
 
+  const handlePrevSlide = () => {
+    setSelectedHeroIndex((prev) => (prev - 1 + heroSlides.length) % heroSlides.length);
+  };
+
+  const handleNextSlide = () => {
+    setSelectedHeroIndex((prev) => (prev + 1) % heroSlides.length);
+  };
 
   return (
     <div className="pt-0 bg-white selection:bg-blue-600 selection:text-white">
@@ -198,206 +214,326 @@ export const Origin: React.FC = () => {
         keywords={['medical equipment', 'Dürr Dental', 'dental equipment', 'medical sourcing', 'VistaPano', 'radiology equipment', 'hospital equipment', 'Carelink Healthineers']}
       />
       
-      {/* 1. HERO SECTION: DYNAMIC PRODUCT CENTERPIECE & SALES SUITE */}
-      <section className="relative pt-28 pb-16 md:pt-32 md:pb-20 xl:pt-36 xl:pb-24 flex items-center bg-white border-b border-slate-100">
-        
-        {/* Soft Radial Gradient for Premium Light feel */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(59,130,246,0.04),transparent_60%)] pointer-events-none z-10" />
-        <div className="absolute right-0 top-0 w-1/2 h-full bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.02),transparent_50%)] pointer-events-none z-10 hidden xl:block" />
+      {/* 1. HERO SECTION: CORPORATE EXECUTIVE CAROUSEL & HIGHLIGHTED LATEST PRODUCTS */}
+      <section 
+        className="relative pt-24 pb-16 md:pt-28 md:pb-20 xl:pt-32 xl:pb-24 bg-white border-b border-slate-200/80 overflow-hidden"
+        onMouseEnter={() => setIsHeroPaused(true)}
+        onMouseLeave={() => setIsHeroPaused(false)}
+      >
+        {/* Subtle Architectural Grid & Ambient Illumination */}
+        <div className="absolute inset-0 neural-grid opacity-60 pointer-events-none" />
+        <div className="absolute top-0 right-0 w-2/3 h-full bg-[radial-gradient(circle_at_75%_35%,rgba(37,99,235,0.05),transparent_65%)] pointer-events-none" />
 
-        <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-16 w-full grid grid-cols-1 xl:grid-cols-12 gap-12 xl:gap-20 items-center">
+        <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-16 w-full space-y-10">
           
-          {/* Left Column: Sourcing Narrative & Fast CTAs */}
-          <div className="xl:col-span-5 space-y-8 text-left">
-            
-            {/* Featured Dürr Dental Distributor Trust badge */}
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white border border-slate-200 text-[10px] font-bold text-slate-800 uppercase tracking-widest shadow-sm hover:border-blue-400 transition-all"
-            >
+          {/* Top Corporate Bar: Official Distributor + Carousel Slide Counter & Controls */}
+          <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-slate-100">
+            <div className="inline-flex items-center gap-3">
               <img src="/durr-dental-logo.svg" alt="Dürr Dental Logo" className="h-4 w-auto object-contain" />
-              <span className="w-px h-3.5 bg-slate-200" />
-              <span className="text-blue-600 font-extrabold tracking-wider">OFFICIAL DISTRIBUTOR</span>
-            </motion.div>
+              <span className="text-slate-300" aria-hidden="true">|</span>
+              <span className="text-xs font-semibold text-blue-600 tracking-wide">
+                Official Sovereign Distribution Partner
+              </span>
+              <span className="hidden sm:inline text-slate-300" aria-hidden="true">·</span>
+              <span className="hidden sm:inline text-xs text-slate-500">
+                German Clinical Precision Standards
+              </span>
+            </div>
 
-            {/* Powerful conversion headline */}
-            <motion.h1
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.1 }}
-              className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-normal text-slate-900 tracking-tight leading-[1.08] font-serif-classical"
-            >
-              Procure Clinical <br />
-              Equipment. <span className="italic text-blue-600 font-serif-classical">Direct.</span>
-            </motion.h1>
-
-            <motion.p
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="text-base sm:text-lg text-slate-500 max-w-lg leading-relaxed font-sans"
-            >
-              Skip middleman markups. Carelink connects hospitals and clinics directly with certified medical equipment, transparent factory pricing, and fast delivery.
-            </motion.p>
-
-            {/* Sourcing Quick Action Buttons */}
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.3 }}
-              className="flex flex-col sm:flex-row gap-4 w-full"
-            >
-              <a 
-                href="#procurement-wizard"
-                onClick={(e) => {
-                  e.preventDefault();
-                  document.getElementById('procurement-wizard')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="inline-flex items-center justify-center gap-2.5 px-8 py-4 bg-blue-600 text-white font-bold text-sm tracking-wider uppercase rounded-xl hover:bg-blue-700 shadow-md hover:shadow-lg transition-all duration-300"
-              >
-                Get Custom Quote <Zap size={14} className="text-amber-300" />
-              </a>
-              <a
-                href="#catalog-section"
-                onClick={(e) => {
-                  e.preventDefault();
-                  document.getElementById('catalog-section')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="inline-flex items-center justify-center gap-2.5 px-8 py-4 bg-white border border-slate-200 text-slate-700 font-bold text-sm tracking-wider uppercase rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
-              >
-                Browse Catalog <ArrowRight size={15} />
-              </a>
-            </motion.div>
-
-            {/* Key Advantages Grid */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1.2, delay: 0.4 }}
-              className="grid grid-cols-3 gap-6 pt-8 border-t border-slate-100"
-            >
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pricing</span>
-                <span className="text-xl sm:text-2xl font-bold text-blue-600 tracking-tight">Direct Factory</span>
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Quality Standard</span>
-                <span className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Dürr Certified</span>
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Delivery</span>
-                <span className="text-xl sm:text-2xl font-bold text-emerald-600 tracking-tight flex items-center gap-1.5">
-                  Fast &amp; Tested
+            {/* Carousel Controls & Slide Indicators */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-xs font-mono tabular-nums text-slate-500">
+                <span className="font-bold text-slate-900">
+                  {String((selectedHeroIndex % heroSlides.length) + 1).padStart(2, '0')}
                 </span>
+                <span>/</span>
+                <span>{String(heroSlides.length).padStart(2, '0')}</span>
               </div>
-            </motion.div>
 
-          </div>
-
-          {/* Right Column: Immersive Interactive Sourcing Centerpiece */}
-          <div className="xl:col-span-7 flex flex-col items-center">
-            <motion.div 
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 1, delay: 0.2 }}
-              className="w-full max-w-2xl bg-slate-50 border border-slate-200 rounded-[2.5rem] p-6 md:p-8 shadow-xl relative overflow-hidden"
-            >
-              {/* Product selector tabs */}
-              <div className="flex gap-2 p-1.5 bg-slate-200/60 rounded-xl mb-6 overflow-x-auto no-scrollbar">
-                {featuredProducts.slice(0, 3).map((prod, idx) => (
+              <div className="flex items-center gap-1.5">
+                {heroSlides.map((slide, idx) => (
                   <button
-                    key={prod.id}
+                    key={slide.id}
+                    type="button"
                     onClick={() => setSelectedHeroIndex(idx)}
-                    className={`flex-1 py-2 px-4 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${selectedHeroIndex === idx ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
-                  >
-                    {prod.name.includes("Newelectrosurgical") 
-                      ? "Electrosurgical" 
-                      : prod.name.split(' ').slice(0, 2).join(' ')}
-                  </button>
+                    aria-label={`View slide ${idx + 1}: ${slide.name}`}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      selectedHeroIndex % heroSlides.length === idx
+                        ? 'w-8 bg-blue-600'
+                        : 'w-2 bg-slate-200 hover:bg-slate-400'
+                    }`}
+                  />
                 ))}
               </div>
 
-              {/* Showcase Visual with Framer Motion Switcher */}
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={selectedHeroIndex}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.4 }}
-                  className="space-y-6"
+              <div className="flex items-center gap-1.5 pl-2">
+                <button
+                  type="button"
+                  onClick={handlePrevSlide}
+                  aria-label="Previous featured system"
+                  className="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-700 flex items-center justify-center transition-colors"
                 >
-                  <div className="h-60 sm:h-72 w-full rounded-2xl border border-slate-200 bg-slate-50 p-6 overflow-hidden relative shadow-inner group flex items-center justify-center">
-                    <img 
-                      src={currentHeroProduct.main_image} 
-                      alt={currentHeroProduct.name} 
-                      className="max-h-full max-w-full object-contain group-hover:scale-[1.03] transition-transform duration-700" 
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute top-4 left-4 py-1 px-3 bg-blue-600 text-white rounded-md text-[9px] font-bold uppercase tracking-wider shadow-sm">
-                      Immediate Q3 Allocation
-                    </div>
+                  <ChevronRight size={15} className="rotate-180" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNextSlide}
+                  aria-label="Next featured system"
+                  className="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-700 flex items-center justify-center transition-colors"
+                >
+                  <ChevronRight size={15} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Hero Grid: Left Executive Narrative + Right Flagship Carousel & 2 Highlighted Latest Releases */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-12 xl:gap-14 items-start">
+            
+            {/* Left Column (5 Cols): Corporate Value Proposition & Highlighted Latest Products */}
+            <div className="xl:col-span-5 flex flex-col justify-between space-y-8 text-left">
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                  <span>Direct Factory Procurement</span>
+                  <span aria-hidden="true">·</span>
+                  <span>Sub-30 Day Clinical Dispatch</span>
+                </div>
+
+                <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-normal text-slate-900 tracking-tight leading-[1.08] font-serif-classical">
+                  Clinical Infrastructure. <br />
+                  <span className="italic text-blue-600 font-serif-classical">Engineered Direct.</span>
+                </h1>
+
+                <p className="text-base text-slate-600 max-w-lg leading-relaxed font-sans">
+                  Eliminate multi-tier distributor markups. Carelink Healthineers connects hospitals and diagnostic centers directly with certified medical systems, transparent factory pricing, and turnkey clinical deployment.
+                </p>
+
+                {/* Primary & Secondary CTAs */}
+                <div className="flex flex-col sm:flex-row gap-3.5 pt-1">
+                  <a 
+                    href="#procurement-wizard"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      document.getElementById('procurement-wizard')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="inline-flex items-center justify-center gap-2.5 px-7 py-3.5 bg-slate-950 text-white font-semibold text-xs tracking-wider uppercase rounded-xl hover:bg-blue-600 transition-colors duration-200 whitespace-nowrap"
+                  >
+                    Configure Facility Quote <ArrowUpRight size={15} />
+                  </a>
+                  <a
+                    href="#catalog-section"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      document.getElementById('catalog-section')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-white border border-slate-200 text-slate-800 font-semibold text-xs tracking-wider uppercase rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-colors duration-200 whitespace-nowrap"
+                  >
+                    Explore Portfolio <ArrowRight size={15} />
+                  </a>
+                </div>
+              </div>
+
+              {/* HIGHLIGHTED LATEST PRODUCTS (2 Featured Latest Releases) */}
+              <div className="pt-6 border-t border-slate-200/80 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-900">
+                    <span className="w-2 h-2 rounded-full bg-blue-600" />
+                    <span>Highlighted Latest Releases</span>
                   </div>
+                  <Link 
+                    to="/portfolio" 
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
+                  >
+                    View all systems <ArrowRight size={12} />
+                  </Link>
+                </div>
 
-                  {/* High Density Product Info and Specifications */}
-                  <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                      <div>
-                        <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block mb-1">
-                          {currentHeroProduct.category_tag}
-                        </span>
-                        <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight leading-tight">
-                          {currentHeroProduct.name.replace("Newelectrosurgical", "New Electrosurgical")}
-                        </h3>
-                      </div>
-                      <div className="sm:text-right shrink-0">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Price Option</span>
-                        <span className="text-lg font-bold text-blue-600 tracking-tight block">Direct Factory Price</span>
-                      </div>
-                    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  {highlightedLatestProducts.map((latestProd, idx) => {
+                    const isCurrentlyActive = currentHeroProduct.id === latestProd.id;
+                    return (
+                      <div
+                        key={latestProd.id}
+                        onClick={() => setSelectedHeroIndex(idx)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setSelectedHeroIndex(idx);
+                          }
+                        }}
+                        className={`group cursor-pointer p-3.5 rounded-2xl border transition-all duration-200 flex items-center gap-3.5 text-left ${
+                          isCurrentlyActive
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-md'
+                            : 'bg-slate-50/80 hover:bg-white text-slate-900 border-slate-200/90 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className={`w-16 h-16 rounded-xl p-2 shrink-0 flex items-center justify-center border ${
+                          isCurrentlyActive ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200/60'
+                        }`}>
+                          <img
+                            src={latestProd.main_image}
+                            alt={latestProd.name}
+                            referrerPolicy="no-referrer"
+                            className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                          />
+                        </div>
 
-                    <p className="text-slate-500 text-sm leading-relaxed font-medium">
-                      {currentHeroProduct.short_description}
-                    </p>
-
-                    {/* Detailed Specifications Box */}
-                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 pb-1.5 border-b border-slate-100">
-                        Vetted Sourcing Specifications
-                      </div>
-                      <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-                        {Object.entries(currentHeroProduct.technical_specs || {}).slice(0, 4).map(([k, v], i) => (
-                          <div key={i} className="flex justify-between items-center text-xs">
-                            <span className="text-slate-400 font-semibold">{k}</span>
-                            <span className="text-slate-800 font-bold font-mono text-right">{v}</span>
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className={`text-[10px] font-medium truncate ${
+                            isCurrentlyActive ? 'text-blue-400' : 'text-blue-600'
+                          }`}>
+                            Latest Release · {latestProd.category_tag.split(' ')[0]}
                           </div>
-                        ))}
+                          <h3 className={`text-xs font-bold truncate ${
+                            isCurrentlyActive ? 'text-white' : 'text-slate-900'
+                          }`}>
+                            {latestProd.name.replace("Newelectrosurgical", "New Electrosurgical")}
+                          </h3>
+                          <div className="flex items-center justify-between pt-0.5">
+                            <span className={`text-[10px] font-mono tabular-nums truncate ${
+                              isCurrentlyActive ? 'text-slate-300' : 'text-slate-500'
+                            }`}>
+                              {latestProd.model_number}
+                            </span>
+                            <Link
+                              to={`/portfolio/${latestProd.slug}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className={`text-[10px] font-semibold underline underline-offset-2 whitespace-nowrap ${
+                                isCurrentlyActive ? 'text-white hover:text-blue-300' : 'text-slate-700 hover:text-blue-600'
+                              }`}
+                            >
+                              Specs
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column (7 Cols): Corporate Flagship Interactive Carousel Stage */}
+            <div className="xl:col-span-7 w-full">
+              <div className="bg-slate-950 text-white rounded-[2rem] border border-slate-800 p-6 sm:p-8 lg:p-10 shadow-2xl relative overflow-hidden">
+                
+                {/* Subtle Top Slide Selector Bar */}
+                <div className="flex items-center justify-between gap-4 pb-6 mb-6 border-b border-slate-800/90 overflow-x-auto no-scrollbar">
+                  <div className="flex items-center gap-1.5">
+                    {heroSlides.map((prod, idx) => {
+                      const active = selectedHeroIndex % heroSlides.length === idx;
+                      return (
+                        <button
+                          key={prod.id}
+                          type="button"
+                          onClick={() => setSelectedHeroIndex(idx)}
+                          className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                            active
+                              ? 'bg-blue-600 text-white'
+                              : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                          }`}
+                        >
+                          <span className="font-mono tabular-nums mr-1.5 opacity-70">
+                            0{idx + 1}.
+                          </span>
+                          {prod.name.includes("Newelectrosurgical")
+                            ? "Electrosurgical"
+                            : prod.name.split(' ').slice(0, 2).join(' ')}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <span className="hidden sm:inline-block text-[11px] font-mono tabular-nums text-slate-400 shrink-0">
+                    {currentHeroProduct.model_number}
+                  </span>
+                </div>
+
+                {/* Animated Slide Content */}
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={currentHeroProduct.id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -12 }}
+                    transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                    className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center"
+                  >
+                    {/* Visual Showcase Box (7 of 12 cols inside stage) */}
+                    <div className="lg:col-span-7 relative">
+                      <div className="h-64 sm:h-80 w-full rounded-2xl bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800/80 p-6 flex items-center justify-center relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.12),transparent_70%)] pointer-events-none" />
+                        <img
+                          src={currentHeroProduct.main_image}
+                          alt={currentHeroProduct.name}
+                          referrerPolicy="no-referrer"
+                          className="relative z-10 max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute bottom-3.5 left-4 right-4 flex items-center justify-between text-[11px] text-slate-400">
+                          <span>{currentHeroProduct.category_tag}</span>
+                          <span className="text-emerald-400 font-medium">Direct Factory Allocation</span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Quick Sales Action CTAs */}
-                    <div className="flex gap-4 pt-2">
-                      <Link 
-                        to={`/acquisition?product=${encodeURIComponent(currentHeroProduct.name)}`}
-                        className="flex-1 py-3.5 bg-blue-600 hover:bg-blue-700 text-white text-center text-xs font-bold uppercase tracking-widest rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                      >
-                        Initiate Sourcing Inquiry <ArrowUpRight size={14} />
-                      </Link>
-                      <Link 
-                        to={`/portfolio/${currentHeroProduct.slug}`}
-                        className="px-6 py-3.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-widest rounded-xl transition-all flex items-center gap-1.5 shadow-sm"
-                      >
-                        Full Dossier <FileText size={14} className="text-slate-400" />
-                      </Link>
+                    {/* Product Executive Dossier & Telemetry (5 of 12 cols inside stage) */}
+                    <div className="lg:col-span-5 flex flex-col justify-between space-y-5">
+                      <div className="space-y-2.5">
+                        <div className="flex items-center gap-2 text-xs text-blue-400 font-medium">
+                          <span>Featured Clinical System</span>
+                          <span aria-hidden="true">·</span>
+                          <span className="font-mono tabular-nums">
+                            0{(selectedHeroIndex % heroSlides.length) + 1}
+                          </span>
+                        </div>
+
+                        <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight leading-snug">
+                          {currentHeroProduct.name.replace("Newelectrosurgical", "New Electrosurgical")}
+                        </h2>
+
+                        <p className="text-slate-400 text-xs sm:text-sm leading-relaxed line-clamp-3">
+                          {currentHeroProduct.short_description}
+                        </p>
+                      </div>
+
+                      {/* Key Technical Specifications */}
+                      <div className="border-t border-b border-slate-800/90 py-3.5 space-y-2">
+                        {Object.entries(currentHeroProduct.technical_specs || {})
+                          .slice(0, 3)
+                          .map(([k, v], i) => (
+                            <div key={i} className="flex items-center justify-between gap-2 text-xs">
+                              <span className="text-slate-400 truncate">{k}</span>
+                              <span className="text-slate-100 font-mono tabular-nums font-semibold text-right truncate max-w-[150px]">
+                                {v}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+
+                      {/* Slide Action Buttons */}
+                      <div className="flex flex-col sm:flex-row lg:flex-col gap-2.5 pt-1">
+                        <Link
+                          to={`/acquisition?product=${encodeURIComponent(currentHeroProduct.name)}`}
+                          className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold uppercase tracking-wider rounded-xl transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
+                        >
+                          Request Factory Quote <ArrowUpRight size={14} />
+                        </Link>
+                        <Link
+                          to={`/portfolio/${currentHeroProduct.slug}`}
+                          className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 text-xs font-semibold uppercase tracking-wider rounded-xl transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
+                        >
+                          Technical Dossier <FileText size={13} className="text-slate-400" />
+                        </Link>
+                      </div>
                     </div>
+                  </motion.div>
+                </AnimatePresence>
 
-                  </div>
-                </motion.div>
-              </AnimatePresence>
+              </div>
+            </div>
 
-            </motion.div>
           </div>
 
         </div>

@@ -1,66 +1,164 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  ShieldCheck, Globe, Zap, Mail, Phone, MapPin, 
-  Linkedin, Twitter, Youtube, Facebook, Instagram, ArrowUpRight, 
-  Activity, Award, Building2, Network, Cpu, Database
-} from 'lucide-react';
+import { ChevronRight, ChevronDown, Check, ArrowUpRight } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
-const SECTIONS = [
+export interface FooterLink {
+  label: string;
+  path: string;
+}
+
+export interface FooterColumn {
+  id: string;
+  title: string;
+  links: FooterLink[];
+}
+
+export interface FooterProps {
+  brandName?: string;
+  columns?: FooterColumn[];
+  newsletterLabel?: string;
+  newsletterPlaceholder?: string;
+  defaultRegion?: string;
+  regions?: string[];
+}
+
+const DEFAULT_COLUMNS: FooterColumn[] = [
   {
-    title: "Medical Equipment",
+    id: 'medical-equipment',
+    title: 'Medical Equipment',
     links: [
-      { label: "Imaging & Radiology", path: "/portfolio?division=imaging-radiology" },
-      { label: "Laboratory & Pathology", path: "/portfolio?division=laboratory-pathology" },
-      { label: "Surgical & Operating Room", path: "/portfolio?division=surgical-ot" },
-      { label: "Critical Care & ICU", path: "/portfolio?division=critical-care" },
-      { label: "Renal Care Systems", path: "/portfolio?division=dialysis" },
-      { label: "Dental Equipment", path: "/portfolio?division=dental" },
-    ]
+      { label: 'Imaging & Radiology', path: '/portfolio?division=imaging-radiology' },
+      { label: 'Laboratory & Pathology', path: '/portfolio?division=laboratory-pathology' },
+      { label: 'Surgical & Operating Room', path: '/portfolio?division=surgical-ot' },
+      { label: 'Critical Care & ICU', path: '/portfolio?division=critical-care' },
+      { label: 'Renal Care Systems', path: '/portfolio?division=dialysis' },
+      { label: 'Dental Equipment', path: '/portfolio?division=dental' },
+    ],
   },
   {
-    title: "Quick Navigation",
+    id: 'quick-navigation',
+    title: 'Quick Navigation',
     links: [
-      { label: "Product Portfolio", path: "/portfolio" },
-      { label: "Medical Divisions", path: "/divisions" },
-      { label: "Medical Insights & Blog", path: "/insights" },
-      { label: "Global Alliances", path: "/alliances" },
-      { label: "Request a Quote", path: "/acquisition" },
-      { label: "Medical AI Solutions", path: "/intelligence" },
-    ]
+      { label: 'Product Portfolio', path: '/portfolio' },
+      { label: 'Medical Divisions', path: '/divisions' },
+      { label: 'Medical Insights & Blog', path: '/insights' },
+      { label: 'Global Alliances', path: '/alliances' },
+      { label: 'Request a Quote', path: '/acquisition' },
+      { label: 'Medical AI Solutions', path: '/intelligence' },
+    ],
   },
   {
-    title: "Quality & Corporate",
+    id: 'quality-corporate',
+    title: 'Quality & Corporate',
     links: [
-      { label: "Certified Standards", path: "/foundation" },
-      { label: "Procurement Workflow", path: "/acquisition" },
-      { label: "Technical Assistance", path: "/alliances" },
-    ]
-  }
+      { label: 'Certified Standards', path: '/foundation' },
+      { label: 'Procurement Workflow', path: '/acquisition' },
+      { label: 'Technical Assistance', path: '/alliances' },
+      { label: 'Direct Factory Sourcing', path: '/foundation' },
+      { label: 'Direct Factory Pricing', path: '/acquisition' },
+    ],
+  },
+  {
+    id: 'account-support',
+    title: 'Account & Portal',
+    links: [
+      { label: 'Client Sign In', path: '/login' },
+      { label: 'Partner Registration', path: '/signup' },
+      { label: 'Service Terms', path: '/foundation' },
+      { label: 'Privacy Policy', path: '/foundation' },
+      { label: 'Quality Guidelines', path: '/foundation' },
+    ],
+  },
 ];
 
-const SOCIAL_LINKS = [
-  { icon: <Facebook size={16} />, label: "Facebook", href: "https://www.facebook.com/carelinkhealthineers/" },
-  { icon: <Instagram size={16} />, label: "Instagram", href: "https://www.instagram.com/carelinkhealthineers/" },
-  { icon: <Twitter size={16} />, label: "Twitter", href: "https://www.twitter.com/carelinkhealthineers/" },
-  { icon: <Youtube size={16} />, label: "YouTube", href: "https://www.youtube.com/@carelinkhealthineers" },
+const DEFAULT_REGIONS = [
+  'Bangladesh',
+  'Germany',
+  'United States',
+  'United Kingdom',
+  'United Arab Emirates',
+  'Singapore',
 ];
 
-export const Footer: React.FC = () => {
+const SOCIAL_ITEMS = [
+  {
+    name: 'Facebook',
+    href: 'https://www.facebook.com/carelinkhealthineers/',
+    svg: (
+      <svg className="w-[18px] h-[18px] fill-current" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M14 13.5h2.5l1-4H14v-2c0-1.03 0-2 2-2h1.5V2.14c-.326-.043-1.557-.14-2.857-.14C11.928 2 10 3.657 10 6.7v2.8H7v4h3V22h4v-8.5Z" />
+      </svg>
+    ),
+  },
+  {
+    name: 'X (Twitter)',
+    href: 'https://www.twitter.com/carelinkhealthineers/',
+    svg: (
+      <svg className="w-[17px] h-[17px] fill-current" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+      </svg>
+    ),
+  },
+  {
+    name: 'YouTube',
+    href: 'https://www.youtube.com/@carelinkhealthineers',
+    svg: (
+      <svg className="w-[19px] h-[19px] fill-current" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+      </svg>
+    ),
+  },
+ 
+  {
+    name: 'Instagram',
+    href: 'https://www.instagram.com/carelinkhealthineers/',
+    svg: (
+      <svg className="w-[18px] h-[18px] fill-current" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z" />
+      </svg>
+    ),
+  },
+  {
+    name: 'Product Portfolio',
+    href: '/portfolio',
+    isInternal: true,
+    svg: (
+      <svg className="w-[18px] h-[18px] fill-current" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 4h4v4H4V4zm6 0h4v4h-4V4zm6 0h4v4h-4V4zM4 10h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4zM4 16h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4z" />
+      </svg>
+    ),
+  },
+];
+
+export const Footer: React.FC<FooterProps> = ({
+  brandName = 'Carelink Healthineers',
+  columns = DEFAULT_COLUMNS,
+  newsletterLabel = 'Stay in the loop',
+  newsletterPlaceholder = 'Email address',
+  defaultRegion = 'Bangladesh',
+  regions = DEFAULT_REGIONS,
+}) => {
+  const [email, setEmail] = useState('');
+  const [subscribed, setSubscribed] = useState(false);
+  const [selectedRegion, setSelectedRegion] = useState(defaultRegion);
+  const [openAccordion, setOpenAccordion] = useState<string | null>(null);
   const [contactInfo, setContactInfo] = useState({
     address: 'Shyamoli, Adabor, Dhaka 1207',
     phone: '01339-482917',
-    email: 'carelinkhealthineers@gmail.com'
+    email: 'carelinkhealthineers@gmail.com',
   });
 
   useEffect(() => {
     const fetchContact = async () => {
       try {
-        const { data } = await supabase.from('settings').select('key, value').filter('category', 'eq', 'footer');
+        const { data } = await supabase
+          .from('settings')
+          .select('key, value')
+          .filter('category', 'eq', 'footer');
         if (data && data.length > 0) {
           const info = { ...contactInfo };
-          data.forEach(item => {
+          data.forEach((item) => {
             if (item.key === 'footer_address' && item.value) info.address = item.value;
             if (item.key === 'footer_phone' && item.value) info.phone = item.value;
             if (item.key === 'footer_email' && item.value) info.email = item.value;
@@ -74,130 +172,283 @@ export const Footer: React.FC = () => {
     fetchContact();
   }, []);
 
+  const handleNewsletterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !email.includes('@')) return;
+    setSubscribed(true);
+    setEmail('');
+    setTimeout(() => setSubscribed(false), 4000);
+  };
+
+  const toggleAccordion = (id: string) => {
+    setOpenAccordion((prev) => (prev === id ? null : id));
+  };
+
   return (
-    <footer className="relative bg-slate-900 text-slate-300 pt-20 pb-12 border-t border-slate-800 overflow-hidden font-sans">
-      {/* Ambient Gradients */}
-      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[350px] bg-[radial-gradient(circle_at_50%_100%,rgba(37,99,235,0.05),transparent_70%)] pointer-events-none" />
+    <footer
+      className="w-full bg-[var(--footer-bg,#000000)] text-[var(--footer-text-primary,#ffffff)] font-sans antialiased selection:bg-white selection:text-black border-t border-[var(--footer-border,#27272a)] overflow-x-hidden"
+      aria-label="Site Footer"
+    >
+      <div className="max-w-[var(--footer-max-width,1280px)] mx-auto px-6 sm:px-10 lg:px-16 pt-12 pb-10 md:pt-16 md:pb-14">
+        
+        {/* BRAND & PARTNER HEADER BAR */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-10 mb-10 border-b border-[var(--footer-border,#27272a)]">
+          <Link to="/" className="flex items-center gap-3.5 group">
+            <img
+              src="https://i.imgur.com/y0UvXGu.png"
+              alt="Carelink Healthineers Logo"
+              referrerPolicy="no-referrer"
+              className="w-11 h-11 object-contain brightness-110"
+            />
+            <div>
+              <span className="text-xl font-bold tracking-tight text-white block leading-none font-serif-classical">
+                Carelink
+              </span>
+              <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-[0.3em] mt-1 block">
+                Healthineers
+              </span>
+            </div>
+          </Link>
 
-      <div className="max-w-[1500px] mx-auto px-6 md:px-12 relative z-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 lg:gap-16 mb-16">
-          
-          {/* Brand Hub */}
-          <div className="lg:col-span-4 space-y-6">
-            <Link to="/" className="flex items-center gap-3.5 group">
-              <img 
-                src="https://i.imgur.com/y0UvXGu.png" 
-                alt="Carelink Logo" 
-                className="w-12 h-12 object-contain brightness-110 filter"
-              />
-              <div>
-                <span className="text-xl font-bold tracking-tight text-white block leading-none font-serif-classical">Carelink</span>
-                <span className="text-[9px] font-bold text-blue-400 uppercase tracking-[0.3em]">Healthineers</span>
-              </div>
-            </Link>
-            <p className="text-slate-400 font-medium leading-relaxed max-w-sm text-sm">
-              The premier B2B medical equipment procurement standard. Connecting healthcare networks with direct factory pricing and certified medical equipment.
-            </p>
-            <div className="flex gap-3 pt-1">
-              {SOCIAL_LINKS.map((social, i) => (
-                <a 
-                  key={i} 
-                  href={social.href} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  aria-label={social.label} 
-                  className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-blue-600 text-slate-400 hover:text-white transition-all flex items-center justify-center border border-slate-700 hover:border-blue-500 shadow-sm"
+          <p className="text-xs text-[var(--footer-text-muted,#9ca3af)] max-w-md leading-relaxed">
+            The premier B2B medical equipment procurement standard. Connecting healthcare networks with direct factory pricing and certified medical equipment.
+          </p>
+
+          <div className="flex items-center gap-3 self-start md:self-auto border border-[var(--footer-border,#27272a)] px-3.5 py-2 bg-neutral-950">
+            <img
+              src="/durr-dental-logo-white.svg"
+              alt="Dürr Dental Official Distributor"
+              className="h-4 w-auto object-contain"
+            />
+            <span className="text-[10px] font-semibold text-neutral-300 uppercase tracking-widest">
+              Official Distributor
+            </span>
+          </div>
+        </div>
+
+        {/* TOP SECTION: 4 Evenly Distributed Columns */}
+        <nav
+          aria-label="Footer Navigation"
+          className="grid grid-cols-1 md:grid-cols-4 gap-0 md:gap-8 lg:gap-12 pb-10 md:pb-14 border-b border-[var(--footer-border,#27272a)]"
+        >
+          {columns.map((column) => {
+            const isOpen = openAccordion === column.id;
+            return (
+              <div
+                key={column.id}
+                className="border-b border-[var(--footer-border,#27272a)] md:border-b-0"
+              >
+                {/* Mobile Accordion Trigger / Desktop Heading */}
+                <div className="flex items-center justify-between py-4 md:py-0 md:mb-5">
+                  <h2 className="text-[var(--footer-heading-size,0.9375rem)] font-bold tracking-[0.06em] text-[var(--footer-text-primary,#ffffff)]">
+                    {column.title}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => toggleAccordion(column.id)}
+                    aria-expanded={isOpen}
+                    aria-controls={`footer-col-${column.id}`}
+                    className="md:hidden p-1 -mr-1 text-[var(--footer-text-muted,#9ca3af)] hover:text-white transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-white"
+                  >
+                    <ChevronDown
+                      size={18}
+                      className={`transition-transform duration-200 ${
+                        isOpen ? 'rotate-180 text-white' : ''
+                      }`}
+                    />
+                    <span className="sr-only">Toggle {column.title} links</span>
+                  </button>
+                </div>
+
+                {/* Links List */}
+                <ul
+                  id={`footer-col-${column.id}`}
+                  className={`space-y-2.5 pb-5 md:pb-0 ${
+                    isOpen ? 'block' : 'hidden md:block'
+                  }`}
                 >
-                  {social.icon}
-                </a>
-              ))}
-            </div>
-          </div>
+                  {column.links.map((link, idx) => (
+                    <li key={idx}>
+                      <Link
+                        to={link.path}
+                        className="inline-block text-[var(--footer-link-size,0.875rem)] font-normal text-[var(--footer-text-secondary,#d4d4d8)] hover:text-[var(--footer-text-primary,#ffffff)] hover:underline underline-offset-4 decoration-neutral-500 transition-colors duration-150 py-0.5"
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </nav>
 
-          {/* Navigation Matrix */}
-          {SECTIONS.map((section, i) => (
-            <div key={i} className="lg:col-span-2">
-              <h4 className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-6">{section.title}</h4>
-              <ul className="space-y-3">
-                {section.links.map((link, idx) => (
-                  <li key={idx}>
-                    <Link to={link.path} className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-2 group transition-colors">
-                      <span className="w-1.5 h-1.5 rounded-full bg-slate-700 group-hover:bg-blue-400 transition-colors shrink-0" />
-                      {link.label}
-                    </Link>
-                  </li>
+        {/* MIDDLE UTILITY SECTION: Newsletter, Region Selector, Social Icons */}
+        <div className="py-8 md:py-10 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-8 lg:gap-6">
+          {/* Left: Newsletter Signup */}
+          <form
+            onSubmit={handleNewsletterSubmit}
+            className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 w-full lg:w-auto"
+          >
+            <label
+              htmlFor="footer-newsletter-email"
+              className="text-[0.9375rem] font-semibold tracking-wide text-[var(--footer-text-primary,#ffffff)] whitespace-nowrap"
+            >
+              {newsletterLabel}
+            </label>
+            <div className="relative flex items-center w-full sm:w-64 md:w-72">
+              <input
+                id="footer-newsletter-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={subscribed ? 'Thank you for subscribing' : newsletterPlaceholder}
+                disabled={subscribed}
+                required
+                aria-label={newsletterPlaceholder}
+                className="w-full h-9 pl-3.5 pr-10 bg-[var(--footer-input-bg,#ffffff)] text-[var(--footer-input-text,#111827)] placeholder:text-neutral-500 text-xs font-normal border border-transparent focus:outline-none focus:ring-1 focus:ring-neutral-400 transition-all"
+              />
+              <button
+                type="submit"
+                aria-label="Submit email for newsletter"
+                className="absolute right-0 top-0 h-9 w-9 flex items-center justify-center text-neutral-800 hover:text-black transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-black"
+              >
+                {subscribed ? (
+                  <Check size={16} className="text-emerald-600" />
+                ) : (
+                  <ChevronRight size={17} strokeWidth={2.2} />
+                )}
+              </button>
+            </div>
+          </form>
+
+          {/* Center: Region Selector Dropdown */}
+          <div className="flex items-center justify-start lg:justify-center w-full lg:w-auto">
+            <div className="relative inline-flex items-center w-full sm:w-auto">
+              <label htmlFor="footer-region-select" className="sr-only">
+                Select Region
+              </label>
+              <select
+                id="footer-region-select"
+                value={selectedRegion}
+                onChange={(e) => setSelectedRegion(e.target.value)}
+                className="appearance-none w-full sm:w-auto bg-transparent text-[var(--footer-text-secondary,#d4d4d8)] hover:text-white text-xs sm:text-[0.8125rem] font-normal tracking-wide py-2 pl-3 pr-8 border border-[var(--footer-border,#27272a)] lg:border-transparent hover:border-neutral-700 focus:outline-none focus:border-neutral-500 cursor-pointer transition-colors"
+              >
+                {regions.map((region) => (
+                  <option
+                    key={region}
+                    value={region}
+                    className="bg-neutral-950 text-white py-1"
+                  >
+                    {region}
+                  </option>
                 ))}
-              </ul>
+              </select>
+              <ChevronDown
+                size={14}
+                className="pointer-events-none absolute right-2.5 text-[var(--footer-text-muted,#9ca3af)]"
+              />
             </div>
-          ))}
+          </div>
 
-          {/* Contact & Location */}
-          <div className="lg:col-span-2 space-y-6">
-            <h4 className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">Office Registry</h4>
-            <div className="space-y-4">
-              <div className="flex gap-3 text-xs font-semibold text-slate-300 leading-relaxed">
-                <MapPin size={16} className="text-blue-400 shrink-0 mt-0.5" />
-                <span>{contactInfo.address}</span>
-              </div>
-              <div className="flex gap-3 text-xs font-semibold text-slate-300">
-                <Phone size={16} className="text-blue-400 shrink-0 mt-0.5" />
-                <a href={`tel:${contactInfo.phone.replace(/[^0-9+]/g, '')}`} className="hover:text-blue-400 transition-colors">
-                  {contactInfo.phone}
+          {/* Right: Monochrome Social Media Icons */}
+          <div
+            className="flex items-center justify-start lg:justify-end flex-wrap gap-5 sm:gap-6"
+            aria-label="Social Media Links"
+          >
+            {SOCIAL_ITEMS.map((item) =>
+              item.isInternal ? (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  aria-label={item.name}
+                  title={item.name}
+                  className="text-[var(--footer-text-secondary,#d4d4d8)] hover:text-white transition-colors duration-150 p-1 -m-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-white"
+                >
+                  {item.svg}
+                </Link>
+              ) : (
+                <a
+                  key={item.name}
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={item.name}
+                  title={item.name}
+                  className="text-[var(--footer-text-secondary,#d4d4d8)] hover:text-white transition-colors duration-150 p-1 -m-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-white"
+                >
+                  {item.svg}
                 </a>
-              </div>
-              <div className="flex gap-3 text-xs font-semibold text-slate-300">
-                <Mail size={16} className="text-blue-400 shrink-0 mt-0.5" />
-                <a href={`mailto:${contactInfo.email}`} className="hover:text-blue-400 transition-colors break-all">
-                  {contactInfo.email}
-                </a>
-              </div>
-            </div>
+              )
+            )}
           </div>
         </div>
 
-        {/* Verification & Trust Bar */}
-        <div className="py-6 border-y border-slate-800 flex flex-wrap items-center justify-between gap-6 mb-8 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-           <div className="flex flex-wrap items-center gap-6 md:gap-10">
-              <div className="flex items-center gap-2 text-white font-bold bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700 shadow-sm">
-                <img src="/durr-dental-logo-white.svg" alt="Dürr Dental Logo" className="h-4 w-auto object-contain" />
-                <span className="text-blue-400 font-extrabold text-[10px] tracking-widest ml-1">OFFICIAL DISTRIBUTOR</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Globe size={12} className="text-blue-400" /> DIRECT FACTORY SOURCING
-              </div>
-              <div className="flex items-center gap-2">
-                <Zap size={12} className="text-amber-400" /> DIRECT FACTORY PRICING
-              </div>
-           </div>
-           <div className="flex items-center gap-4 text-slate-600">
-              <ShieldCheck size={20} />
-              <Globe size={20} />
-              <Zap size={20} />
-              <Award size={20} />
-           </div>
-        </div>
-
-        {/* Global Footer Subline */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-[11px] font-semibold text-slate-500">
-          <div className="flex flex-wrap justify-center gap-x-6 gap-y-1">
-            <Link to="/foundation" className="hover:text-slate-300 transition-colors">Service Terms</Link>
-            <Link to="/foundation" className="hover:text-slate-300 transition-colors">Privacy Policy</Link>
-            <Link to="/foundation" className="hover:text-slate-300 transition-colors">Quality Guidelines</Link>
+        {/* FINAL COPYRIGHT & LEGAL AREA */}
+        <div className="pt-6 md:pt-8 text-center space-y-2 text-[var(--footer-legal-size,0.75rem)] leading-relaxed text-[var(--footer-text-muted,#9ca3af)]">
+          <div className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1">
+            <span>
+              Copyright &copy; {new Date().getFullYear()} {brandName}. All rights reserved.
+            </span>
+            <Link
+              to="/foundation"
+              className="text-[var(--footer-text-secondary,#d4d4d8)] hover:text-white underline underline-offset-2 transition-colors ml-1"
+            >
+              Service Terms
+            </Link>
+            <span aria-hidden="true" className="text-neutral-600 px-0.5">
+              |
+            </span>
+            <Link
+              to="/foundation"
+              className="text-[var(--footer-text-secondary,#d4d4d8)] hover:text-white underline underline-offset-2 transition-colors"
+            >
+              Privacy Policy
+            </Link>
+            <span aria-hidden="true" className="text-neutral-600 px-0.5">
+              |
+            </span>
+            <Link
+              to="/foundation"
+              className="text-[var(--footer-text-secondary,#d4d4d8)] hover:text-white underline underline-offset-2 transition-colors"
+            >
+              Quality Guidelines
+            </Link>
           </div>
-          <div className="flex flex-col sm:flex-row items-center gap-2 text-center sm:text-right">
-            <span>&copy; {new Date().getFullYear()} Carelink Healthineers. All rights reserved.</span>
-            <span className="hidden sm:inline text-slate-700">•</span>
-            <span className="text-slate-400">
+
+          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[0.75rem] text-[var(--footer-text-muted,#9ca3af)]">
+            <a
+              href={`tel:${contactInfo.phone.replace(/[^0-9+]/g, '')}`}
+              className="hover:text-white transition-colors tabular-nums"
+            >
+              {contactInfo.phone}
+            </a>
+            <span aria-hidden="true" className="text-neutral-600">
+              |
+            </span>
+            <span>Office Registry ({contactInfo.address})</span>
+            <span aria-hidden="true" className="text-neutral-600 hidden sm:inline">
+              |
+            </span>
+            <a
+              href={`mailto:${contactInfo.email}`}
+              className="hover:text-white transition-colors hidden sm:inline"
+            >
+              {contactInfo.email}
+            </a>
+            <span aria-hidden="true" className="text-neutral-600 hidden md:inline">
+              |
+            </span>
+            <span className="hidden md:inline">
               Developed by{' '}
-              <a 
-                href="https://zaironx.top" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="text-blue-400 hover:text-blue-300 font-bold transition-colors inline-flex items-center gap-0.5 underline decoration-blue-500/40 underline-offset-2"
+              <a
+                href="https://zaironx.top"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[var(--footer-text-secondary,#d4d4d8)] hover:text-white underline underline-offset-2 transition-colors inline-flex items-center gap-0.5"
               >
                 Mohibbul Wara Orjon
-                <ArrowUpRight size={11} className="inline ml-0.5" />
+                <ArrowUpRight size={11} className="inline" />
               </a>
             </span>
           </div>
