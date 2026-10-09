@@ -9,6 +9,7 @@ import { supabase, performSignOut } from './supabaseClient';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { GlobalLoader } from './components/GlobalLoader';
+import { FloatingContactWidget } from './components/FloatingContactWidget';
 
 // Public Pages
 import { Origin } from './pages/Public/Origin';
@@ -385,6 +386,7 @@ const App: React.FC = () => {
         </Routes>
       </main>
       {!isAdmin && <Footer />}
+      {!isAdmin && <FloatingContactWidget />}
     </div>
   );
 };
