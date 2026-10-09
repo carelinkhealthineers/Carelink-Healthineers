@@ -149,28 +149,78 @@ export const Footer: React.FC<FooterProps> = ({
     email: 'carelinkhealthineers@gmail.com',
   });
 
+  // Global Quote Requisition Modal State
+  const [quoteModalOpen, setQuoteModalOpen] = useState(false);
+  const [divisions, setDivisions] = useState<{ id: string; name: string }[]>([]);
+  const [quoteForm, setQuoteForm] = useState({
+    name: '',
+    email: '',
+    org: '',
+    category: 'Imaging & Radiology',
+    message: ''
+  });
+  const [quoteSubmitting, setQuoteSubmitting] = useState(false);
+  const [quoteSubmitted, setQuoteSubmitted] = useState(false);
+
   useEffect(() => {
-    const fetchContact = async () => {
+    const fetchContactAndDivisions = async () => {
       try {
-        const { data } = await supabase
-          .from('settings')
-          .select('key, value')
-          .filter('category', 'eq', 'footer');
-        if (data && data.length > 0) {
+        const [{ data: settingsData }, { data: divData }] = await Promise.all([
+          supabase.from('settings').select('key, value').filter('category', 'eq', 'footer'),
+          supabase.from('divisions').select('id, name').order('order_index')
+        ]);
+
+        if (settingsData && settingsData.length > 0) {
           const info = { ...contactInfo };
-          data.forEach((item) => {
+          settingsData.forEach((item) => {
             if (item.key === 'footer_address' && item.value) info.address = item.value;
             if (item.key === 'footer_phone' && item.value) info.phone = item.value;
             if (item.key === 'footer_email' && item.value) info.email = item.value;
           });
           setContactInfo(info);
         }
+
+        if (divData && divData.length > 0) {
+          setDivisions(divData);
+          setQuoteForm(prev => ({ ...prev, category: divData[0].name }));
+        }
       } catch (err) {
         console.error('Footer Registry Sync Failed:', err);
       }
     };
-    fetchContact();
+    fetchContactAndDivisions();
   }, []);
+
+  const handleQuoteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quoteForm.name.trim()) return;
+    setQuoteSubmitting(true);
+
+    const payloadMessage = `[Category: ${quoteForm.category}] - ${quoteForm.message}`;
+
+    try {
+      const { error } = await supabase.from('inquiries').insert([
+        {
+          name: quoteForm.name,
+          email: quoteForm.email || 'inquiry@carelinkhealthineers.com',
+          company: quoteForm.org || 'Clinical Facility',
+          message: payloadMessage,
+          status: 'pending'
+        }
+      ]);
+      if (error) throw error;
+      setQuoteSubmitted(true);
+      setTimeout(() => {
+        setQuoteModalOpen(false);
+        setQuoteSubmitted(false);
+        setQuoteForm(prev => ({ ...prev, name: '', email: '', org: '', message: '' }));
+      }, 1800);
+    } catch (err) {
+      console.error('Quote submission error:', err);
+    } finally {
+      setQuoteSubmitting(false);
+    }
+  };
 
   const handleNewsletterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -185,10 +235,147 @@ export const Footer: React.FC<FooterProps> = ({
   };
 
   return (
-    <footer
-      className="w-full bg-[var(--footer-bg,#000000)] text-[var(--footer-text-primary,#ffffff)] font-sans antialiased selection:bg-white selection:text-black border-t border-[var(--footer-border,#27272a)] overflow-x-hidden"
-      aria-label="Site Footer"
-    >
+    <>
+      {/* ============ GLOBAL MINI CTA OVER FOOTER ============ */}
+      <div className="sf-products-page">
+        <section className="mini-cta">
+          <div className="wrap">
+            <div className="mini-cta-box">
+              <div>
+                <span className="eyebrow" style={{ color: '#fff' }}>
+                  Not Listed Here?
+                </span>
+                <h3>Send us a custom product requisition.</h3>
+                <p>
+                  Our sourcing team can quote almost any medical, laboratory or hospital equipment on request.
+                </p>
+              </div>
+              <div className="mini-cta-actions">
+                <button
+                  type="button"
+                  className="btn btn-on-dark js-quote-trigger"
+                  onClick={() => {
+                    setQuoteSubmitted(false);
+                    setQuoteModalOpen(true);
+                  }}
+                >
+                  Request Quotation
+                </button>
+                <a
+                  href={`https://wa.me/${contactInfo.phone.replace(/[^0-9]/g, '').replace(/^0/, '880') || '8801339482917'}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-on-dark"
+                >
+                  WhatsApp Us
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ============ GLOBAL QUOTE MODAL ============ */}
+        <div
+          className={`quote-modal ${quoteModalOpen ? 'open' : ''}`}
+          onClick={e => {
+            if (e.target === e.currentTarget) setQuoteModalOpen(false);
+          }}
+        >
+          <div className="quote-modal-box">
+            <button
+              type="button"
+              className="quote-modal-close"
+              aria-label="Close"
+              onClick={() => setQuoteModalOpen(false)}
+            >
+              &times;
+            </button>
+            <form className="cta-form" onSubmit={handleQuoteSubmit}>
+              <div className="cta-form-head">
+                <span>Product Requisition</span>
+                <h3>Request a quotation</h3>
+              </div>
+              {quoteSubmitted ? (
+                <div style={{ padding: '24px 0', textAlign: 'center' }}>
+                  <h4 style={{ color: 'var(--color-green)', marginBottom: '8px', fontSize: '18px' }}>
+                    Requisition Submitted!
+                  </h4>
+                  <p style={{ fontSize: '13.5px' }}>
+                    Our clinical sourcing team has received your inquiry and will respond shortly.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <label htmlFor="global-qm-name">Name</label>
+                  <input
+                    id="global-qm-name"
+                    type="text"
+                    required
+                    placeholder="Your name"
+                    value={quoteForm.name}
+                    onChange={e => setQuoteForm({ ...quoteForm, name: e.target.value })}
+                  />
+                  <label htmlFor="global-qm-email">Email Address</label>
+                  <input
+                    id="global-qm-email"
+                    type="email"
+                    required
+                    placeholder="your@email.com"
+                    value={quoteForm.email}
+                    onChange={e => setQuoteForm({ ...quoteForm, email: e.target.value })}
+                  />
+                  <label htmlFor="global-qm-org">Hospital / Clinic / Lab</label>
+                  <input
+                    id="global-qm-org"
+                    type="text"
+                    required
+                    placeholder="Organization name"
+                    value={quoteForm.org}
+                    onChange={e => setQuoteForm({ ...quoteForm, org: e.target.value })}
+                  />
+                  <label htmlFor="global-qm-cat">Product Category</label>
+                  <select
+                    id="global-qm-cat"
+                    value={quoteForm.category}
+                    onChange={e => setQuoteForm({ ...quoteForm, category: e.target.value })}
+                  >
+                    {divisions.length > 0 ? (
+                      divisions.map(div => (
+                        <option key={div.id} value={div.name}>
+                          {div.name}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option>Imaging &amp; Radiology</option>
+                        <option>Laboratory Equipment</option>
+                        <option>OT &amp; Hospital Furniture</option>
+                        <option>Dental Equipment</option>
+                      </>
+                    )}
+                  </select>
+                  <label htmlFor="global-qm-msg">Message</label>
+                  <textarea
+                    id="global-qm-msg"
+                    rows={3}
+                    placeholder="Tell us what you need..."
+                    value={quoteForm.message}
+                    onChange={e => setQuoteForm({ ...quoteForm, message: e.target.value })}
+                  />
+                  <button type="submit" className="btn btn-primary" disabled={quoteSubmitting}>
+                    {quoteSubmitting ? 'Submitting…' : 'Submit Requisition'}
+                  </button>
+                </>
+              )}
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <footer
+        className="w-full bg-[var(--footer-bg,#000000)] text-[var(--footer-text-primary,#ffffff)] font-sans antialiased selection:bg-white selection:text-black border-t border-[var(--footer-border,#27272a)] overflow-x-hidden"
+        aria-label="Site Footer"
+      >
       <div className="max-w-[var(--footer-max-width,1280px)] mx-auto px-6 sm:px-10 lg:px-16 pt-12 pb-10 md:pt-16 md:pb-14">
         
         {/* BRAND & PARTNER HEADER BAR */}
@@ -455,5 +642,6 @@ export const Footer: React.FC<FooterProps> = ({
         </div>
       </div>
     </footer>
+    </>
   );
 };

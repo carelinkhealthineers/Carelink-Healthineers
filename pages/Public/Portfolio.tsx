@@ -1,39 +1,73 @@
-
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Search, LayoutGrid, Activity, 
-  Loader2, ShieldCheck, Zap, Microscope,
-  Scissors, Stethoscope, Droplets, Smile, Bed, Package,
-  SlidersHorizontal, ArrowUpRight, ChevronLeft, ChevronRight,
-  Filter, Terminal, Database, Globe
-} from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { SEO } from '../../components/SEO';
 import { supabase } from '../../supabaseClient';
 import { Product, Division } from '../../types';
 
-const IconMap: Record<string, any> = { Microscope, Zap, Scissors, Activity, Stethoscope, Droplets, Smile, ShieldCheck, Bed, Package };
+const ITEMS_PER_PAGE = 12;
 
 export const Portfolio: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const currentDeptSlug = searchParams.get('division') || 'all';
-  const [search, setSearch] = useState('');
+  const initialDivSlug = searchParams.get('division') || '';
+
   const [products, setProducts] = useState<Product[]>([]);
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  
+
+  // Filter States
+  const [search, setSearch] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+    initialDivSlug && initialDivSlug !== 'all' ? [initialDivSlug] : []
+  );
+  const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([]);
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<'featured' | 'name-asc' | 'price-asc' | 'price-desc'>('featured');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Mobile Filter Sidebar State
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  // Modals State
+  const [selectedProductModal, setSelectedProductModal] = useState<Product | null>(null);
+  const [quoteModalOpen, setQuoteModalOpen] = useState(false);
+
+  // Quote Form State
+  const [quoteForm, setQuoteForm] = useState({
+    name: '',
+    email: '',
+    org: '',
+    category: 'Medical Equipment',
+    productName: '',
+    message: ''
+  });
+  const [quoteSubmitting, setQuoteSubmitting] = useState(false);
+  const [quoteSubmitted, setQuoteSubmitted] = useState(false);
+
+  // Sync URL ?division= parameter when arriving from external links
+  useEffect(() => {
+    const divParam = searchParams.get('division');
+    if (divParam && divParam !== 'all') {
+      setSelectedCategories([divParam]);
+    } else if (divParam === 'all') {
+      setSelectedCategories([]);
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
         const [pRes, dRes] = await Promise.all([
-          supabase.from('products').select('*').eq('is_published', true),
+          supabase.from('products').select('*').eq('is_published', true).order('created_at', { ascending: false }),
           supabase.from('divisions').select('*').order('order_index')
         ]);
         if (pRes.data) setProducts(pRes.data);
-        if (dRes.data) setDivisions(dRes.data);
+        if (dRes.data) {
+          setDivisions(dRes.data);
+          if (dRes.data.length > 0) {
+            setQuoteForm(prev => ({ ...prev, category: dRes.data[0].name }));
+          }
+        }
       } catch (err) {
         console.error('Data Fetch Error:', err);
       } finally {
@@ -43,257 +77,598 @@ export const Portfolio: React.FC = () => {
     fetchData();
   }, []);
 
-  const filteredProducts = useMemo(() => {
-    return products.filter(p => {
-      const division = divisions.find(d => d.id === p.division_id);
-      const matchDept = currentDeptSlug === 'all' || division?.slug === currentDeptSlug;
-      const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) || 
-                          p.model_number.toLowerCase().includes(search.toLowerCase()) ||
-                          p.category_tag.toLowerCase().includes(search.toLowerCase());
-      return matchDept && matchSearch;
+  // Helper to extract brand or manufacturer from product specs
+  const getProductBrand = (p: Product): string => {
+    const specs = p.technical_specs || {};
+    for (const [k, v] of Object.entries(specs)) {
+      const keyLower = k.toLowerCase();
+      if (
+        (keyLower.includes('brand') || keyLower.includes('manufacturer') || keyLower.includes('make') || keyLower.includes('partner')) &&
+        typeof v === 'string' &&
+        v.trim()
+      ) {
+        return v.trim();
+      }
+    }
+    if (p.name.toLowerCase().includes('dürr') || p.name.toLowerCase().includes('durr') || p.name.toLowerCase().includes('vista')) {
+      return 'Dürr Dental';
+    }
+    if (p.name.toLowerCase().includes('mindray')) {
+      return 'Mindray';
+    }
+    return 'Carelink Certified';
+  };
+
+  // Helper to extract price if present in technical_specs, else return 'Request Quote'
+  const getProductPriceDisplay = (p: Product): string => {
+    const specs = p.technical_specs || {};
+    for (const [k, v] of Object.entries(specs)) {
+      if (k.toLowerCase().includes('price') && typeof v === 'string' && v.trim()) {
+        return v.trim();
+      }
+    }
+    return 'Factory Direct Quote';
+  };
+
+  const getProductNumericPrice = (p: Product): number => {
+    const raw = getProductPriceDisplay(p);
+    const num = parseFloat(raw.replace(/[^0-9.]/g, ''));
+    return isNaN(num) ? 0 : num;
+  };
+
+  // Compute Category Options (from Divisions) with product counts
+  const categoryOptions = useMemo(() => {
+    return divisions.map(div => {
+      const count = products.filter(p => p.division_id === div.id).length;
+      return {
+        slug: div.slug,
+        id: div.id,
+        name: div.name,
+        count
+      };
     });
-  }, [currentDeptSlug, search, products, divisions]);
+  }, [divisions, products]);
+
+  // Compute Subcategory Options (from product.category_tag) filtered by selected categories if any
+  const subcategoryOptions = useMemo(() => {
+    const relevantProducts = selectedCategories.length > 0
+      ? products.filter(p => {
+          const div = divisions.find(d => d.id === p.division_id);
+          return div && selectedCategories.includes(div.slug);
+        })
+      : products;
+
+    const counts: Record<string, number> = {};
+    relevantProducts.forEach(p => {
+      const tag = (p.category_tag || '').trim();
+      if (tag) {
+        counts[tag] = (counts[tag] || 0) + 1;
+      }
+    });
+
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }, [products, divisions, selectedCategories]);
+
+  // Compute Brand Options
+  const brandOptions = useMemo(() => {
+    const counts: Record<string, number> = {};
+    products.forEach(p => {
+      const brand = getProductBrand(p);
+      if (brand) {
+        counts[brand] = (counts[brand] || 0) + 1;
+      }
+    });
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }, [products]);
+
+  // Filtered and Sorted Products
+  const filteredProducts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+
+    const filtered = products.filter(p => {
+      const division = divisions.find(d => d.id === p.division_id);
+      const divSlug = division?.slug || '';
+      const subcat = (p.category_tag || '').trim();
+      const brand = getProductBrand(p);
+
+      const matchCategory = selectedCategories.length === 0 || selectedCategories.includes(divSlug);
+      const matchSubcategory = selectedSubcategories.length === 0 || selectedSubcategories.includes(subcat);
+      const matchBrand = selectedBrands.length === 0 || selectedBrands.includes(brand);
+
+      const matchSearch =
+        !q ||
+        p.name.toLowerCase().includes(q) ||
+        (p.model_number || '').toLowerCase().includes(q) ||
+        subcat.toLowerCase().includes(q) ||
+        (p.short_description || '').toLowerCase().includes(q) ||
+        (division?.name || '').toLowerCase().includes(q);
+
+      return matchCategory && matchSubcategory && matchBrand && matchSearch;
+    });
+
+    return [...filtered].sort((a, b) => {
+      if (sortBy === 'name-asc') {
+        return a.name.localeCompare(b.name);
+      }
+      if (sortBy === 'price-asc') {
+        return getProductNumericPrice(a) - getProductNumericPrice(b) || a.name.localeCompare(b.name);
+      }
+      if (sortBy === 'price-desc') {
+        return getProductNumericPrice(b) - getProductNumericPrice(a) || a.name.localeCompare(b.name);
+      }
+      return 0; // featured (default order)
+    });
+  }, [products, divisions, selectedCategories, selectedSubcategories, selectedBrands, search, sortBy]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedCategories, selectedSubcategories, selectedBrands, sortBy]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE));
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredProducts.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredProducts, currentPage]);
+
+  // Toggle Handlers
+  const toggleCategory = (slug: string) => {
+    setSelectedCategories(prev => {
+      const next = prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug];
+      if (next.length === 1) {
+        setSearchParams({ division: next[0] });
+      } else {
+        setSearchParams({});
+      }
+      return next;
+    });
+  };
+
+  const toggleSubcategory = (sub: string) => {
+    setSelectedSubcategories(prev =>
+      prev.includes(sub) ? prev.filter(s => s !== sub) : [...prev, sub]
+    );
+  };
+
+  const toggleBrand = (brand: string) => {
+    setSelectedBrands(prev =>
+      prev.includes(brand) ? prev.filter(b => b !== brand) : [...prev, brand]
+    );
+  };
+
+  const clearAllFilters = () => {
+    setSearch('');
+    setSelectedCategories([]);
+    setSelectedSubcategories([]);
+    setSelectedBrands([]);
+    setSortBy('featured');
+    setSearchParams({});
+  };
+
+  const activeFilterCount =
+    (search.trim() ? 1 : 0) +
+    selectedCategories.length +
+    selectedSubcategories.length +
+    selectedBrands.length;
+
+  // Open Quote Modal with optional product context
+  const handleOpenQuoteModal = (product?: Product) => {
+    if (product) {
+      const div = divisions.find(d => d.id === product.division_id);
+      setQuoteForm(prev => ({
+        ...prev,
+        category: div?.name || product.category_tag || prev.category,
+        productName: product.name,
+        message: `Requesting official quotation and technical specifications for ${product.name} (${product.model_number}).`
+      }));
+    } else {
+      setQuoteForm(prev => ({
+        ...prev,
+        productName: '',
+        message: ''
+      }));
+    }
+    setSelectedProductModal(null);
+    setQuoteSubmitted(false);
+    setQuoteModalOpen(true);
+  };
+
+  const handleQuoteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quoteForm.name.trim()) return;
+    setQuoteSubmitting(true);
+
+    const payloadMessage = quoteForm.productName
+      ? `[Product: ${quoteForm.productName}] [Category: ${quoteForm.category}] - ${quoteForm.message}`
+      : `[Category: ${quoteForm.category}] - ${quoteForm.message}`;
+
+    try {
+      const { error } = await supabase.from('inquiries').insert([
+        {
+          name: quoteForm.name,
+          email: quoteForm.email || 'inquiry@carelinkhealthineers.com',
+          company: quoteForm.org || 'Clinical Facility',
+          message: payloadMessage,
+          status: 'pending'
+        }
+      ]);
+      if (error) throw error;
+      setQuoteSubmitted(true);
+      setTimeout(() => {
+        setQuoteModalOpen(false);
+        setQuoteSubmitted(false);
+      }, 1800);
+    } catch (err) {
+      console.error('Quote submission error:', err);
+    } finally {
+      setQuoteSubmitting(false);
+    }
+  };
 
   return (
-    <div className="pt-32 pb-32 bg-white min-h-screen font-sans selection:bg-blue-600">
-      <SEO 
-        title="Equipment Portfolio | Medical & Dental Catalog" 
+    <div className="sf-products-page min-h-screen">
+      <SEO
+        title="Equipment Portfolio | Medical & Dental Catalog"
         description="Browse our complete catalog of certified medical and dental equipment. Official partner of Dürr Dental with direct factory pricing and fast delivery."
         keywords={['medical equipment catalog', 'dental equipment', 'Dürr Dental products', 'VistaPano', 'imaging systems', 'clinical equipment']}
       />
 
-      <div className="max-w-[1700px] mx-auto px-6 md:px-12">
-        {/* Header Metadata (Smarter Look) */}
-        <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-12 gap-6 opacity-80 border-b border-slate-100 pb-10">
-           <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                 <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Live Product Catalog</span>
-              </div>
-              <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter leading-none">
-                Infrastructure <span className="text-slate-400 italic">Portfolio.</span>
-              </h1>
-           </div>
-           
-           <div className="flex items-center gap-6">
-              <div className="hidden lg:flex flex-col items-end">
-                 <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Total Products</span>
-                 <span className="text-xs font-black text-blue-600">{products.length} Units</span>
-              </div>
-              <div className="flex bg-slate-50 border border-slate-200/60 rounded-xl p-1">
-                <button 
-                  onClick={() => setViewMode('grid')}
-                  className={`px-4 py-2 rounded-lg transition-all text-[9px] font-bold uppercase tracking-widest flex items-center gap-2 ${viewMode === 'grid' ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
-                >
-                  <LayoutGrid size={12} /> Grid
-                </button>
-                <button 
-                  onClick={() => setViewMode('list')}
-                  className={`px-4 py-2 rounded-lg transition-all text-[9px] font-bold uppercase tracking-widest flex items-center gap-2 ${viewMode === 'list' ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
-                >
-                  <SlidersHorizontal size={12} /> Table
-                </button>
-              </div>
-           </div>
+      {/* ============ PAGE HEADER ============ */}
+      <header className="page-header">
+        <div className="wrap">
+          <nav className="breadcrumb" aria-label="Breadcrumb">
+            <Link to="/">Home</Link>
+            <span>/</span>
+            <em>Products</em>
+          </nav>
+          <h1>
+            Medical &amp; Dental <em>Equipment Catalog</em>
+          </h1>
+          <p className="lede">
+            Certified clinical infrastructure, diagnostic imaging systems, and hospital equipment with direct factory sourcing and technical deployment.
+          </p>
+          <div className="ph-meta">
+            <span>
+              <strong>{products.length}</strong> Certified Products
+            </span>
+            <span className="ph-dot" />
+            <span>
+              <strong>{divisions.length}</strong> Clinical Divisions
+            </span>
+            <span className="ph-dot" />
+            <span>Authorized Dürr Dental Partner</span>
+          </div>
         </div>
+      </header>
 
-        {/* Main 12-Column Grid Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
-          
-          {/* LEFT SIDEBAR NAVIGATION (3 Cols) */}
-          <aside className="lg:col-span-3 space-y-12">
-            <div className="sticky top-32 space-y-10">
-              
-              {/* Registry Search Node */}
-              <div className="space-y-4">
-                 <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.3em] px-1">Registry_Query</span>
-                 <div className="relative group">
-                    <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
-                    <input 
-                      type="text" 
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder="MODEL_ID / KEYWORD..." 
-                      className="w-full bg-slate-50 border border-slate-200/60 rounded-xl pl-12 pr-4 py-4 text-[10px] font-bold text-slate-800 placeholder:text-slate-400 uppercase tracking-widest outline-none focus:border-blue-600 focus:bg-white transition-all"
+      {/* ============ CATALOG ============ */}
+      <section className="catalog" id="catalog">
+        <div className="wrap catalog-layout">
+          <button
+            className="filters-toggle"
+            id="filtersToggle"
+            type="button"
+            onClick={() => setMobileFiltersOpen(true)}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M4 6h16M7 12h10M10 18h4" />
+            </svg>
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="filters-toggle-count" id="filtersToggleCount">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+
+          <div
+            className={`filters-overlay ${mobileFiltersOpen ? 'open' : ''}`}
+            id="filtersOverlay"
+            onClick={() => setMobileFiltersOpen(false)}
+          />
+
+          {/* FILTER SIDEBAR */}
+          <aside className={`filters ${mobileFiltersOpen ? 'open' : ''}`} id="filters">
+            <div className="filters-head">
+              <h3>Filter Products</h3>
+              <button
+                className="filters-close"
+                id="filtersClose"
+                aria-label="Close filters"
+                onClick={() => setMobileFiltersOpen(false)}
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="filter-group">
+              <label className="filter-search">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="M21 21l-4.3-4.3" />
+                </svg>
+                <input
+                  type="text"
+                  id="searchInput"
+                  placeholder="Search products…"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                />
+              </label>
+            </div>
+
+            <div className="filter-group">
+              <div className="filter-group-head">
+                <h4>Category</h4>
+              </div>
+              <div className="filter-options" id="categoryOptions">
+                {categoryOptions.map(cat => (
+                  <label key={cat.slug} className="filter-option">
+                    <input
+                      type="checkbox"
+                      checked={selectedCategories.includes(cat.slug)}
+                      onChange={() => toggleCategory(cat.slug)}
                     />
-                 </div>
-              </div>
-
-              {/* Department Hierarchy */}
-              <div className="space-y-6">
-                 <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.3em] px-1">Clinical_Departments</span>
-                 <nav className="flex flex-col gap-1.5">
-                    <button
-                       onClick={() => setSearchParams({ division: 'all' })}
-                       className={`flex items-center justify-between px-5 py-4 rounded-xl text-[10px] font-bold uppercase tracking-widest border transition-all ${
-                         currentDeptSlug === 'all' 
-                         ? 'bg-blue-50 border-blue-200 text-blue-600' 
-                         : 'bg-transparent border-transparent text-slate-500 hover:text-slate-800'
-                       }`}
-                    >
-                       <div className="flex items-center gap-4">
-                          <Globe size={14} className={currentDeptSlug === 'all' ? 'text-blue-600' : 'text-slate-400'} />
-                          <span>Complete Registry</span>
-                       </div>
-                       {currentDeptSlug === 'all' && <div className="w-1 h-1 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.6)]" />}
-                    </button>
-
-                    <div className="h-px bg-slate-100 my-2 mx-5" />
-
-                    {divisions.map(div => {
-                       const Icon = IconMap[div.icon_name] || Activity;
-                       const isActive = currentDeptSlug === div.slug;
-                       return (
-                          <button
-                             key={div.id}
-                             onClick={() => setSearchParams({ division: div.slug })}
-                             className={`flex items-center justify-between px-5 py-4 rounded-xl text-[10px] font-bold uppercase tracking-widest border transition-all ${
-                               isActive 
-                               ? 'bg-blue-50 text-blue-600 border-blue-100' 
-                               : 'bg-transparent border-transparent text-slate-500 hover:text-slate-800'
-                             }`}
-                          >
-                             <div className="flex items-center gap-4">
-                                <Icon size={14} className={isActive ? 'text-blue-600' : 'text-slate-400'} />
-                                <span>{div.name}</span>
-                             </div>
-                             {isActive && <ChevronRight size={14} />}
-                          </button>
-                       )
-                    })}
-                  </nav>
-              </div>
-
-              {/* Technical Telemetry Widget */}
-              <div className="p-6 bg-slate-50 border border-slate-200/60 rounded-2xl space-y-4 hidden lg:block">
-                 <div className="flex items-center justify-between">
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Interface_Link</span>
-                    <span className="text-[8px] font-mono text-emerald-600">NOMINAL</span>
-                 </div>
-                 <div className="flex items-center justify-between">
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Sourcing_Matrix</span>
-                    <span className="text-[8px] font-mono text-blue-600">SYNCED</span>
-                 </div>
-                 <div className="pt-2">
-                    <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                       <motion.div 
-                          animate={{ width: ['0%', '100%'] }} 
-                          transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-                          className="h-full bg-blue-600" 
-                        />
-                    </div>
-                 </div>
+                    <span>{cat.name}</span>
+                    <em>{cat.count}</em>
+                  </label>
+                ))}
               </div>
             </div>
+
+            {subcategoryOptions.length > 0 && (
+              <div className="filter-group" id="subcategoryGroup">
+                <div className="filter-group-head">
+                  <h4>Subcategory</h4>
+                </div>
+                <div className="filter-options filter-options-scroll" id="subcategoryOptions">
+                  {subcategoryOptions.map(sub => (
+                    <label key={sub.name} className="filter-option">
+                      <input
+                        type="checkbox"
+                        checked={selectedSubcategories.includes(sub.name)}
+                        onChange={() => toggleSubcategory(sub.name)}
+                      />
+                      <span>{sub.name}</span>
+                      <em>{sub.count}</em>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {brandOptions.length > 0 && (
+              <div className="filter-group">
+                <div className="filter-group-head">
+                  <h4>Brand</h4>
+                </div>
+                <div className="filter-options filter-options-scroll" id="brandOptions">
+                  {brandOptions.map(b => (
+                    <label key={b.name} className="filter-option">
+                      <input
+                        type="checkbox"
+                        checked={selectedBrands.includes(b.name)}
+                        onChange={() => toggleBrand(b.name)}
+                      />
+                      <span>{b.name}</span>
+                      <em>{b.count}</em>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button
+              className="btn btn-ghost filters-clear"
+              id="clearFilters"
+              type="button"
+              onClick={clearAllFilters}
+            >
+              Clear All Filters
+            </button>
           </aside>
 
-          {/* MAIN CONTENT AREA (9 Cols) */}
-          <main className="lg:col-span-9">
+          {/* MAIN */}
+          <div className="catalog-main">
+            <div className="catalog-toolbar">
+              <p className="catalog-count" id="resultCount">
+                {loading
+                  ? 'Loading products…'
+                  : `Showing ${filteredProducts.length} of ${products.length} products`}
+              </p>
+              <label className="catalog-sort">
+                <span>Sort by</span>
+                <select
+                  id="sortSelect"
+                  value={sortBy}
+                  onChange={e => setSortBy(e.target.value as any)}
+                >
+                  <option value="featured">Featured</option>
+                  <option value="name-asc">Name: A–Z</option>
+                  <option value="price-asc">Price: Low to High</option>
+                  <option value="price-desc">Price: High to Low</option>
+                </select>
+              </label>
+            </div>
+
+            {/* Active Filter Chips */}
+            {activeFilterCount > 0 && (
+              <div className="active-filters" id="activeFilters">
+                {search.trim() && (
+                  <span className="chip">
+                    Search: &ldquo;{search.trim()}&rdquo;
+                    <button type="button" onClick={() => setSearch('')} aria-label="Remove search filter">
+                      &times;
+                    </button>
+                  </span>
+                )}
+                {selectedCategories.map(slug => {
+                  const div = divisions.find(d => d.slug === slug);
+                  return (
+                    <span key={slug} className="chip">
+                      {div?.name || slug}
+                      <button type="button" onClick={() => toggleCategory(slug)} aria-label="Remove category filter">
+                        &times;
+                      </button>
+                    </span>
+                  );
+                })}
+                {selectedSubcategories.map(sub => (
+                  <span key={sub} className="chip">
+                    {sub}
+                    <button type="button" onClick={() => toggleSubcategory(sub)} aria-label="Remove subcategory filter">
+                      &times;
+                    </button>
+                  </span>
+                ))}
+                {selectedBrands.map(brand => (
+                  <span key={brand} className="chip">
+                    {brand}
+                    <button type="button" onClick={() => toggleBrand(brand)} aria-label="Remove brand filter">
+                      &times;
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Product Grid */}
             {loading ? (
-               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
-                  {[...Array(8)].map((_, i) => (
-                     <div key={i} className="aspect-[4/5] rounded-[2.5rem] bg-slate-100 border border-slate-200/40 animate-pulse" />
-                  ))}
-               </div>
-            ) : (
-               <motion.div layout className={`grid gap-8 ${viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4' : 'grid-cols-1'}`}>
-                  <AnimatePresence mode='popLayout'>
-                     {filteredProducts.map((product) => (
-                        <motion.div
-                           layout
-                           key={product.id}
-                           initial={{ opacity: 0, scale: 0.98 }}
-                           animate={{ opacity: 1, scale: 1 }}
-                           exit={{ opacity: 0, scale: 0.98 }}
-                           transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+              <div className="product-grid catalog-grid">
+                {[...Array(8)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="product-card"
+                    style={{ minHeight: '320px', background: 'var(--color-mist)', opacity: 0.6 }}
+                  />
+                ))}
+              </div>
+            ) : filteredProducts.length > 0 ? (
+              <div className="product-grid catalog-grid" id="productGrid">
+                {paginatedProducts.map(product => {
+                  const division = divisions.find(d => d.id === product.division_id);
+                  const categoryLabel = division?.name || product.category_tag || 'Medical Asset';
+                  const brandLabel = getProductBrand(product);
+
+                  return (
+                    <article key={product.id} className="product-card">
+                      <Link
+                        to={`/portfolio/${product.slug}`}
+                        className="product-media"
+                        style={{ cursor: 'pointer', textDecoration: 'none' }}
+                      >
+                        <span className="product-cat-pill">{categoryLabel}</span>
+                        <img src={product.main_image} alt={product.name} loading="lazy" />
+                      </Link>
+                      <div className="product-body">
+                        <h4>
+                          <Link
+                            to={`/portfolio/${product.slug}`}
+                            style={{ color: 'inherit', textDecoration: 'none' }}
+                          >
+                            {product.name}
+                          </Link>
+                        </h4>
+                        <div className="product-specs">
+                          <span>
+                            Model: <b>{product.model_number || 'Standard'}</b>
+                          </span>
+                          <span>
+                            Type: <b>{product.category_tag || 'Clinical'}</b>
+                          </span>
+                          <span>
+                            Brand: <b>{brandLabel}</b>
+                          </span>
+                        </div>
+                        <Link
+                          to={`/portfolio/${product.slug}`}
+                          className="btn btn-ghost product-details-btn"
+                          style={{ textDecoration: 'none' }}
                         >
-                           <Link to={`/portfolio/${product.slug}`} className="group block h-full">
-                              <div className={`
-                                 bg-white border border-slate-200/80 overflow-hidden transition-all duration-700 h-full relative
-                                 ${viewMode === 'grid' 
-                                   ? 'rounded-[2.5rem] flex flex-col hover:border-blue-500/30 hover:bg-slate-50/20 shadow-sm' 
-                                   : 'rounded-2xl p-6 flex flex-col md:flex-row gap-10 hover:bg-slate-50/40 items-center'
-                                 }
-                              `}>
-                                 {/* Asset Visual Node */}
-                                 <div className={`
-                                    relative overflow-hidden bg-slate-50
-                                    ${viewMode === 'grid' ? 'aspect-[4/5]' : 'w-48 h-48 rounded-xl shrink-0 border border-slate-100'}
-                                 `}>
-                                    <img 
-                                       src={product.main_image} 
-                                       alt={product.name}
-                                       className="w-full h-full object-cover opacity-95 group-hover:scale-110 transition-all duration-1000 grayscale group-hover:grayscale-0"
-                                    />
-                                    {viewMode === 'grid' && (
-                                       <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent" />
-                                    )}
-                                    
-                                    <div className="absolute top-5 left-5 flex items-center gap-2 px-3 py-1 bg-white/80 backdrop-blur-md rounded-lg border border-slate-200/60 shadow-sm">
-                                       <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                                       <span className="text-[7px] font-bold text-slate-800 uppercase tracking-widest opacity-80">{product.model_number}</span>
-                                    </div>
-                                 </div>
-
-                                 {/* Identity Interface */}
-                                 <div className={`
-                                    ${viewMode === 'grid' 
-                                      ? 'absolute bottom-0 left-0 right-0 p-8 flex flex-col justify-end' 
-                                      : 'flex-1 flex justify-between items-center pr-4'
-                                    }
-                                 `}>
-                                    <div className="space-y-2">
-                                       <h3 className={`font-black tracking-tight leading-tight group-hover:text-blue-600 transition-colors ${viewMode === 'grid' ? 'text-lg text-white' : 'text-2xl text-slate-900'}`}>
-                                          {product.name}
-                                       </h3>
-                                       <div className="flex items-center gap-4">
-                                          <p className={`text-[9px] font-bold uppercase tracking-widest ${viewMode === 'grid' ? 'text-slate-300' : 'text-slate-400'}`}>
-                                             {product.category_tag}
-                                          </p>
-                                          {viewMode === 'list' && (
-                                            <p className="text-xs text-slate-500 font-medium line-clamp-2 max-w-sm italic opacity-60">
-                                               {product.short_description}
-                                            </p>
-                                          )}
-                                       </div>
-                                    </div>
-
-                                    <div className={`
-                                       ${viewMode === 'grid' 
-                                         ? 'mt-6 flex items-center justify-between' 
-                                         : 'flex items-center gap-4'
-                                       }
-                                    `}>
-                                       <span className={`text-[8px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all ${viewMode === 'grid' ? 'text-slate-300' : 'text-slate-400'}`}>
-                                          Access_Registry
-                                       </span>
-                                       <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-200 text-slate-700 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-all">
-                                          <ArrowUpRight size={14} />
-                                       </div>
-                                    </div>
-                                 </div>
-                              </div>
-                           </Link>
-                        </motion.div>
-                     ))}
-                  </AnimatePresence>
-               </motion.div>
+                          View Details
+                        </Link>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="catalog-empty" id="catalogEmpty">
+                <span className="catalog-empty-icon">
+                  <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.6">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="M21 21l-4.3-4.3" />
+                  </svg>
+                </span>
+                <h3>No products match your filters</h3>
+                <p>Try removing a filter or search for something else.</p>
+                <button
+                  className="btn btn-primary"
+                  id="emptyClearBtn"
+                  type="button"
+                  onClick={clearAllFilters}
+                >
+                  Clear All Filters
+                </button>
+              </div>
             )}
 
-            {/* Empty State Registry */}
-            {!loading && filteredProducts.length === 0 && (
-               <div className="py-40 text-center border border-dashed border-slate-200 rounded-[4rem] bg-slate-50/50">
-                  <Database className="mx-auto text-slate-400 mb-8" size={64} />
-                  <h3 className="text-xl font-black text-slate-800 mb-2 uppercase tracking-tight">Null Registry Query</h3>
-                  <p className="text-slate-500 text-sm font-medium italic">Adjust clinical parameters or reset nodes.</p>
-                  <button onClick={() => {setSearch(''); setSearchParams({division: 'all'})}} className="mt-10 px-10 py-4 bg-blue-600 text-white rounded-xl font-bold uppercase text-[9px] tracking-widest hover:bg-blue-700 transition-all shadow-xl">
-                    Reset Hierarchy
+            {/* Pagination */}
+            {!loading && totalPages > 1 && (
+              <nav className="pagination" id="pagination" aria-label="Product pages">
+                <button
+                  type="button"
+                  className="page-btn"
+                  disabled={currentPage === 1}
+                  onClick={() => {
+                    setCurrentPage(p => Math.max(1, p - 1));
+                    window.scrollTo({ top: 260, behavior: 'smooth' });
+                  }}
+                >
+                  &lsaquo;
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    type="button"
+                    className={`page-btn ${currentPage === page ? 'active' : ''}`}
+                    onClick={() => {
+                      setCurrentPage(page);
+                      window.scrollTo({ top: 260, behavior: 'smooth' });
+                    }}
+                  >
+                    {page}
                   </button>
-               </div>
+                ))}
+                <button
+                  type="button"
+                  className="page-btn"
+                  disabled={currentPage === totalPages}
+                  onClick={() => {
+                    setCurrentPage(p => Math.min(totalPages, p + 1));
+                    window.scrollTo({ top: 260, behavior: 'smooth' });
+                  }}
+                >
+                  &rsaquo;
+                </button>
+              </nav>
             )}
-          </main>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 };

@@ -24,6 +24,60 @@ export const ProductDetails: React.FC = () => {
   const [isTheatreOpen, setIsTheatreOpen] = useState(false);
   const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null);
 
+  // Quote Requisition Modal State
+  const [quoteModalOpen, setQuoteModalOpen] = useState(false);
+  const [quoteForm, setQuoteForm] = useState({
+    name: '',
+    email: '',
+    org: '',
+    category: 'Medical Equipment',
+    message: ''
+  });
+  const [quoteSubmitting, setQuoteSubmitting] = useState(false);
+  const [quoteSubmitted, setQuoteSubmitted] = useState(false);
+
+  const handleOpenQuoteModal = () => {
+    if (product) {
+      setQuoteForm(prev => ({
+        ...prev,
+        category: product.category_tag || 'Medical Equipment',
+        message: `Requesting official quotation and technical specifications for ${product.name} (${product.model_number}).`
+      }));
+    }
+    setQuoteSubmitted(false);
+    setQuoteModalOpen(true);
+  };
+
+  const handleQuoteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quoteForm.name.trim() || !product) return;
+    setQuoteSubmitting(true);
+
+    const payloadMessage = `[Product: ${product.name}] [Category: ${quoteForm.category}] - ${quoteForm.message}`;
+
+    try {
+      const { error } = await supabase.from('inquiries').insert([
+        {
+          name: quoteForm.name,
+          email: quoteForm.email || 'inquiry@carelinkhealthineers.com',
+          company: quoteForm.org || 'Clinical Facility',
+          message: payloadMessage,
+          status: 'pending'
+        }
+      ]);
+      if (error) throw error;
+      setQuoteSubmitted(true);
+      setTimeout(() => {
+        setQuoteModalOpen(false);
+        setQuoteSubmitted(false);
+      }, 1800);
+    } catch (err) {
+      console.error('Quote submission error:', err);
+    } finally {
+      setQuoteSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     const fetchFullSpecification = async () => {
       setLoading(true);
@@ -231,31 +285,54 @@ export const ProductDetails: React.FC = () => {
               </div>
 
               {/* Action Hub */}
-              <div className="flex flex-wrap gap-4">
-                 <Link to={`/acquisition?product=${encodeURIComponent(product.name)}`} className="flex-1 min-w-[160px] py-4 bg-blue-600 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-blue-700 transition-all text-center flex items-center justify-center gap-3 shadow-md">
-                    Request Quote <ArrowUpRight size={16} />
-                 </Link>
-                 
-                 {isVideoEnabled && (
-                   <button 
-                    onClick={handleOpenVideo}
-                    className="px-6 py-4 bg-slate-900 hover:bg-blue-600 text-white rounded-2xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2.5 shadow-md"
-                    title="Watch Product Video"
-                   >
-                      <Tv size={18} className="text-blue-400" />
-                      <span className="text-xs font-bold uppercase tracking-widest">Watch Video</span>
-                   </button>
-                 )}
-
-                 <button 
-                  onClick={handleDownload}
-                  className="px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-700 hover:bg-slate-100 transition-all flex items-center gap-2"
-                  title="Download Brochure"
-                 >
-                    <FileDown size={20} />
-                    <span className="hidden sm:inline text-xs font-bold uppercase tracking-widest">Download PDF</span>
-                 </button>
+              <div className="sf-products-page" style={{ background: 'transparent' }}>
+                <div className="product-modal-actions" style={{ marginTop: 0, paddingTop: '6px' }}>
+                  <a
+                    href={`https://wa.me/8801339482917?text=${encodeURIComponent(
+                      `Hello Carelink Healthineers, I would like to inquire about ${product.name} (Model: ${product.model_number}).`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-primary"
+                    id="modalWhatsapp"
+                  >
+                    WhatsApp Inquiry
+                  </a>
+                  <button
+                    type="button"
+                    className="btn btn-ghost js-quote-trigger"
+                    onClick={handleOpenQuoteModal}
+                  >
+                    Request Quotation
+                  </button>
+                </div>
               </div>
+
+              {(isVideoEnabled || product.brochure_url) && (
+                <div className="flex flex-wrap gap-3 pt-2">
+                  {isVideoEnabled && (
+                    <button 
+                      onClick={handleOpenVideo}
+                      className="px-6 py-3.5 bg-slate-900 hover:bg-blue-600 text-white rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2.5 shadow-sm"
+                      title="Watch Product Video"
+                    >
+                      <Tv size={16} className="text-blue-400" />
+                      <span>Watch Video</span>
+                    </button>
+                  )}
+
+                  {product.brochure_url && (
+                    <button 
+                      onClick={handleDownload}
+                      className="px-6 py-3.5 bg-slate-50 border border-slate-200 rounded-full text-slate-700 hover:bg-slate-100 transition-all flex items-center gap-2"
+                      title="Download Brochure"
+                    >
+                      <FileDown size={18} />
+                      <span className="text-xs font-bold uppercase tracking-widest">Download PDF</span>
+                    </button>
+                  )}
+                </div>
+              )}
            </div>
         </div>
 
@@ -456,6 +533,93 @@ export const ProductDetails: React.FC = () => {
         onClose={() => setIsTheatreOpen(false)}
         video={activeVideo}
       />
+
+      {/* ============ PRODUCT QUOTE MODAL ============ */}
+      <div className="sf-products-page">
+        <div
+          className={`quote-modal ${quoteModalOpen ? 'open' : ''}`}
+          id="quoteModal"
+          onClick={e => {
+            if (e.target === e.currentTarget) setQuoteModalOpen(false);
+          }}
+        >
+          <div className="quote-modal-box">
+            <button
+              type="button"
+              className="quote-modal-close"
+              id="quoteModalClose"
+              aria-label="Close"
+              onClick={() => setQuoteModalOpen(false)}
+            >
+              &times;
+            </button>
+            <form className="cta-form" onSubmit={handleQuoteSubmit}>
+              <div className="cta-form-head">
+                <span>Product Requisition</span>
+                <h3>Request a quotation</h3>
+              </div>
+              {quoteSubmitted ? (
+                <div style={{ padding: '24px 0', textAlign: 'center' }}>
+                  <h4 style={{ color: 'var(--color-green)', marginBottom: '8px', fontSize: '18px' }}>
+                    Requisition Submitted!
+                  </h4>
+                  <p style={{ fontSize: '13.5px' }}>
+                    Our clinical sourcing team has received your inquiry for {product.name} and will respond shortly.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <label htmlFor="pd-qm-name">Name</label>
+                  <input
+                    id="pd-qm-name"
+                    type="text"
+                    required
+                    placeholder="Your name"
+                    value={quoteForm.name}
+                    onChange={e => setQuoteForm({ ...quoteForm, name: e.target.value })}
+                  />
+                  <label htmlFor="pd-qm-email">Email Address</label>
+                  <input
+                    id="pd-qm-email"
+                    type="email"
+                    required
+                    placeholder="your@email.com"
+                    value={quoteForm.email}
+                    onChange={e => setQuoteForm({ ...quoteForm, email: e.target.value })}
+                  />
+                  <label htmlFor="pd-qm-org">Hospital / Clinic / Lab</label>
+                  <input
+                    id="pd-qm-org"
+                    type="text"
+                    required
+                    placeholder="Organization name"
+                    value={quoteForm.org}
+                    onChange={e => setQuoteForm({ ...quoteForm, org: e.target.value })}
+                  />
+                  <label htmlFor="pd-qm-cat">Product Category</label>
+                  <input
+                    id="pd-qm-cat"
+                    type="text"
+                    value={quoteForm.category}
+                    onChange={e => setQuoteForm({ ...quoteForm, category: e.target.value })}
+                  />
+                  <label htmlFor="pd-qm-msg">Message</label>
+                  <textarea
+                    id="pd-qm-msg"
+                    rows={3}
+                    placeholder="Tell us what you need..."
+                    value={quoteForm.message}
+                    onChange={e => setQuoteForm({ ...quoteForm, message: e.target.value })}
+                  />
+                  <button type="submit" className="btn btn-primary" disabled={quoteSubmitting}>
+                    {quoteSubmitting ? 'Submitting…' : 'Submit Requisition'}
+                  </button>
+                </>
+              )}
+            </form>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
