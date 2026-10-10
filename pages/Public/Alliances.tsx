@@ -1,210 +1,144 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Globe, Activity, Layers, Target,
-  Database, ShieldCheck, Link2, Sparkles,
-  ArrowRight, HeartHandshake, MapPin, Stethoscope, Microscope
+import {
+  Globe, Activity, ShieldCheck, Link2, Sparkles,
+  ArrowRight, HeartHandshake
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { SEO } from '../../components/SEO';
 
 const FEATURED_DISTRIBUTORS = [
-  { name: "Dürr Dental", origin: "Germany", sector: "Dental & Imaging Systems", desc: "Premier German dental equipment distributor and official global distributor network partner.", status: "Verified Distributor", icon: <Activity size={28}/>, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
-  { name: "Siemens Healthineers", origin: "Germany", sector: "Imaging Systems", desc: "Pioneering breakthroughs in healthcare with advanced diagnostic and therapeutic imaging.", status: "Verified Distributor", icon: <Activity size={28}/>, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
-  { name: "GE Healthcare", origin: "USA", sector: "Radiology", desc: "Delivering transformational medical technologies and services that are shaping a new age of patient care.", status: "Verified Distributor", icon: <Layers size={28}/>, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" },
-  { name: "Philips Medical", origin: "Netherlands", sector: "Diagnostics", desc: "Meaningful innovations that improve people's health and well-being across the health continuum.", status: "Verified Distributor", icon: <Stethoscope size={28}/>, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
-  { name: "Mindray Global", origin: "China", sector: "Laboratory Hub", desc: "Advanced medical devices and solutions accessible to humanity, focusing on patient monitoring and IT.", status: "Verified Distributor", icon: <Microscope size={28}/>, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100" },
-  { name: "Roche Diagnostics", origin: "Switzerland", sector: "Pathology", desc: "World leader in in-vitro diagnostics and tissue-based cancer diagnostics.", status: "Verified Distributor", icon: <Target size={28}/>, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100" },
-  { name: "Medtronic Systems", origin: "Ireland", sector: "Surgical", desc: "Transforming the lives of two people every second with medical technology, services, and solutions.", status: "Verified Distributor", icon: <Database size={28}/>, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" }
+  { name: "Dürr Dental", origin: "Germany", sector: "Dental & Imaging Systems", desc: "Premier German dental equipment distributor and official global distributor network partner.", status: "Verified Distributor", icon: <Activity size={28}/>, color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-100" }
 ];
 
 export const Alliances: React.FC = () => {
   return (
-    <div className="pt-24 bg-white text-slate-800 overflow-hidden min-h-screen font-sans selection:bg-blue-600">
-      <SEO 
-        title="Our Partners | Global Distributors & Dürr Dental" 
+    <div className="alliances-page min-h-screen overflow-hidden bg-white pt-24 font-sans text-slate-800 selection:bg-sky-100 selection:text-slate-950">
+      <SEO
+        title="Our Partners | Global Distributors & Dürr Dental"
         description="Explore Carelink Healthineers' direct partnerships with world-leading medical and dental distributors including Dürr Dental, Siemens, GE, and Philips."
         keywords={['medical partners', 'Dürr Dental distributor', 'medical equipment distributors', 'Siemens Healthineers', 'GE Healthcare']}
       />
 
-      {/* 1. HERO SECTION - Classical Light Theme */}
-      <section className="relative py-24 md:py-32 border-b border-slate-100 bg-white">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.03),transparent_70%)] pointer-events-none" />
-        
-        <div className="max-w-[1200px] mx-auto px-6 relative z-10 text-center">
-          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
-             
-             {/* Logo Integration */}
-             <div className="flex justify-center mb-8">
-                <div className="w-20 h-20 bg-slate-50 p-4 rounded-[2rem] border border-slate-200/80 flex items-center justify-center shadow-md">
-                   <img src="https://i.imgur.com/y0UvXGu.png" alt="Carelink Logo" className="w-full h-full object-contain" />
-                </div>
-             </div>
-
-             <div className="flex items-center justify-center mb-6">
-                <div className="px-4 py-1.5 rounded-full bg-blue-50 text-blue-600 text-xs font-semibold border border-blue-100 flex items-center gap-2 shadow-sm uppercase tracking-wider">
-                  <HeartHandshake size={14} /> Global Sourcing Partners
-                </div>
-             </div>
-             
-             <h1 className="text-4xl md:text-6xl lg:text-7xl font-normal text-slate-900 tracking-tight leading-[1.12] mb-6 font-serif-classical">
-               World-class quality, <br />
-               <span className="text-blue-600 italic font-serif-classical">delivered globally.</span>
-             </h1>
-             
-             <p className="text-lg md:text-xl text-slate-500 font-medium leading-relaxed max-w-2xl mx-auto mb-10">
-               We partner directly with leading tier-1 medical distributors around the globe to bring exceptional medical equipment to healthcare facilities.
-             </p>
-             
-             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                 <Link to="/acquisition" className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 bg-blue-600 text-white font-bold text-sm tracking-wider uppercase rounded-xl hover:bg-blue-700 shadow-md hover:shadow-lg transition-all duration-300">
-                    Work With Us <ArrowRight size={16} />
-                 </Link>
-                 <div className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 shadow-sm">
-                    <Globe size={16} className="text-blue-600" /> 480+ Brands Connected
-                 </div>
-             </div>
+      <section className="border-b border-slate-200 bg-white py-20 md:py-28">
+        <div className="mx-auto max-w-5xl px-6 text-center">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+            <div className="mb-7 flex justify-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                <img src="https://i.imgur.com/y0UvXGu.png" alt="Carelink Logo" className="h-full w-full object-contain" />
+              </div>
+            </div>
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-sky-100 bg-sky-50 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-sky-800">
+              <HeartHandshake size={14} /> Global Sourcing Partners
+            </div>
+            <h1 className="mb-6 text-4xl font-semibold leading-tight tracking-tight text-slate-950 sm:text-5xl md:text-7xl">
+              World-class quality,<br />
+              <span className="font-medium text-sky-700">delivered globally.</span>
+            </h1>
+            <p className="mx-auto mb-9 max-w-2xl text-base leading-8 text-slate-600 md:text-lg">
+              We partner directly with leading tier-1 medical distributors around the globe to bring exceptional medical equipment to healthcare facilities.
+            </p>
+            <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Link to="/acquisition" className="group inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#075985] px-7 py-3.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-[#06486b] sm:w-auto">
+                Work With Us <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+              </Link>
+              <div className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-7 py-3.5 text-sm font-semibold text-slate-700 sm:w-auto">
+                <Globe size={16} className="text-sky-700" /> 480+ Brands Connected
+              </div>
+            </div>
+            <div className="mx-auto mt-12 grid max-w-3xl grid-cols-1 divide-y divide-slate-200 border-y border-slate-200 text-left sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+              <div className="px-5 py-4"><div className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Featured partner</div><div className="text-base font-semibold text-slate-950">Dürr Dental</div></div>
+              <div className="px-5 py-4"><div className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Headquarters</div><div className="text-base font-semibold text-slate-950">Germany</div></div>
+              <div className="px-5 py-4"><div className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Specialty</div><div className="text-base font-semibold text-slate-950">Dental & Imaging Systems</div></div>
+            </div>
           </motion.div>
         </div>
       </section>
 
-      {/* 2. DISTRIBUTORS GRID - Light Classical Design */}
-      <section className="py-24 bg-slate-50 border-b border-slate-200/50">
-        <div className="max-w-[1400px] mx-auto px-6 md:px-12">
-          <header className="text-center mb-16 space-y-4">
-             <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">TRUSTED DISTRIBUTORS</span>
-             <h2 className="text-3xl md:text-5xl font-normal text-slate-900 tracking-tight font-serif-classical">
-               Featured Partners
-             </h2>
-             <p className="text-slate-500 text-lg font-medium max-w-xl mx-auto">
-               Discover the industry giants powering modern healthcare infrastructure through our network.
-             </p>
+      <section className="border-b border-slate-200 bg-slate-50 py-16 md:py-20">
+        <div className="mx-auto max-w-5xl px-6 md:px-10">
+          <header className="mb-10 space-y-3 text-center">
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-sky-800">TRUSTED PARTNER</span>
+            <h2 className="text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl">Featured Partner</h2>
+            <p className="mx-auto max-w-xl text-base leading-7 text-slate-600">Discover the industry expertise supporting modern dental care.</p>
           </header>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-             {FEATURED_DISTRIBUTORS.map((node, i) => (
-               <motion.div 
-                 key={i} 
-                 whileHover={{ y: -6 }}
-                 className="p-8 bg-white border border-slate-200 rounded-[2.2rem] flex flex-col h-full group hover:border-blue-500/20 hover:shadow-md transition-all duration-300 relative overflow-hidden"
-               >
-                  <div className="flex justify-between items-start mb-8 relative z-10">
-                     <div className={`w-16 h-16 rounded-[1.2rem] flex items-center justify-center border transition-transform group-hover:scale-105 ${node.bg} ${node.color} ${node.border}`}>
-                        {node.icon}
-                     </div>
-                     <div className="flex items-center gap-1.5 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">
-                        <ShieldCheck size={14} className="text-emerald-600" />
-                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">{node.status}</span>
-                     </div>
+          {FEATURED_DISTRIBUTORS.map((node, i) => (
+            <motion.div
+              key={node.name}
+              whileHover={{ y: -3 }}
+              transition={{ type: 'spring', stiffness: 240, damping: 24 }}
+              className="mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-shadow duration-300 hover:shadow-md md:p-9"
+            >
+              <div className="flex flex-col gap-7 md:flex-row md:items-start md:gap-9">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-sky-100 bg-sky-50 text-sky-800">{node.icon}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-3 flex flex-wrap items-center gap-3">
+                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{node.origin}</span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700"><ShieldCheck size={13} /> {node.status}</span>
                   </div>
-                  
-                  <div className="flex-1 relative z-10">
-                    <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-2 group-hover:text-blue-600 transition-colors">{node.name}</h3>
-                    
-                    <div className="flex flex-wrap items-center gap-2 mb-6">
-                      <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 bg-slate-50 px-3 py-1 rounded-lg border border-slate-100">
-                        <MapPin size={12} /> {node.origin}
-                      </span>
-                      <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 bg-slate-50 px-3 py-1 rounded-lg border border-slate-100">
-                        {node.sector}
-                      </span>
-                    </div>
-
-                    <p className="text-slate-500 text-sm font-medium leading-relaxed mb-6 line-clamp-3">
-                      {node.desc}
-                    </p>
+                  <h3 className="mb-3 text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl">{node.name}</h3>
+                  <div className="mb-4 text-sm font-medium text-sky-800">{node.sector}</div>
+                  <p className="max-w-2xl text-sm leading-7 text-slate-600">{node.desc}</p>
+                  <div className="mt-7 border-t border-slate-100 pt-5">
+                    <Link to="/portfolio" className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-800 transition-colors hover:text-sky-800">
+                      Explore Catalog <ArrowRight size={14} />
+                    </Link>
                   </div>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
 
-                  <div className="pt-6 border-t border-slate-100 mt-auto relative z-10">
-                     <Link to="/portfolio" className="inline-flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider hover:text-blue-600 transition-colors group/link">
-                        Explore Catalog <ArrowRight size={14} className="group-hover/link:translate-x-1 transition-transform" />
-                     </Link>
+      <section className="relative overflow-hidden bg-white py-20 md:py-32">
+        <div className="mx-auto grid max-w-[1400px] grid-cols-1 items-center gap-14 px-6 md:px-12 lg:grid-cols-2 lg:gap-20">
+          <div className="space-y-10">
+            <div className="space-y-5">
+              <div className="mb-2 flex items-center gap-2 text-sky-700">
+                <Sparkles size={18} />
+                <span className="text-[10px] font-extrabold uppercase tracking-[0.24em]">THE CARELINK ADVANTAGE</span>
+              </div>
+              <h2 className="text-4xl font-semibold leading-[1.08] tracking-[-0.04em] text-slate-950 md:text-5xl">
+                Making medical procurement <br />
+                <span className="font-medium text-sky-700">beautifully simple.</span>
+              </h2>
+            </div>
+
+            <div className="space-y-4">
+              {[
+                { title: "Direct Sourcing Pathways", desc: "We eliminate procurement intermediaries. Ship direct from certified distributor networks, maximizing your capital budget efficiency.", icon: <Link2 size={22}/> },
+                { title: "Rigorous Technical Compliance", desc: "Every medical asset is distributed by Dürr Dental and thoroughly vetted to conform with top medical standards.", icon: <ShieldCheck size={22}/> },
+                { title: "Sovereign Engineering Support", desc: "Our certified medical technicians assemble, test, and provide personal training directly at your medical facility.", icon: <Activity size={22}/> }
+              ].map((item, i) => (
+                <div key={i} className="group flex gap-5 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_5px_20px_rgba(15,23,42,.025)] transition-all duration-300 hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-[0_14px_35px_rgba(15,23,42,.07)] md:gap-6 md:p-6">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-sky-100 bg-sky-50 text-sky-700 transition-all duration-300 group-hover:border-sky-600 group-hover:bg-sky-600 group-hover:text-white">{item.icon}</div>
+                  <div>
+                    <h4 className="mb-2 text-base font-bold tracking-tight text-slate-950 md:text-lg">{item.title}</h4>
+                    <p className="text-sm font-medium leading-7 text-slate-500">{item.desc}</p>
                   </div>
-               </motion.div>
-             ))}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="relative flex justify-center lg:justify-end">
+            <div className="group relative flex aspect-square w-full max-w-md items-center justify-center overflow-hidden rounded-[2.5rem] border border-slate-200 bg-[#f2f7fb] shadow-[0_30px_90px_rgba(15,23,42,.1)] md:rounded-[3rem]">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(14,165,233,.14),transparent_48%)]" />
+              <div className="absolute inset-5 rounded-[2rem] border border-sky-900/[0.06] md:inset-7" />
+              <Globe size={300} className="absolute text-sky-900/[0.08] transition-transform duration-1000 group-hover:rotate-6 group-hover:scale-105" />
+              <div className="relative z-10 w-4/5 rounded-[1.8rem] border border-white bg-white/90 p-7 text-center shadow-[0_20px_70px_rgba(15,23,42,.12)] backdrop-blur-xl md:p-10">
+                <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700"><ShieldCheck size={23} /></div>
+                <div className="mb-2 text-6xl font-bold tracking-[-0.06em] text-slate-950">99%</div>
+                <p className="mb-8 text-[10px] font-extrabold uppercase tracking-[0.2em] text-sky-700">Supply Chain Reliability</p>
+                <Link to="/acquisition" className="group/quote inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#075985] py-4 text-sm font-extrabold uppercase tracking-[0.12em] text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#06486b]">
+                  Get a Quote <ArrowRight size={16} className="transition-transform duration-300 group-hover/quote:translate-x-1" />
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </section>
-
-      {/* 3. FLOWING TICKER - Beautiful soft-gray bar */}
-      <section className="py-8 border-b border-slate-100 bg-white overflow-hidden relative">
-         <div className="flex whitespace-nowrap animate-ticker py-2 items-center">
-            {[...Array(12)].map((_, i) => (
-              <div key={i} className="flex items-center mx-8 shrink-0">
-                 <span className="text-xs font-bold text-slate-700 tracking-wider">
-                   {FEATURED_DISTRIBUTORS[i % 7].name}
-                 </span>
-                 <span className="mx-8 text-slate-300">•</span>
-                 <span className="text-xs font-semibold text-blue-600 uppercase tracking-wider">
-                   {FEATURED_DISTRIBUTORS[i % 7].sector}
-                 </span>
-                 <span className="mx-8 text-slate-300">•</span>
-              </div>
-            ))}
-         </div>
-      </section>
-
-      {/* 4. WHY PARTNER WITH US? - Classical Elegance */}
-      <section className="py-32 bg-white">
-        <div className="max-w-[1400px] mx-auto px-6 md:px-12 grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
-           <div className="space-y-10">
-              <div className="space-y-4">
-                 <div className="flex items-center gap-2 text-blue-600 mb-2">
-                    <Sparkles size={18} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">THE CARELINK ADVANTAGE</span>
-                 </div>
-                 <h2 className="text-4xl md:text-5xl font-normal text-slate-900 tracking-tight leading-tight font-serif-classical">
-                    Making medical procurement <br /> 
-                    <span className="text-blue-600 italic font-serif-classical">beautifully simple.</span>
-                 </h2>
-              </div>
-              
-              <div className="space-y-6">
-                 {[
-                   { title: "Direct Sourcing Pathways", desc: "We eliminate procurement intermediaries. Ship direct from certified distributor networks, maximizing your capital budget efficiency.", icon: <Link2 size={22}/> },
-                   { title: "Rigorous Technical Compliance", desc: "Every medical asset is distributed by Dürr Dental and thoroughly vetted to conform with top medical standards.", icon: <ShieldCheck size={22}/> },
-                   { title: "Sovereign Engineering Support", desc: "Our certified medical technicians assemble, test, and provide personal training directly at your medical facility.", icon: <Activity size={22}/> }
-                 ].map((item, i) => (
-                   <div key={i} className="flex gap-6 p-6 rounded-[2rem] bg-slate-50 border border-slate-200/80 hover:bg-slate-100/50 transition-all group">
-                       <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                          {item.icon}
-                       </div>
-                       <div>
-                          <h4 className="text-lg font-bold text-slate-900 mb-2">{item.title}</h4>
-                          <p className="text-sm text-slate-500 font-medium leading-relaxed">{item.desc}</p>
-                       </div>
-                   </div>
-                 ))}
-              </div>
-           </div>
-           
-           <div className="relative flex justify-center lg:justify-end">
-              <div className="w-full max-w-md aspect-square bg-slate-50 rounded-[3rem] border border-slate-200 flex items-center justify-center relative overflow-hidden group shadow-md">
-                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.06),transparent)]" />
-                 <Globe size={300} className="text-slate-200 absolute group-hover:scale-[1.05] group-hover:rotate-6 transition-transform duration-1000" />
-                 
-                 <div className="text-center relative z-10 p-10 bg-white border border-slate-200/80 rounded-[2.2rem] shadow-lg w-4/5">
-                    <div className="text-6xl font-bold text-slate-900 tracking-tight mb-2">99%</div>
-                    <p className="text-xs font-bold text-blue-600 mb-8 uppercase tracking-widest">Supply Chain Reliability</p>
-                    <Link to="/acquisition" className="inline-flex items-center justify-center w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-sm uppercase tracking-wider hover:bg-blue-700 transition-all shadow-md">
-                       Get a Quote <ArrowRight size={16} className="ml-2" />
-                    </Link>
-                 </div>
-              </div>
-           </div>
-        </div>
-      </section>
-
-      <style>{`
-        @keyframes ticker {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-        .animate-ticker {
-          display: inline-flex;
-          animation: ticker 40s linear infinite;
-        }
-      `}</style>
     </div>
   );
 };
