@@ -66,7 +66,7 @@ const DEFAULT_COLUMNS: FooterColumn[] = [
       { label: 'Client Sign In', path: '/login' },
       { label: 'Partner Registration', path: '/signup' },
       { label: 'Service Terms', path: '/foundation' },
-      { label: 'Privacy Policy', path: '/foundation' },
+      { label: 'Privacy Policy', path: '/privacypolicy' },
       { label: 'Quality Guidelines', path: '/foundation' },
     ],
   },
@@ -587,7 +587,7 @@ export const Footer: React.FC<FooterProps> = ({
               |
             </span>
             <Link
-              to="/foundation"
+              to="/privacypolicy"
               className="text-[var(--footer-text-secondary,#d4d4d8)] hover:text-white underline underline-offset-2 transition-colors"
             >
               Privacy Policy

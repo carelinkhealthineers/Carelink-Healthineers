@@ -22,6 +22,7 @@ import { Intelligence } from './pages/Public/Intelligence';
 import { Foundation } from './pages/Public/Foundation';
 import { BlogList } from './pages/Public/BlogList';
 import { BlogDetails } from './pages/Public/BlogDetails';
+import { PrivacyPolicy } from './pages/Public/Privacypolicy';
 import { Login } from './pages/Auth/Login';
 import { Signup } from './pages/Auth/Signup';
 
@@ -205,6 +206,10 @@ const App: React.FC = () => {
           <Route path="/acquisition" element={<Acquisition />} />
           <Route path="/intelligence" element={<Intelligence />} />
           <Route path="/foundation" element={<Foundation />} />
+          <Route path="/privacypolicy" element={<PrivacyPolicy />} />
+          <Route path="/Privacypolicy" element={<PrivacyPolicy />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/Public/Privacypolicy" element={<PrivacyPolicy />} />
           <Route path="/interface" element={<Navigate to="/acquisition" replace />} />
           <Route path="/meeting/:roomCode" element={<Navigate to="/" replace />} />
           <Route path="/insights" element={<BlogList />} />
