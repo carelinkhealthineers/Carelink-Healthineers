@@ -25,6 +25,13 @@ const sections = [
 ];
 
 export const PrivacyPolicy: React.FC = () => {
+  const scrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   return (
     <main className="min-h-screen overflow-hidden bg-[#f7f9fc] font-sans text-slate-800 selection:bg-[#d9edf8] selection:text-[#123b55]">
       <SEO
@@ -99,14 +106,15 @@ export const PrivacyPolicy: React.FC = () => {
           <p className="mb-4 px-1 text-xs font-bold uppercase tracking-[0.17em] text-slate-400">On this page</p>
           <nav className="grid gap-1 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
             {sections.map(({ id, label, icon: Icon }) => (
-              <a
+              <button
                 key={id}
-                href={`#${id}`}
-                className="group flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-slate-600 transition-colors hover:bg-sky-50 hover:text-[#087ca5]"
+                type="button"
+                onClick={() => scrollToSection(id)}
+                className="group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-sky-50 hover:text-[#087ca5] cursor-pointer"
               >
                 <Icon size={17} className="shrink-0 text-slate-400 transition-colors group-hover:text-[#087ca5]" />
                 {label}
-              </a>
+              </button>
             ))}
           </nav>
           <div className="mt-4 rounded-2xl bg-[#10354b] p-5 text-white">

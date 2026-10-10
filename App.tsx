@@ -210,6 +210,12 @@ const App: React.FC = () => {
           <Route path="/Privacypolicy" element={<PrivacyPolicy />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/Public/Privacypolicy" element={<PrivacyPolicy />} />
+          <Route path="/information" element={<Navigate to="/privacypolicy" replace />} />
+          <Route path="/use" element={<Navigate to="/privacypolicy" replace />} />
+          <Route path="/sharing" element={<Navigate to="/privacypolicy" replace />} />
+          <Route path="/security" element={<Navigate to="/privacypolicy" replace />} />
+          <Route path="/cookies" element={<Navigate to="/privacypolicy" replace />} />
+          <Route path="/rights" element={<Navigate to="/privacypolicy" replace />} />
           <Route path="/interface" element={<Navigate to="/acquisition" replace />} />
           <Route path="/meeting/:roomCode" element={<Navigate to="/" replace />} />
           <Route path="/insights" element={<BlogList />} />
