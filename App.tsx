@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Routes, Route, useLocation, Link, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LayoutGrid, Package, FolderTree, Mail, Settings, LogOut, Handshake, BookOpen, Users, Terminal, Globe, Menu, X, Home, ExternalLink } from 'lucide-react';
-import { supabase, performSignOut, getLocalAdminSession, isOwnerOrAdminEmail } from './supabaseClient';
+import { supabase, performSignOut } from './supabaseClient';
 
 // Layout Components
 import { Navbar } from './components/Navbar';
@@ -37,7 +37,7 @@ import { BlogArchitecture } from './pages/Admin/BlogArchitecture';
 import { UserRegistry } from './pages/Admin/UserRegistry';
 import { SEOControl } from './pages/Admin/SEOControl';
 
-// Protected Route Component
+// Protected Route Component — verifies real Supabase Auth session and public.profiles role
 const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> = ({ children, adminOnly = false }) => {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
@@ -46,72 +46,66 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
   useEffect(() => {
     let mounted = true;
 
-    const resolveRoleBackground = async (userObj: any) => {
-      if (!userObj) return;
-      const isOwner = isOwnerOrAdminEmail(userObj.email);
+    // Clean up any legacy insecure localStorage keys from previous builds
+    try {
+      localStorage.removeItem('carelink_verified_admin_session');
+      localStorage.removeItem('carelink_local_registered_users');
+    } catch {}
+
+    const fetchVerifiedProfileRole = async (userObj: any) => {
+      if (!userObj?.id) {
+        if (mounted) {
+          setRole(null);
+          setLoading(false);
+        }
+        return;
+      }
+
       try {
-        const { data: profile } = await supabase
+        const { data: profile, error } = await supabase
           .from('profiles')
           .select('role')
           .eq('id', userObj.id)
           .maybeSingle();
 
-        if (profile?.role) {
-          if (mounted) setRole(isOwner ? 'admin' : profile.role);
-          return;
+        if (error) {
+          console.error('Failed to verify profile role from database:', error.message);
         }
 
-        const assignedRole = isOwner ? 'admin' : 'buyer';
-        if (mounted) setRole(assignedRole);
-
-        // Non-blocking background upsert
-        supabase.from('profiles').upsert({
-          id: userObj.id,
-          email: userObj.email,
-          full_name: userObj.user_metadata?.full_name || userObj.email?.split('@')[0] || 'Operator',
-          role: assignedRole
-        }, { onConflict: 'id' }).then(() => {});
+        if (mounted) {
+          setRole(profile?.role || 'buyer');
+          setLoading(false);
+        }
       } catch (e) {
-        if (mounted) setRole(isOwner ? 'admin' : 'buyer');
+        console.error('Unexpected role verification error:', e);
+        if (mounted) {
+          setRole('buyer');
+          setLoading(false);
+        }
       }
     };
 
     const syncAuthState = async () => {
       try {
-        // Check local verified admin fallback first so admin never gets locked out by rate limits
-        const localAdmin = getLocalAdminSession();
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (session?.user) {
-          const initialRole = isOwnerOrAdminEmail(session.user.email) ? 'admin' : (localAdmin?.role || 'buyer');
-          if (mounted) {
-            setUser(session.user);
-            setRole(initialRole);
-            setLoading(false);
-          }
-          // Fetch DB profile outside any lock
-          setTimeout(() => resolveRoleBackground(session.user), 0);
-        } else if (localAdmin) {
-          if (mounted) {
-            setUser(localAdmin);
-            setRole(localAdmin.role);
-            setLoading(false);
-          }
-        } else {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error || !session?.user) {
           if (mounted) {
             setUser(null);
             setRole(null);
             setLoading(false);
           }
+          return;
         }
+
+        if (mounted) {
+          setUser(session.user);
+        }
+        await fetchVerifiedProfileRole(session.user);
       } catch (err) {
         console.error('Auth check error:', err);
-        const localAdmin = getLocalAdminSession();
         if (mounted) {
-          if (localAdmin) {
-            setUser(localAdmin);
-            setRole(localAdmin.role);
-          }
+          setUser(null);
+          setRole(null);
           setLoading(false);
         }
       }
@@ -119,22 +113,15 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
 
     syncAuthState();
 
-    // IMPORTANT: Keep onAuthStateChange synchronous — never await supabase.from() inside this callback
-    // or it will deadlock the Supabase client lock queue and freeze all DB reads/writes!
+    // Keep onAuthStateChange callback synchronous and defer DB query via setTimeout
+    // to adhere to Supabase JS v2 best practices.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return;
-      const localAdmin = getLocalAdminSession();
       if (session?.user) {
         setUser(session.user);
-        if (isOwnerOrAdminEmail(session.user.email)) {
-          setRole('admin');
-        }
-        setLoading(false);
-        setTimeout(() => resolveRoleBackground(session.user), 0);
-      } else if (localAdmin) {
-        setUser(localAdmin);
-        setRole(localAdmin.role);
-        setLoading(false);
+        setTimeout(() => {
+          fetchVerifiedProfileRole(session.user);
+        }, 0);
       } else {
         setUser(null);
         setRole(null);
@@ -142,15 +129,9 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
       }
     });
 
-    const handleLocalAuthChange = () => {
-      syncAuthState();
-    };
-    window.addEventListener('carelink-auth-change', handleLocalAuthChange);
-
     return () => {
       mounted = false;
       subscription.unsubscribe();
-      window.removeEventListener('carelink-auth-change', handleLocalAuthChange);
     };
   }, []);
 

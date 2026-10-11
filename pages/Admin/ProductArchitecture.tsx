@@ -200,39 +200,62 @@ export const ProductArchitecture: React.FC = () => {
 
       let productId = editingId;
       if (editingId) {
-        const { error: updateErr } = await supabase.from('products').update(payload).eq('id', editingId);
+        const { data: updatedRows, error: updateErr } = await supabase
+          .from('products')
+          .update(payload)
+          .eq('id', editingId)
+          .select();
+
         if (updateErr) {
-          console.warn('Payload update warning, falling back:', updateErr.message);
+          console.warn('Payload update warning, falling back to schema-safe columns:', updateErr.message);
           const { show_video, video_url, ...safePayload } = payload;
-          await supabase.from('products').update(safePayload).eq('id', editingId);
+          const { data: fallbackRows, error: fallbackErr } = await supabase
+            .from('products')
+            .update(safePayload)
+            .eq('id', editingId)
+            .select();
+
+          if (fallbackErr) throw fallbackErr;
+          if (!fallbackRows || fallbackRows.length === 0) {
+            throw new Error('Update failed: 0 rows modified in public.products (check RLS permissions).');
+          }
+        } else if (!updatedRows || updatedRows.length === 0) {
+          throw new Error('Update failed: 0 rows modified in public.products (check RLS permissions).');
         }
       } else {
         let { data, error: insertErr } = await supabase.from('products').insert([payload]).select();
         if (insertErr) {
-          console.warn('Payload insert warning, falling back:', insertErr.message);
+          console.warn('Payload insert warning, falling back to schema-safe columns:', insertErr.message);
           const { show_video, video_url, ...safePayload } = payload;
           const res = await supabase.from('products').insert([safePayload]).select();
+          if (res.error) throw res.error;
           data = res.data;
         }
-        productId = data?.[0]?.id;
+        if (!data || data.length === 0) {
+          throw new Error('Insert failed: 0 rows created in public.products (check RLS permissions).');
+        }
+        productId = data[0].id;
       }
 
       if (productId) {
-        await supabase.from('product_parts').delete().eq('product_id', productId);
+        const { error: delPartsErr } = await supabase.from('product_parts').delete().eq('product_id', productId);
+        if (delPartsErr) console.warn('Product parts cleanup notice:', delPartsErr.message);
         if (parts.length > 0) {
-          await supabase.from('product_parts').insert(parts.map((p, i) => ({
+          const { error: insPartsErr } = await supabase.from('product_parts').insert(parts.map((p, i) => ({
             product_id: productId,
             name: p.name,
             description: p.description,
             image_url: p.image_url,
             order_index: i
           })));
+          if (insPartsErr) throw insPartsErr;
         }
       }
       await fetchData();
       setIsEditorOpen(false);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error('Product Save Error:', err);
+      alert(`Failed to save product: ${err?.message || 'Database mutation error'}`);
     } finally {
       setIsSaving(false);
     }
@@ -314,7 +337,20 @@ export const ProductArchitecture: React.FC = () => {
                
                <div className="mt-auto flex gap-3">
                   <button onClick={() => toggleEditor(item)} className="flex-1 py-4 bg-white/5 text-white border border-white/5 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all">Modify</button>
-                  <button onClick={async () => { if(confirm('Purge?')) { await supabase.from('products').delete().eq('id', item.id); fetchData(); } }} className="p-4 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-2xl hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={16} /></button>
+                  <button onClick={async () => {
+                    if (confirm('Purge product from registry?')) {
+                      const { data, error } = await supabase.from('products').delete().eq('id', item.id).select();
+                      if (error) {
+                        alert(`Failed to delete product: ${error.message}`);
+                        return;
+                      }
+                      if (!data || data.length === 0) {
+                        alert('Delete blocked by Row-Level Security (0 rows deleted).');
+                        return;
+                      }
+                      fetchData();
+                    }
+                  }} className="p-4 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-2xl hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={16} /></button>
                </div>
             </motion.div>
           ))

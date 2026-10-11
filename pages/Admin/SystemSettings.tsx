@@ -37,11 +37,15 @@ export const SystemSettings: React.FC = () => {
   const handleUpdate = async (id: string, value: string) => {
     setIsSaving(true);
     try {
-      const { error } = await supabase.from('settings').update({ value }).eq('id', id);
+      const { data, error } = await supabase.from('settings').update({ value }).eq('id', id).select();
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('Update blocked by Row-Level Security (0 rows modified in public.settings).');
+      }
       setSettings(prev => prev.map(s => s.id === id ? { ...s, value } : s));
-    } catch (err) {
-      alert('Registry Sync Failed');
+    } catch (err: any) {
+      alert(`Registry Sync Failed: ${err?.message || 'Unknown error'}`);
+      await fetchSettings();
     } finally {
       setIsSaving(false);
     }

@@ -43,11 +43,13 @@ export const DivisionControl: React.FC = () => {
     const slug = slugify(formData.name);
     try {
       if (editingId) {
-        const { error } = await supabase.from('divisions').update({ ...formData, slug }).eq('id', editingId);
+        const { data, error } = await supabase.from('divisions').update({ ...formData, slug }).eq('id', editingId).select();
         if (error) throw error;
+        if (!data || data.length === 0) throw new Error('Update blocked by Row-Level Security (0 rows modified).');
       } else {
-        const { error } = await supabase.from('divisions').insert([{ ...formData, slug }]);
+        const { data, error } = await supabase.from('divisions').insert([{ ...formData, slug }]).select();
         if (error) throw error;
+        if (!data || data.length === 0) throw new Error('Insert blocked by Row-Level Security (0 rows created).');
       }
       await fetchDivisions();
       setIsEditorOpen(false);
@@ -72,8 +74,9 @@ export const DivisionControl: React.FC = () => {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this clinical division?')) return;
     try {
-      const { error } = await supabase.from('divisions').delete().eq('id', id);
+      const { data, error } = await supabase.from('divisions').delete().eq('id', id).select();
       if (error) throw error;
+      if (!data || data.length === 0) throw new Error('Delete blocked by Row-Level Security (0 rows deleted).');
       setDivisions(prev => prev.filter(d => d.id !== id));
     } catch (err: any) {
       alert('Failed to delete division: ' + (err.message || 'Check if products are linked to this division.'));

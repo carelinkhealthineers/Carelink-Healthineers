@@ -53,16 +53,20 @@ export const AllianceControl: React.FC = () => {
     
     try {
       if (editingId) {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('alliances')
           .update({ ...formData, slug })
-          .eq('id', editingId);
+          .eq('id', editingId)
+          .select();
         if (error) throw error;
+        if (!data || data.length === 0) throw new Error('Update blocked by Row-Level Security (0 rows modified).');
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('alliances')
-          .insert([{ ...formData, slug }]);
+          .insert([{ ...formData, slug }])
+          .select();
         if (error) throw error;
+        if (!data || data.length === 0) throw new Error('Insert blocked by Row-Level Security (0 rows created).');
       }
       await fetchAlliances();
       setIsEditorOpen(false);
@@ -97,8 +101,9 @@ export const AllianceControl: React.FC = () => {
   const handleDelete = async (id: string) => {
     if (!confirm("Terminate alliance record?")) return;
     try {
-      const { error } = await supabase.from('alliances').delete().eq('id', id);
+      const { data, error } = await supabase.from('alliances').delete().eq('id', id).select();
       if (error) throw error;
+      if (!data || data.length === 0) throw new Error('Delete blocked by Row-Level Security (0 rows deleted).');
       setAlliances(prev => prev.filter(a => a.id !== id));
     } catch (err: any) {
       alert('Deletion Failed: ' + err.message);

@@ -28,7 +28,13 @@ CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles
 
 DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
 CREATE POLICY "Users can update their own profile" ON public.profiles
-    FOR UPDATE USING (auth.uid() = id);
+    FOR UPDATE USING (
+      auth.uid() = id OR
+      EXISTS (
+        SELECT 1 FROM public.profiles p
+        WHERE p.id = auth.uid() AND p.role = 'admin'
+      )
+    );
 
 -- Function to handle new user signup
 -- Added security definer and explicit search path to prevent "Database error saving new user"
@@ -45,7 +51,7 @@ BEGIN
     new.email, 
     COALESCE(new.raw_user_metadata->>'full_name', 'New Operator'), 
     CASE 
-      WHEN new.email = 'orjon220@gmail.com' THEN 'admin' 
+      WHEN lower(new.email) IN ('orjon220@gmail.com', 'carelinkhealthineers@gmail.com') THEN 'admin' 
       ELSE 'buyer' 
     END
   );
@@ -66,10 +72,10 @@ CREATE TRIGGER on_auth_user_created
 -- ==========================================
 -- ADMIN BOOTSTRAP MIGRATION
 -- ==========================================
--- Ensure existing user with this email is promoted to admin
+-- Ensure existing owner accounts with these emails are promoted to admin
 UPDATE public.profiles 
 SET role = 'admin' 
-WHERE email = 'orjon220@gmail.com';
+WHERE lower(email) IN ('orjon220@gmail.com', 'carelinkhealthineers@gmail.com');
 
 -- ==========================================
 -- BLOGS / EDITORIAL REGISTRY

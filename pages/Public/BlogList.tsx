@@ -15,38 +15,16 @@ export const BlogList: React.FC = () => {
   useEffect(() => {
     const fetchBlogs = async () => {
       setLoading(true);
-      try {
-        const [blogsRes, settingsRes] = await Promise.all([
-          supabase.from('blogs').select('*').eq('is_published', true).order('published_at', { ascending: false }),
-          supabase.from('settings').select('value').eq('key', 'blogs_archive_registry').maybeSingle()
-        ]);
-        const dbBlogs: Blog[] = blogsRes.data || [];
-        let backupBlogs: Blog[] = [];
-        if (settingsRes.data?.value) {
-          try {
-            const parsed = JSON.parse(settingsRes.data.value);
-            if (Array.isArray(parsed)) backupBlogs = parsed;
-          } catch {}
-        }
-        const mergedMap = new Map<string, Blog>();
-        dbBlogs.forEach(b => mergedMap.set(b.id, b));
-        backupBlogs.forEach(b => {
-          if ((b as any)._deleted || b.is_published === false) {
-            mergedMap.delete(b.id);
-          } else {
-            mergedMap.set(b.id, b);
-          }
-        });
-        setBlogs(
-          Array.from(mergedMap.values()).sort(
-            (a, b) => new Date(b.published_at || b.created_at || 0).getTime() - new Date(a.published_at || a.created_at || 0).getTime()
-          )
-        );
-      } catch (e) {
-        console.warn('Error fetching blogs:', e);
-      } finally {
-        setLoading(false);
+      const { data, error } = await supabase
+        .from('blogs')
+        .select('*')
+        .eq('is_published', true)
+        .order('published_at', { ascending: false });
+      if (error) {
+        console.error('Error fetching blogs:', error.message);
       }
+      if (data) setBlogs(data);
+      setLoading(false);
     };
     fetchBlogs();
   }, []);

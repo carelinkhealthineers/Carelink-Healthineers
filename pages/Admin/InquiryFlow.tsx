@@ -39,15 +39,20 @@ export const InquiryFlow: React.FC = () => {
 
   const updateStatus = async (id: string, status: Inquiry['status']) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('inquiries')
         .update({ status })
-        .eq('id', id);
+        .eq('id', id)
+        .select();
 
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('Status update blocked by Row-Level Security (0 rows modified).');
+      }
       setInquiries(prev => prev.map(inq => inq.id === id ? { ...inq, status } : inq));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Update Error:', err);
+      alert(`Failed to update inquiry status: ${err?.message || 'Database error'}`);
     }
   };
 

@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Plus, Search, Edit3, Trash2, X, Save, 
-  RefreshCw, Loader2, BookOpen, FileText, 
-  ImagePlus, Terminal,
-  Calendar, User, Hash, Globe, Image as ImageIcon,
-  Sparkles, ChevronRight, UploadCloud
+  Plus, Search, Trash2, X, Save, 
+  RefreshCw, BookOpen, FileText, 
+  ImagePlus, Calendar, User, Hash, Globe, Image as ImageIcon,
+  Sparkles, ChevronRight, UploadCloud, AlertTriangle
 } from 'lucide-react';
-import { supabase } from '../../supabaseClient';
+import { supabase, classifySupabaseError } from '../../supabaseClient';
 import { Blog } from '../../types';
 import { slugify } from '../../utils/slugify';
 
@@ -23,6 +22,7 @@ export const BlogArchitecture: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [tagInput, setTagInput] = useState('');
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [errorBanner, setErrorBanner] = useState<{ title: string; message: string } | null>(null);
 
   const [subPicCaption, setSubPicCaption] = useState('');
   const [subPicUrl, setSubPicUrl] = useState('');
@@ -65,56 +65,20 @@ export const BlogArchitecture: React.FC = () => {
     gallery: []
   });
 
-  const syncBackupToSettings = async (updatedList: Blog[]) => {
-    try {
-      await supabase.from('settings').upsert(
-        {
-          key: 'blogs_archive_registry',
-          value: JSON.stringify(updatedList),
-          category: 'editorial',
-          description: 'Synchronized clinical intelligence briefing archive',
-        },
-        { onConflict: 'key' }
-      );
-    } catch (e) {
-      console.warn('Backup blog sync notice:', e);
-    }
-  };
-
   const fetchBlogs = async () => {
     setIsLoading(true);
+    setErrorBanner(null);
     try {
-      const [blogsRes, settingsRes] = await Promise.all([
-        supabase.from('blogs').select('*').order('created_at', { ascending: false }),
-        supabase.from('settings').select('value').eq('key', 'blogs_archive_registry').maybeSingle()
-      ]);
+      const { data, error } = await supabase
+        .from('blogs')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      const dbBlogs: Blog[] = blogsRes.data || [];
-      let backupBlogs: Blog[] = [];
-      if (settingsRes.data?.value) {
-        try {
-          const parsed = JSON.parse(settingsRes.data.value);
-          if (Array.isArray(parsed)) backupBlogs = parsed;
-        } catch {}
-      }
-
-      // Merge by id or slug, prioritizing backupBlogs if modified via fallback
-      const mergedMap = new Map<string, Blog>();
-      dbBlogs.forEach(b => mergedMap.set(b.id, b));
-      backupBlogs.forEach(b => {
-        if ((b as any)._deleted) {
-          mergedMap.delete(b.id);
-        } else {
-          mergedMap.set(b.id, b);
-        }
-      });
-
-      const merged = Array.from(mergedMap.values()).sort(
-        (a, b) => new Date(b.published_at || b.created_at || 0).getTime() - new Date(a.published_at || a.created_at || 0).getTime()
-      );
-      setBlogs(merged);
-    } catch (err) {
+      if (error) throw error;
+      setBlogs(data || []);
+    } catch (err: any) {
       console.error('Failed to fetch blogs:', err);
+      setErrorBanner(classifySupabaseError(err));
     } finally {
       setIsLoading(false);
     }
@@ -142,9 +106,10 @@ export const BlogArchitecture: React.FC = () => {
       setUploadProgress(100);
       setTimeout(() => setUploadProgress(null), 1000);
       return publicUrl;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Upload Protocol Fault:', err);
-      alert('Asset Sync Failed. Check Storage Permissions.');
+      const classified = classifySupabaseError(err);
+      setErrorBanner(classified);
       setUploadProgress(null);
       return null;
     }
@@ -180,63 +145,56 @@ export const BlogArchitecture: React.FC = () => {
 
   const handleSave = async () => {
     if (!formData.title || !formData.content) {
-      alert('Registry Error: Title and Content are mandatory.');
+      setErrorBanner({
+        title: 'Validation Error',
+        message: 'Briefing Title and Primary Intellectual Content are mandatory.',
+      });
       return;
     }
     
     setIsSaving(true);
+    setErrorBanner(null);
     
     try {
       const baseSlug = slugify(formData.title || '');
-      const slug = editingId ? (formData.slug || baseSlug) : `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
+      const slug = editingId ? (formData.slug || baseSlug) : `${baseSlug}-${Math.random().toString(36).substring(2, 8)}`;
       
       const { id, created_at, ...safeData } = formData as any;
-      const nowIso = new Date().toISOString();
-      const payload = {
-        ...safeData,
-        slug,
-        published_at: safeData.published_at || nowIso,
-      };
-
-      let savedBlog: Blog | null = null;
+      const payload = { ...safeData, slug };
 
       if (editingId) {
-        const { data } = await supabase.from('blogs').update(payload).eq('id', editingId).select();
-        if (data && data.length > 0) {
-          savedBlog = data[0];
-        } else {
-          savedBlog = {
-            ...payload,
-            id: editingId,
-            created_at: (formData as any).created_at || nowIso,
-          } as Blog;
+        const { data, error } = await supabase
+          .from('blogs')
+          .update(payload)
+          .eq('id', editingId)
+          .select();
+
+        if (error) throw error;
+        if (!data || data.length === 0) {
+          throw new Error(
+            'Row-Level Security (RLS) blocked updating public.blogs (0 rows affected). Verify that your logged-in user has role = "admin" in public.profiles.'
+          );
         }
       } else {
-        const { data } = await supabase.from('blogs').insert([payload]).select();
-        if (data && data.length > 0) {
-          savedBlog = data[0];
-        } else {
-          savedBlog = {
-            ...payload,
-            id: `blog-${Date.now()}`,
-            created_at: nowIso,
-          } as Blog;
+        payload.published_at = payload.published_at || new Date().toISOString();
+        const { data, error } = await supabase
+          .from('blogs')
+          .insert([payload])
+          .select();
+
+        if (error) throw error;
+        if (!data || data.length === 0) {
+          throw new Error(
+            'Row-Level Security (RLS) blocked inserting into public.blogs. Verify that your logged-in user has role = "admin" in public.profiles.'
+          );
         }
       }
-
-      if (savedBlog) {
-        const nextList = editingId
-          ? blogs.map(b => (b.id === editingId ? savedBlog! : b))
-          : [savedBlog, ...blogs];
-        setBlogs(nextList);
-        await syncBackupToSettings(nextList);
-      }
-
+      
       await fetchBlogs();
       setIsEditorOpen(false);
     } catch (err: any) {
       console.error('Save Error:', err);
-      alert(`Failed to commit briefing: ${err.message || 'Unknown database error'}`);
+      setErrorBanner(classifySupabaseError(err));
     } finally {
       setIsSaving(false);
     }
@@ -244,35 +202,29 @@ export const BlogArchitecture: React.FC = () => {
 
   const handleDelete = async (blog: Blog) => {
     if (!confirm('Purge from Archive?')) return;
+    setErrorBanner(null);
     try {
-      await supabase.from('blogs').delete().eq('id', blog.id);
-      const nextList = blogs.filter(b => b.id !== blog.id);
-      setBlogs(nextList);
-      // Mark deleted in backup registry so if DB row couldn't be deleted due to RLS, it's hidden
-      const settingsRes = await supabase.from('settings').select('value').eq('key', 'blogs_archive_registry').maybeSingle();
-      let currentBackup: any[] = [];
-      if (settingsRes.data?.value) {
-        try { currentBackup = JSON.parse(settingsRes.data.value); } catch {}
+      const { data, error } = await supabase
+        .from('blogs')
+        .delete()
+        .eq('id', blog.id)
+        .select();
+
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error(
+          'Row-Level Security (RLS) blocked deleting from public.blogs (0 rows affected). Verify that your logged-in user has role = "admin" in public.profiles.'
+        );
       }
-      const updatedBackup = [
-        ...currentBackup.filter(b => b.id !== blog.id),
-        { ...blog, _deleted: true }
-      ];
-      await supabase.from('settings').upsert(
-        {
-          key: 'blogs_archive_registry',
-          value: JSON.stringify(updatedBackup),
-          category: 'editorial',
-          description: 'Synchronized clinical intelligence briefing archive',
-        },
-        { onConflict: 'key' }
-      );
+      await fetchBlogs();
     } catch (err: any) {
-      console.error('Delete error:', err);
+      console.error('Delete Error:', err);
+      setErrorBanner(classifySupabaseError(err));
     }
   };
 
   const toggleEditor = (blog: Blog | null = null) => {
+    setErrorBanner(null);
     if (blog) {
       setEditingId(blog.id);
       setFormData({
@@ -299,8 +251,8 @@ export const BlogArchitecture: React.FC = () => {
   };
 
   return (
-    <div className="p-10 lg:p-16 bg-[#020408] min-h-screen text-white selection:bg-blue-600">
-      <header className="mb-16 flex flex-col md:flex-row md:items-end justify-between gap-8">
+    <div className="p-10 lg:p-16 bg-[#020408] min-h-screen text-white selection:bg-blue-600 rounded-[2.5rem]">
+      <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-8">
         <div className="space-y-4">
            <div className="flex items-center gap-3">
               <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
@@ -317,6 +269,16 @@ export const BlogArchitecture: React.FC = () => {
           </button>
         </div>
       </header>
+
+      {errorBanner && !isEditorOpen && (
+        <div className="mb-10 p-6 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 space-y-1">
+          <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-rose-400">
+            <AlertTriangle size={16} />
+            <span>{errorBanner.title}</span>
+          </div>
+          <p className="text-xs font-medium leading-relaxed">{errorBanner.message}</p>
+        </div>
+      )}
 
       {/* Modern Search */}
       <div className="relative group mb-16">
@@ -417,6 +379,16 @@ export const BlogArchitecture: React.FC = () => {
               </header>
 
               <div className="flex-1 overflow-y-auto p-12 custom-scrollbar">
+                {errorBanner && (
+                  <div className="mb-8 p-6 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 space-y-1 max-w-6xl">
+                    <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-rose-400">
+                      <AlertTriangle size={16} />
+                      <span>{errorBanner.title}</span>
+                    </div>
+                    <p className="text-xs font-medium leading-relaxed">{errorBanner.message}</p>
+                  </div>
+                )}
+
                 <AnimatePresence mode='wait'>
                   {activeTab === 'composition' && (
                     <motion.div key="comp" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-12 max-w-6xl">
@@ -445,7 +417,6 @@ export const BlogArchitecture: React.FC = () => {
                           <div className="flex items-center justify-between">
                              <label className="text-[9px] font-black text-slate-700 uppercase tracking-[0.4em] px-1">Primary Intellectual Content</label>
                              
-                             {/* Sub-Picture & Article Quick Tool Bar */}
                              <div className="flex items-center gap-3">
                                 <span className="text-[9px] font-mono text-blue-400/80 bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-lg">
                                    ⏱️ ~{Math.ceil((formData.content?.trim().split(/\s+/).filter(Boolean).length || 0) / 200)} min read
@@ -469,7 +440,6 @@ export const BlogArchitecture: React.FC = () => {
                             placeholder="Write the main briefing content here... Use markdown image tags like ![Caption](Url) or click '+ Add Sub-Picture' above to insert images inline!" 
                           />
 
-                          {/* Quick Sub-Picture Gallery Strip */}
                           {formData.gallery && formData.gallery.length > 0 && (
                             <div className="p-6 bg-white/[0.01] border border-white/5 rounded-3xl space-y-3">
                                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">Available Sub-Pictures (Click to Insert into Content):</span>
@@ -599,7 +569,6 @@ export const BlogArchitecture: React.FC = () => {
                           </div>
                        </div>
 
-                       {/* Google Search Result Preview Component */}
                        <div className="p-8 bg-slate-900/60 border border-slate-800 rounded-[2.5rem] space-y-4">
                           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-400">
                              <Globe size={14} /> Live Google SERP Index Simulation

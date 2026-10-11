@@ -70,16 +70,22 @@ export const SEOControl: React.FC = () => {
   }, []);
 
   const persistSEOList = async (list: SEOSetting[]) => {
-    const { error } = await supabase.from('settings').upsert(
-      {
-        key: 'page_seo_matrix',
-        value: JSON.stringify(list),
-        category: 'seo',
-        description: 'Global route-level SEO metadata registry',
-      },
-      { onConflict: 'key' }
-    );
+    const { data, error } = await supabase
+      .from('settings')
+      .upsert(
+        {
+          key: 'page_seo_matrix',
+          value: JSON.stringify(list),
+          category: 'seo',
+          description: 'Global route-level SEO metadata registry',
+        },
+        { onConflict: 'key' }
+      )
+      .select();
     if (error) throw error;
+    if (!data || data.length === 0) {
+      throw new Error('SEO Matrix save blocked by Row-Level Security (0 rows affected in public.settings).');
+    }
   };
 
   const fetchSettings = async () => {
@@ -159,22 +165,26 @@ export const SEOControl: React.FC = () => {
     };
 
     const nextList = [newEntry, ...settings];
-    setSettings(nextList);
-    setNewRouteModal(false);
-    setNewPathInput('');
-    handleEdit(newEntry);
     try {
       await persistSEOList(nextList);
-    } catch {}
+      setSettings(nextList);
+      setNewRouteModal(false);
+      setNewPathInput('');
+      handleEdit(newEntry);
+    } catch (err: any) {
+      alert('Failed to create SEO route: ' + (err.message || 'Database error'));
+    }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Remove this route from SEO Matrix?')) return;
     const nextList = settings.filter(s => s.id !== id);
-    setSettings(nextList);
     try {
       await persistSEOList(nextList);
-    } catch {}
+      setSettings(nextList);
+    } catch (err: any) {
+      alert('Failed to delete SEO route: ' + (err.message || 'Database error'));
+    }
   };
 
   const filteredSettings = settings.filter(s => 
