@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { Package, Users, Mail, Activity, ArrowUpRight, TrendingUp, Loader2, RefreshCw, Terminal } from 'lucide-react';
+import { Package, Users, Mail, Activity, ArrowUpRight, TrendingUp, Loader2, RefreshCw, Terminal, Home } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
 
 export const NexusDashboard: React.FC = () => {
@@ -90,12 +91,12 @@ export const NexusDashboard: React.FC = () => {
            <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter">Command <span className="text-slate-700 italic">Overview.</span></h1>
         </div>
         <div className="flex gap-4">
-          <button onClick={fetchStats} className="p-4 bg-white/5 border border-white/10 rounded-2xl text-slate-400 hover:text-white transition-all">
+          <button onClick={fetchStats} className="p-4 bg-white/5 border border-white/10 rounded-2xl text-slate-400 hover:text-white transition-all cursor-pointer">
             <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
           </button>
-          <button className="px-8 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all">
-             System Diagnostics
-          </button>
+          <Link to="/command-nexus/homepage" className="px-8 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all flex items-center gap-2.5">
+             <Home size={15} /> Homepage Control
+          </Link>
         </div>
       </header>
 

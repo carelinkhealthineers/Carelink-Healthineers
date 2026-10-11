@@ -105,11 +105,11 @@ export const HomepageVideoShowcase: React.FC = () => {
           <div className="flex items-center gap-3 shrink-0">
             {isAdmin && (
               <Link 
-                to="/command-nexus/settings?tab=videos" 
+                to="/command-nexus/homepage" 
                 className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-xs font-bold uppercase tracking-wider rounded-xl flex items-center gap-2 transition-all"
               >
                 <Settings size={14} className="text-blue-600" />
-                <span>Edit Videos</span>
+                <span>Homepage Control</span>
               </Link>
             )}
             <button

@@ -12,9 +12,19 @@ import { Product } from '../types';
 
 interface DepthMotionCarouselProps {
   products: Product[];
+  badgeText?: string;
+  titleMain?: string;
+  titleAccent?: string;
+  subtitle?: string;
 }
 
-export const DepthMotionCarousel: React.FC<DepthMotionCarouselProps> = ({ products }) => {
+export const DepthMotionCarousel: React.FC<DepthMotionCarouselProps> = ({
+  products,
+  badgeText = 'Official Distributor · Product Catalog',
+  titleMain = 'Featured',
+  titleAccent = 'Products',
+  subtitle = 'Browse our certified medical and dental equipment. Click any product to view details or request a price quote.'
+}) => {
   const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState('All');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -98,15 +108,15 @@ export const DepthMotionCarousel: React.FC<DepthMotionCarouselProps> = ({ produc
               />
               <span className="w-px h-3 bg-slate-200" />
               <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">
-                Official Distributor · Product Catalog
+                {badgeText}
               </span>
             </div>
 
             <h2 className="text-3xl md:text-5xl font-normal text-slate-900 tracking-tight font-serif-classical">
-              Featured <span className="italic text-blue-600 font-serif-classical">Products</span>
+              {titleMain} <span className="italic text-blue-600 font-serif-classical">{titleAccent}</span>
             </h2>
             <p className="text-slate-500 text-sm sm:text-base font-medium max-w-xl">
-              Browse our certified medical and dental equipment. Click any product to view details or request a price quote.
+              {subtitle}
             </p>
           </div>
 
