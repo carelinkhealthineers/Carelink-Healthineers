@@ -118,12 +118,18 @@ export const Origin: React.FC = () => {
           .order('created_at', { ascending: false });
 
         if (productsData && productsData.length > 0) {
-          const formatted = productsData.map((p, idx) => ({
-            ...p,
-            technical_specs: p.technical_specs && Object.keys(p.technical_specs).length > 0
-              ? p.technical_specs
-              : (FALLBACK_PRODUCTS[idx % 3]?.technical_specs || {})
-          }));
+          const formatted = productsData.map((p, idx) => {
+            const rawSpecs = p.technical_specs || {};
+            const visibleKeys = Object.keys(rawSpecs).filter(
+              (k) => !k.startsWith('_') && !k.toLowerCase().includes('video')
+            );
+            return {
+              ...p,
+              technical_specs: visibleKeys.length > 0
+                ? rawSpecs
+                : (FALLBACK_PRODUCTS[idx % 3]?.technical_specs || {})
+            };
+          });
           setFeaturedProducts(formatted);
         } else {
           setFeaturedProducts(FALLBACK_PRODUCTS);
@@ -261,20 +267,25 @@ export const Origin: React.FC = () => {
                   </p>
 
                   {/* Real Product Specs Grid */}
-                  {currentHeroProduct.technical_specs && Object.keys(currentHeroProduct.technical_specs).length > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-                      {Object.entries(currentHeroProduct.technical_specs).slice(0, 4).map(([k, v], i) => (
-                        <div key={i} className="bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-2xs">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">
-                            {k}
-                          </span>
-                          <span className="text-xs font-bold text-slate-900 font-mono tabular-nums mt-1 block truncate">
-                            {v}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {(() => {
+                    const visibleSpecs = Object.entries(currentHeroProduct.technical_specs || {}).filter(
+                      ([k]) => !k.startsWith('_') && !k.toLowerCase().includes('video')
+                    );
+                    return visibleSpecs.length > 0 ? (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                        {visibleSpecs.slice(0, 4).map(([k, v], i) => (
+                          <div key={i} className="bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-2xs">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">
+                              {k}
+                            </span>
+                            <span className="text-xs font-bold text-slate-900 font-mono tabular-nums mt-1 block truncate">
+                              {v}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
 
                   {/* Simple Action Buttons */}
                   <div className="flex flex-wrap items-center gap-4 pt-2">

@@ -63,7 +63,9 @@ export const DepthMotionCarousel: React.FC<DepthMotionCarouselProps> = ({ produc
 
   const safeIndex = activeIndex % total;
   const activeProduct = filteredProducts[safeIndex] || filteredProducts[0];
-  const specEntries = Object.entries(activeProduct.technical_specs || {}).slice(0, 4);
+  const specEntries = Object.entries(activeProduct.technical_specs || {})
+    .filter(([k]) => !k.startsWith('_') && !k.toLowerCase().includes('video'))
+    .slice(0, 4);
 
   // Determine visible offsets based on how many real products exist
   const offsets = total >= 5 ? [-2, -1, 0, 1, 2] : total >= 3 ? [-1, 0, 1] : [0];
