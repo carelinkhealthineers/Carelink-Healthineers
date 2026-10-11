@@ -13,7 +13,6 @@ import {
 } from 'recharts';
 import {
   Package,
-  Users,
   Mail,
   Activity,
   TrendingUp,
@@ -26,6 +25,7 @@ import {
   Globe,
   ExternalLink,
   Star,
+  MapPin,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
@@ -34,6 +34,7 @@ import {
   fetchSiteAnalytics,
   SiteTrafficAnalytics,
   ProductViewMetric,
+  LocationTrafficMetric,
 } from '../../utils/analyticsTracker';
 
 const ROUTE_LABELS: Record<string, string> = {
@@ -59,6 +60,7 @@ export const NexusDashboard: React.FC = () => {
   const [dailyTrafficData, setDailyTrafficData] = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<SiteTrafficAnalytics | null>(null);
   const [rankedProducts, setRankedProducts] = useState<ProductViewMetric[]>([]);
+  const [rankedLocations, setRankedLocations] = useState<LocationTrafficMetric[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchStats = async () => {
@@ -103,7 +105,7 @@ export const NexusDashboard: React.FC = () => {
         pending: pendCountRes.count || 0,
       });
 
-      // Load live traffic & product views analytics
+      // Load live traffic, silent IP city locations & product views analytics
       const trafficData = await fetchSiteAnalytics(catalogProducts);
       setAnalytics(trafficData);
 
@@ -112,6 +114,13 @@ export const NexusDashboard: React.FC = () => {
         (a, b) => b.views - a.views || a.name.localeCompare(b.name)
       );
       setRankedProducts(sortedProdMetrics);
+
+      // Sort locations by highest activity
+      const sortedLocs = Object.values(trafficData.locationViews || {}).sort(
+        (a, b) =>
+          b.productViews + b.pageViews - (a.productViews + a.pageViews)
+      );
+      setRankedLocations(sortedLocs);
 
       // Build last 7 days daily traffic chart data
       const shortMonths = [
@@ -186,6 +195,8 @@ export const NexusDashboard: React.FC = () => {
   const todayViews = analytics?.dailyHistory?.[todayKey]?.pageViews || 0;
   const todayProdViews = analytics?.dailyHistory?.[todayKey]?.productViews || 0;
   const topViewedProduct = rankedProducts.find((p) => p.views > 0) || rankedProducts[0];
+  const topCityEntry = rankedLocations[0];
+
   const maxProductViews = Math.max(
     1,
     ...rankedProducts.map((p) => p.views || 0)
@@ -206,7 +217,7 @@ export const NexusDashboard: React.FC = () => {
           <div className="flex items-center gap-3">
             <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.4em]">
-              Node_Status: Live Traffic &amp; Asset Telemetry
+              Node_Status: Live Traffic, City Geo &amp; Asset Telemetry
             </span>
           </div>
           <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter">
@@ -256,8 +267,15 @@ export const NexusDashboard: React.FC = () => {
           <div className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">
             Total Website Views
           </div>
-          <div className="text-[10px] text-slate-500 font-medium mt-2">
-            Unique Sessions: <strong className="text-slate-300">{(analytics?.uniqueVisitors || 0).toLocaleString()}</strong>
+          <div className="text-[10px] text-slate-500 font-medium mt-2 flex items-center justify-between">
+            <span>
+              Sessions: <strong className="text-slate-300">{(analytics?.uniqueVisitors || 0).toLocaleString()}</strong>
+            </span>
+            {topCityEntry && (
+              <span className="text-emerald-400 font-bold flex items-center gap-1">
+                <MapPin size={10} /> {topCityEntry.city}
+              </span>
+            )}
           </div>
         </motion.div>
 
@@ -506,7 +524,7 @@ export const NexusDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Most Viewed Products Leaderboard + Top Visited Website Routes */}
+      {/* Most Viewed Products Leaderboard (with City Location Badges) + Visitor Locations & Routes */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
         {/* Most Viewed Products Leaderboard (8 cols) */}
         <div className="xl:col-span-8 bg-white/[0.02] p-8 md:p-10 rounded-[3rem] border border-white/5 shadow-2xl space-y-8">
@@ -517,10 +535,10 @@ export const NexusDashboard: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-lg font-black text-white tracking-tight">
-                  Most Viewed Products Leaderboard
+                  Most Viewed Products &amp; City Breakdown
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Real-time ranking of which products visitors view the most on your website.
+                  Real-time product view rankings with automatic IP-based city detection (e.g. Dhaka, Chattogram) — zero visitor permission required.
                 </p>
               </div>
             </div>
@@ -538,7 +556,7 @@ export const NexusDashboard: React.FC = () => {
               No products found in catalog.
             </div>
           ) : (
-            <div className="space-y-4 max-h-[540px] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="space-y-4 max-h-[640px] overflow-y-auto pr-2 custom-scrollbar">
               {rankedProducts.slice(0, 12).map((prod, idx) => {
                 const widthPercent = Math.max(
                   4,
@@ -549,12 +567,16 @@ export const NexusDashboard: React.FC = () => {
                     ? Math.round(((prod.views || 0) / totalTrackedProdViews) * 100)
                     : 0;
 
+                const cityEntries = Object.entries(prod.locations || {}).sort(
+                  (a, b) => b[1] - a[1]
+                );
+
                 return (
                   <div
                     key={prod.productId}
                     className="p-4 sm:p-5 rounded-2xl bg-black/50 border border-white/5 hover:border-blue-500/30 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
                   >
-                    <div className="flex items-center gap-4 min-w-0 flex-1 w-full">
+                    <div className="flex items-start sm:items-center gap-4 min-w-0 flex-1 w-full">
                       {/* Rank Badge */}
                       <div
                         className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
@@ -583,7 +605,7 @@ export const NexusDashboard: React.FC = () => {
                         )}
                       </div>
 
-                      {/* Product Info + Progress Bar */}
+                      {/* Product Info + City Badges + Progress Bar */}
                       <div className="min-w-0 flex-1 space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest">
@@ -594,11 +616,32 @@ export const NexusDashboard: React.FC = () => {
                             {prod.modelNumber}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <h4 className="text-sm font-black text-white truncate">
-                            {prod.name}
-                          </h4>
-                        </div>
+
+                        <h4 className="text-sm font-black text-white truncate">
+                          {prod.name}
+                        </h4>
+
+                        {/* City Breakdown Chips for this Product (e.g. Dhaka 20) */}
+                        {cityEntries.length > 0 ? (
+                          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                            {cityEntries.slice(0, 5).map(([city, count]) => (
+                              <span
+                                key={city}
+                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-[10px] font-bold"
+                              >
+                                <MapPin size={10} className="text-emerald-400" />
+                                <span>
+                                  {city}: <strong>{count}</strong>
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-slate-600 italic">
+                            Awaiting first city view telemetry...
+                          </div>
+                        )}
+
                         <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all duration-500 ${
@@ -644,10 +687,66 @@ export const NexusDashboard: React.FC = () => {
           )}
         </div>
 
-        {/* Top Visited Website Pages Breakdown (4 cols) */}
-        <div className="xl:col-span-4 bg-white/[0.02] p-8 md:p-10 rounded-[3rem] border border-white/5 shadow-2xl space-y-8 flex flex-col justify-between">
-          <div className="space-y-6">
-            <div className="flex items-center gap-3.5 border-b border-white/10 pb-6">
+        {/* Right Column (4 cols): Visitor Locations + Traffic by Page */}
+        <div className="xl:col-span-4 space-y-8">
+          {/* Card A: Visitor Locations (Zero-Permission IP Geolocation) */}
+          <div className="bg-white/[0.02] p-8 rounded-[3rem] border border-white/5 shadow-2xl space-y-6">
+            <div className="flex items-center gap-3.5 border-b border-white/10 pb-5">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
+                <MapPin size={22} />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white tracking-tight">
+                  Visitor Cities &amp; Regions
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Detected silently via IP &amp; network (no browser permission prompt).
+                </p>
+              </div>
+            </div>
+
+            {rankedLocations.length === 0 ? (
+              <div className="py-8 text-center text-xs text-slate-500 font-bold">
+                Visitor city data will appear automatically as pages &amp; products are viewed.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {rankedLocations.slice(0, 6).map((loc) => (
+                  <div
+                    key={loc.city}
+                    className="p-4 rounded-2xl bg-black/40 border border-white/5 flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                        <MapPin size={14} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-black text-white truncate">
+                          {loc.city}
+                        </div>
+                        <div className="text-[10px] text-slate-500 truncate">
+                          {loc.country}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <div className="text-xs font-mono font-black text-emerald-400">
+                        {loc.productViews} product views
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-400">
+                        {loc.pageViews} page views
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Card B: Traffic by Page */}
+          <div className="bg-white/[0.02] p-8 rounded-[3rem] border border-white/5 shadow-2xl space-y-6">
+            <div className="flex items-center gap-3.5 border-b border-white/10 pb-5">
               <div className="w-12 h-12 rounded-2xl bg-blue-500/15 border border-blue-500/30 text-blue-400 flex items-center justify-center">
                 <Globe size={22} />
               </div>
@@ -661,8 +760,8 @@ export const NexusDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="space-y-4">
-              {sortedRoutes.map(([route, count], i) => {
+            <div className="space-y-3.5">
+              {sortedRoutes.map(([route, count]) => {
                 const totalViews = Math.max(1, analytics?.totalPageViews || 1);
                 const pct = Math.min(100, Math.round((count / totalViews) * 100));
                 return (
@@ -684,23 +783,10 @@ export const NexusDashboard: React.FC = () => {
                         style={{ width: `${Math.max(4, pct)}%` }}
                       />
                     </div>
-                    <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
-                      <span>Route: {route}</span>
-                      <span>{pct}% of traffic</span>
-                    </div>
                   </div>
                 );
               })}
             </div>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-blue-500/10 border border-blue-500/20 space-y-1.5">
-            <div className="flex items-center gap-2 text-[10px] font-black text-blue-400 uppercase tracking-widest">
-              <Activity size={13} /> Real-Time Telemetry Active
-            </div>
-            <p className="text-[11px] text-slate-300 leading-relaxed">
-              Every visitor page view and product inspection is automatically recorded in real time without slowing down page load speed.
-            </p>
           </div>
         </div>
       </div>

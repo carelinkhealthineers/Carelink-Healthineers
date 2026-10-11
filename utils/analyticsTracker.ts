@@ -1,6 +1,22 @@
 import { supabase } from '../supabaseClient';
 import { Product } from '../types';
 
+export interface VisitorGeoInfo {
+  city: string;
+  region: string;
+  country: string;
+  label: string; // e.g. "Dhaka, Bangladesh"
+}
+
+export interface LocationTrafficMetric {
+  city: string;
+  country: string;
+  label: string;
+  pageViews: number;
+  productViews: number;
+  lastActiveAt: string;
+}
+
 export interface ProductViewMetric {
   productId: string;
   name: string;
@@ -10,6 +26,7 @@ export interface ProductViewMetric {
   mainImage: string;
   views: number;
   lastViewedAt: string;
+  locations?: Record<string, number>; // e.g., { "Dhaka": 20, "Chattogram": 5 }
 }
 
 export interface DailyTrafficPoint {
@@ -25,23 +42,130 @@ export interface SiteTrafficAnalytics {
   uniqueVisitors: number;
   dailyHistory: Record<string, { pageViews: number; productViews: number }>;
   routeViews: Record<string, number>;
+  locationViews: Record<string, LocationTrafficMetric>;
   productViews: Record<string, ProductViewMetric>;
   updatedAt: string;
 }
 
 const ANALYTICS_SETTING_KEY = 'site_traffic_analytics';
 const SESSION_VISITOR_KEY = 'carelink_visitor_session_counted';
+const SESSION_GEO_CACHE_KEY = 'carelink_visitor_geo_cache';
 
 const getTodayKey = (): string => {
   const d = new Date();
   return d.toISOString().split('T')[0];
 };
 
+/**
+ * Resolves visitor location (City, Country) silently via IP Geolocation
+ * WITHOUT asking for browser GPS permission.
+ * Falls back to Timezone inference if an ad-blocker blocks IP lookup APIs.
+ */
+export const resolveVisitorLocation = async (): Promise<VisitorGeoInfo> => {
+  try {
+    const cached = sessionStorage.getItem(SESSION_GEO_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed && parsed.city) return parsed;
+    }
+  } catch {}
+
+  const fetchWithTimeout = async (url: string, ms = 2500): Promise<any> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ms);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  let geo: VisitorGeoInfo | null = null;
+
+  // 1. Primary silent IP lookup: ipwho.is (HTTPS, CORS-enabled, no key required)
+  try {
+    const data = await fetchWithTimeout('https://ipwho.is/');
+    if (data && data.success !== false && data.city) {
+      const city = String(data.city).trim();
+      const country = String(data.country || 'Bangladesh').trim();
+      geo = {
+        city,
+        region: String(data.region || city).trim(),
+        country,
+        label: `${city}, ${country}`,
+      };
+    }
+  } catch {}
+
+  // 2. Secondary silent IP lookup: freeipapi.com
+  if (!geo) {
+    try {
+      const data = await fetchWithTimeout('https://freeipapi.com/api/json');
+      if (data && data.cityName) {
+        const city = String(data.cityName).trim();
+        const country = String(data.countryName || 'Bangladesh').trim();
+        geo = {
+          city,
+          region: String(data.regionName || city).trim(),
+          country,
+          label: `${city}, ${country}`,
+        };
+      }
+    } catch {}
+  }
+
+  // 3. Tertiary silent IP lookup: ipapi.co
+  if (!geo) {
+    try {
+      const data = await fetchWithTimeout('https://ipapi.co/json/');
+      if (data && data.city) {
+        const city = String(data.city).trim();
+        const country = String(data.country_name || 'Bangladesh').trim();
+        geo = {
+          city,
+          region: String(data.region || city).trim(),
+          country,
+          label: `${city}, ${country}`,
+        };
+      }
+    } catch {}
+  }
+
+  // 4. Fallback: Timezone-based silent city detection (never blocked, 0 permissions)
+  if (!geo) {
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      if (tz.includes('Dhaka') || tz.includes('Dacca')) {
+        geo = { city: 'Dhaka', region: 'Dhaka', country: 'Bangladesh', label: 'Dhaka, Bangladesh' };
+      } else if (tz.includes('/')) {
+        const parts = tz.split('/');
+        const city = parts[parts.length - 1].replace(/_/g, ' ');
+        const region = parts[0];
+        geo = { city, region, country: region, label: `${city} (${region})` };
+      }
+    } catch {}
+  }
+
+  const finalGeo: VisitorGeoInfo = geo || {
+    city: 'Dhaka',
+    region: 'Dhaka',
+    country: 'Bangladesh',
+    label: 'Dhaka, Bangladesh',
+  };
+
+  try {
+    sessionStorage.setItem(SESSION_GEO_CACHE_KEY, JSON.stringify(finalGeo));
+  } catch {}
+
+  return finalGeo;
+};
+
 export const createDefaultAnalytics = (products: Product[] = []): SiteTrafficAnalytics => {
   const dailyHistory: Record<string, { pageViews: number; productViews: number }> = {};
   const today = new Date();
 
-  // Initialize last 7 days with clean baseline structure if empty
   for (let i = 6; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
@@ -63,6 +187,7 @@ export const createDefaultAnalytics = (products: Product[] = []): SiteTrafficAna
       mainImage: p.main_image || '',
       views: 0,
       lastViewedAt: p.created_at || new Date().toISOString(),
+      locations: {},
     };
   });
 
@@ -79,6 +204,7 @@ export const createDefaultAnalytics = (products: Product[] = []): SiteTrafficAna
       '/alliances': 0,
       '/insights': 0,
     },
+    locationViews: {},
     productViews,
     updatedAt: new Date().toISOString(),
   };
@@ -98,7 +224,6 @@ export const normalizeAnalytics = (
     ...(raw.productViews || {}),
   };
 
-  // Ensure all current catalog products have up-to-date metadata in the map
   products.forEach((p) => {
     const existing = mergedProductViews[p.id];
     mergedProductViews[p.id] = {
@@ -110,6 +235,10 @@ export const normalizeAnalytics = (
       mainImage: p.main_image || existing?.mainImage || '',
       views: typeof existing?.views === 'number' ? existing.views : 0,
       lastViewedAt: existing?.lastViewedAt || p.created_at || new Date().toISOString(),
+      locations:
+        existing?.locations && typeof existing.locations === 'object'
+          ? existing.locations
+          : {},
     };
   });
 
@@ -125,6 +254,10 @@ export const normalizeAnalytics = (
       ...base.routeViews,
       ...(raw.routeViews || {}),
     },
+    locationViews:
+      raw.locationViews && typeof raw.locationViews === 'object'
+        ? raw.locationViews
+        : {},
     productViews: mergedProductViews,
     updatedAt: raw.updatedAt || new Date().toISOString(),
   };
@@ -161,7 +294,7 @@ const saveSiteAnalytics = async (analytics: SiteTrafficAnalytics): Promise<void>
         key: ANALYTICS_SETTING_KEY,
         value: JSON.stringify(analytics),
         category: 'analytics',
-        description: 'Live website traffic and product view counters',
+        description: 'Live website traffic, IP city geolocation, and product view counters',
       },
       { onConflict: 'key' }
     );
@@ -174,10 +307,15 @@ let lastTrackedPath = '';
 let lastTrackedTime = 0;
 
 /**
- * Records a page view for public routes.
+ * Records a page view + silent IP city location for public routes.
  */
 export const recordPageView = async (pathname: string): Promise<void> => {
-  if (!pathname || pathname.startsWith('/command-nexus') || pathname.startsWith('/login') || pathname.startsWith('/signup')) {
+  if (
+    !pathname ||
+    pathname.startsWith('/command-nexus') ||
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/signup')
+  ) {
     return;
   }
 
@@ -189,7 +327,10 @@ export const recordPageView = async (pathname: string): Promise<void> => {
   lastTrackedTime = now;
 
   try {
-    const current = await fetchSiteAnalytics();
+    const [current, geo] = await Promise.all([
+      fetchSiteAnalytics(),
+      resolveVisitorLocation(),
+    ]);
     const todayKey = getTodayKey();
 
     let isNewSession = false;
@@ -208,6 +349,16 @@ export const recordPageView = async (pathname: string): Promise<void> => {
       ? '/insights/[article]'
       : pathname;
 
+    const cityKey = geo.city || 'Dhaka';
+    const existingLoc = current.locationViews[cityKey] || {
+      city: cityKey,
+      country: geo.country || 'Bangladesh',
+      label: geo.label || `${cityKey}, Bangladesh`,
+      pageViews: 0,
+      productViews: 0,
+      lastActiveAt: new Date().toISOString(),
+    };
+
     const nextAnalytics: SiteTrafficAnalytics = {
       ...current,
       totalPageViews: current.totalPageViews + 1,
@@ -223,6 +374,14 @@ export const recordPageView = async (pathname: string): Promise<void> => {
         ...current.routeViews,
         [normalizedRoute]: (current.routeViews[normalizedRoute] || 0) + 1,
       },
+      locationViews: {
+        ...current.locationViews,
+        [cityKey]: {
+          ...existingLoc,
+          pageViews: existingLoc.pageViews + 1,
+          lastActiveAt: new Date().toISOString(),
+        },
+      },
       updatedAt: new Date().toISOString(),
     };
 
@@ -236,7 +395,7 @@ let lastProductViewId = '';
 let lastProductViewTime = 0;
 
 /**
- * Records a view for a specific product when a visitor views its details page.
+ * Records a view + silent IP city location (e.g. Dhaka: 20) for a specific product.
  */
 export const recordProductView = async (product: Product): Promise<void> => {
   if (!product || !product.id) return;
@@ -249,10 +408,29 @@ export const recordProductView = async (product: Product): Promise<void> => {
   lastProductViewTime = now;
 
   try {
-    const current = await fetchSiteAnalytics();
+    const [current, geo] = await Promise.all([
+      fetchSiteAnalytics(),
+      resolveVisitorLocation(),
+    ]);
     const todayKey = getTodayKey();
     const todayEntry = current.dailyHistory[todayKey] || { pageViews: 0, productViews: 0 };
     const existingProd = current.productViews[product.id];
+
+    const cityKey = geo.city || 'Dhaka';
+    const prevProdLocations = existingProd?.locations || {};
+    const nextProdLocations: Record<string, number> = {
+      ...prevProdLocations,
+      [cityKey]: (prevProdLocations[cityKey] || 0) + 1,
+    };
+
+    const existingLoc = current.locationViews[cityKey] || {
+      city: cityKey,
+      country: geo.country || 'Bangladesh',
+      label: geo.label || `${cityKey}, Bangladesh`,
+      pageViews: 0,
+      productViews: 0,
+      lastActiveAt: new Date().toISOString(),
+    };
 
     const nextAnalytics: SiteTrafficAnalytics = {
       ...current,
@@ -262,6 +440,14 @@ export const recordProductView = async (product: Product): Promise<void> => {
         [todayKey]: {
           ...todayEntry,
           productViews: todayEntry.productViews + 1,
+        },
+      },
+      locationViews: {
+        ...current.locationViews,
+        [cityKey]: {
+          ...existingLoc,
+          productViews: existingLoc.productViews + 1,
+          lastActiveAt: new Date().toISOString(),
         },
       },
       productViews: {
@@ -275,6 +461,7 @@ export const recordProductView = async (product: Product): Promise<void> => {
           mainImage: product.main_image || '',
           views: (existingProd?.views || 0) + 1,
           lastViewedAt: new Date().toISOString(),
+          locations: nextProdLocations,
         },
       },
       updatedAt: new Date().toISOString(),
