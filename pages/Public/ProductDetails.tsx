@@ -13,6 +13,7 @@ import { VideoTheatreModal } from '../../components/VideoTheatreModal';
 import { VideoItem } from '../../utils/videoUtils';
 import { supabase } from '../../supabaseClient';
 import { Product, ProductPart } from '../../types';
+import { recordProductView } from '../../utils/analyticsTracker';
 
 export const ProductDetails: React.FC = () => {
   const { productSlug } = useParams();
@@ -91,6 +92,7 @@ export const ProductDetails: React.FC = () => {
         if (pError || !productData) throw pError;
         setProduct(productData);
         setActiveImage(productData.main_image);
+        recordProductView(productData);
 
         const { data: partsData, error: partsError } = await supabase
           .from('product_parts')

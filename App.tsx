@@ -4,6 +4,7 @@ import { Routes, Route, useLocation, Link, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LayoutGrid, Package, FolderTree, Mail, Settings, LogOut, Handshake, BookOpen, Users, Terminal, Globe, Menu, X, Home, ExternalLink } from 'lucide-react';
 import { supabase, performSignOut } from './supabaseClient';
+import { recordPageView } from './utils/analyticsTracker';
 
 // Layout Components
 import { Navbar } from './components/Navbar';
@@ -170,6 +171,7 @@ const App: React.FC = () => {
       setPageLoading(false);
       return;
     }
+    recordPageView(location.pathname);
     setPageLoading(true);
     const timer = setTimeout(() => {
       setPageLoading(false);
