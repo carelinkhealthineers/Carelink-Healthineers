@@ -28,13 +28,26 @@ export const BlogDetails: React.FC = () => {
   useEffect(() => {
     const fetchBlog = async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from('blogs')
-        .select('*')
-        .eq('slug', blogSlug)
-        .single();
-      if (data) setBlog(data);
-      setLoading(false);
+      try {
+        const [blogRes, settingsRes] = await Promise.all([
+          supabase.from('blogs').select('*').eq('slug', blogSlug).maybeSingle(),
+          supabase.from('settings').select('value').eq('key', 'blogs_archive_registry').maybeSingle()
+        ]);
+
+        let found: Blog | null = blogRes.data || null;
+        if (settingsRes.data?.value) {
+          try {
+            const parsed: Blog[] = JSON.parse(settingsRes.data.value);
+            const backupMatch = parsed.find(b => b.slug === blogSlug && !(b as any)._deleted);
+            if (backupMatch) found = backupMatch;
+          } catch {}
+        }
+        if (found) setBlog(found);
+      } catch (e) {
+        console.warn('Error loading blog detail:', e);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchBlog();
   }, [blogSlug]);

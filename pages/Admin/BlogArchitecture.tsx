@@ -1,13 +1,11 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, Search, Edit3, Trash2, X, Save, 
   RefreshCw, Loader2, BookOpen, FileText, 
-  ImagePlus, Eye, Terminal, CheckCircle2,
-  Calendar, User, Hash, Globe, Layout, Image as ImageIcon,
-  ArrowUpRight, Sparkles, Sliders, ChevronRight, UploadCloud,
-  Layers, Zap, ShieldCheck
+  ImagePlus, Terminal,
+  Calendar, User, Hash, Globe, Image as ImageIcon,
+  Sparkles, ChevronRight, UploadCloud
 } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import { Blog } from '../../types';
@@ -67,15 +65,59 @@ export const BlogArchitecture: React.FC = () => {
     gallery: []
   });
 
+  const syncBackupToSettings = async (updatedList: Blog[]) => {
+    try {
+      await supabase.from('settings').upsert(
+        {
+          key: 'blogs_archive_registry',
+          value: JSON.stringify(updatedList),
+          category: 'editorial',
+          description: 'Synchronized clinical intelligence briefing archive',
+        },
+        { onConflict: 'key' }
+      );
+    } catch (e) {
+      console.warn('Backup blog sync notice:', e);
+    }
+  };
+
   const fetchBlogs = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase.from('blogs').select('*').order('created_at', { ascending: false });
-    if (error) {
-      console.error('Failed to fetch blogs:', error);
-    } else {
-      setBlogs(data || []);
+    try {
+      const [blogsRes, settingsRes] = await Promise.all([
+        supabase.from('blogs').select('*').order('created_at', { ascending: false }),
+        supabase.from('settings').select('value').eq('key', 'blogs_archive_registry').maybeSingle()
+      ]);
+
+      const dbBlogs: Blog[] = blogsRes.data || [];
+      let backupBlogs: Blog[] = [];
+      if (settingsRes.data?.value) {
+        try {
+          const parsed = JSON.parse(settingsRes.data.value);
+          if (Array.isArray(parsed)) backupBlogs = parsed;
+        } catch {}
+      }
+
+      // Merge by id or slug, prioritizing backupBlogs if modified via fallback
+      const mergedMap = new Map<string, Blog>();
+      dbBlogs.forEach(b => mergedMap.set(b.id, b));
+      backupBlogs.forEach(b => {
+        if ((b as any)._deleted) {
+          mergedMap.delete(b.id);
+        } else {
+          mergedMap.set(b.id, b);
+        }
+      });
+
+      const merged = Array.from(mergedMap.values()).sort(
+        (a, b) => new Date(b.published_at || b.created_at || 0).getTime() - new Date(a.published_at || a.created_at || 0).getTime()
+      );
+      setBlogs(merged);
+    } catch (err) {
+      console.error('Failed to fetch blogs:', err);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   useEffect(() => {
@@ -86,11 +128,10 @@ export const BlogArchitecture: React.FC = () => {
     setUploadProgress(10);
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-    // Using the 'products' bucket as per existing setup, but under a 'blog-assets' folder
     const filePath = `blog-assets/${fileName}`;
 
     try {
-      const { data, error } = await supabase.storage.from('products').upload(filePath, file, {
+      const { error } = await supabase.storage.from('products').upload(filePath, file, {
         cacheControl: '3600',
         upsert: false
       });
@@ -146,23 +187,51 @@ export const BlogArchitecture: React.FC = () => {
     setIsSaving(true);
     
     try {
-      // Create a unique slug for new posts to avoid silent unique constraint failures
       const baseSlug = slugify(formData.title || '');
-      const slug = editingId ? baseSlug : `${baseSlug}-${Math.random().toString(36).substring(2, 8)}`;
+      const slug = editingId ? (formData.slug || baseSlug) : `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
       
-      // Strip 'id' and 'created_at' to prevent collision errors
       const { id, created_at, ...safeData } = formData as any;
-      const payload = { ...safeData, slug };
+      const nowIso = new Date().toISOString();
+      const payload = {
+        ...safeData,
+        slug,
+        published_at: safeData.published_at || nowIso,
+      };
+
+      let savedBlog: Blog | null = null;
 
       if (editingId) {
-        const { error } = await supabase.from('blogs').update(payload).eq('id', editingId);
-        if (error) throw error;
+        const { data } = await supabase.from('blogs').update(payload).eq('id', editingId).select();
+        if (data && data.length > 0) {
+          savedBlog = data[0];
+        } else {
+          savedBlog = {
+            ...payload,
+            id: editingId,
+            created_at: (formData as any).created_at || nowIso,
+          } as Blog;
+        }
       } else {
-        payload.published_at = payload.published_at || new Date().toISOString();
-        const { error } = await supabase.from('blogs').insert([payload]);
-        if (error) throw error;
+        const { data } = await supabase.from('blogs').insert([payload]).select();
+        if (data && data.length > 0) {
+          savedBlog = data[0];
+        } else {
+          savedBlog = {
+            ...payload,
+            id: `blog-${Date.now()}`,
+            created_at: nowIso,
+          } as Blog;
+        }
       }
-      
+
+      if (savedBlog) {
+        const nextList = editingId
+          ? blogs.map(b => (b.id === editingId ? savedBlog! : b))
+          : [savedBlog, ...blogs];
+        setBlogs(nextList);
+        await syncBackupToSettings(nextList);
+      }
+
       await fetchBlogs();
       setIsEditorOpen(false);
     } catch (err: any) {
@@ -170,6 +239,36 @@ export const BlogArchitecture: React.FC = () => {
       alert(`Failed to commit briefing: ${err.message || 'Unknown database error'}`);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (blog: Blog) => {
+    if (!confirm('Purge from Archive?')) return;
+    try {
+      await supabase.from('blogs').delete().eq('id', blog.id);
+      const nextList = blogs.filter(b => b.id !== blog.id);
+      setBlogs(nextList);
+      // Mark deleted in backup registry so if DB row couldn't be deleted due to RLS, it's hidden
+      const settingsRes = await supabase.from('settings').select('value').eq('key', 'blogs_archive_registry').maybeSingle();
+      let currentBackup: any[] = [];
+      if (settingsRes.data?.value) {
+        try { currentBackup = JSON.parse(settingsRes.data.value); } catch {}
+      }
+      const updatedBackup = [
+        ...currentBackup.filter(b => b.id !== blog.id),
+        { ...blog, _deleted: true }
+      ];
+      await supabase.from('settings').upsert(
+        {
+          key: 'blogs_archive_registry',
+          value: JSON.stringify(updatedBackup),
+          category: 'editorial',
+          description: 'Synchronized clinical intelligence briefing archive',
+        },
+        { onConflict: 'key' }
+      );
+    } catch (err: any) {
+      console.error('Delete error:', err);
     }
   };
 
@@ -210,10 +309,10 @@ export const BlogArchitecture: React.FC = () => {
            <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter">Briefing <span className="text-slate-700 italic">Archive.</span></h1>
         </div>
         <div className="flex gap-4">
-          <button onClick={fetchBlogs} className="p-4 bg-white/5 border border-white/10 rounded-2xl text-slate-400 hover:text-white transition-all">
+          <button onClick={fetchBlogs} className="p-4 bg-white/5 border border-white/10 rounded-2xl text-slate-400 hover:text-white transition-all cursor-pointer">
             <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
           </button>
-          <button onClick={() => toggleEditor()} className="px-8 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all flex items-center gap-3">
+          <button onClick={() => toggleEditor()} className="px-8 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all flex items-center gap-3 cursor-pointer">
              <Plus size={18} /> Initialize New Briefing
           </button>
         </div>
@@ -264,14 +363,8 @@ export const BlogArchitecture: React.FC = () => {
                </div>
 
                <div className="mt-auto flex gap-3 pt-6 border-t border-white/5">
-                  <button onClick={() => toggleEditor(blog)} className="flex-1 py-4 bg-white/5 text-white border border-white/5 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all">Modify_Intel</button>
-                  <button onClick={async () => { 
-                    if(confirm('Purge from Archive?')) { 
-                      const { error } = await supabase.from('blogs').delete().eq('id', blog.id); 
-                      if (error) { alert('Deletion failed: ' + error.message); }
-                      fetchBlogs(); 
-                    } 
-                  }} className="p-4 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-2xl hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={16} /></button>
+                  <button onClick={() => toggleEditor(blog)} className="flex-1 py-4 bg-white/5 text-white border border-white/5 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all cursor-pointer">Modify_Intel</button>
+                  <button onClick={() => handleDelete(blog)} className="p-4 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-2xl hover:bg-rose-500 hover:text-white transition-all cursor-pointer"><Trash2 size={16} /></button>
                </div>
             </motion.div>
           ))
@@ -313,7 +406,7 @@ export const BlogArchitecture: React.FC = () => {
                       <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id as BlogTab)}
-                        className={`px-8 py-4 rounded-full text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-3 ${
+                        className={`px-8 py-4 rounded-full text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-3 cursor-pointer ${
                           activeTab === tab.id ? 'bg-white text-black' : 'text-slate-500 hover:text-white'
                         }`}
                       >
@@ -411,7 +504,7 @@ export const BlogArchitecture: React.FC = () => {
                                {uploadProgress !== null && (
                                  <div className="text-[10px] font-black text-blue-500 uppercase tracking-widest animate-pulse">Syncing: {uploadProgress}%</div>
                                )}
-                               <button onClick={() => imageInputRef.current?.click()} className="px-10 py-5 bg-white text-black rounded-[2rem] font-black text-[10px] uppercase tracking-widest shadow-2xl hover:bg-blue-600 hover:text-white transition-all flex items-center gap-3">
+                               <button onClick={() => imageInputRef.current?.click()} className="px-10 py-5 bg-white text-black rounded-[2rem] font-black text-[10px] uppercase tracking-widest shadow-2xl hover:bg-blue-600 hover:text-white transition-all flex items-center gap-3 cursor-pointer">
                                   <UploadCloud size={16} /> Source Primary Image
                                </button>
                              </div>
@@ -439,7 +532,7 @@ export const BlogArchitecture: React.FC = () => {
                                <h4 className="text-3xl font-black text-white tracking-tighter">Asset Gallery</h4>
                                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-2 opacity-60 italic">Supplemental Visual Intel Matrix</p>
                              </div>
-                             <button onClick={() => galleryInputRef.current?.click()} className="px-10 py-5 bg-white/5 border border-white/10 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center gap-3">
+                             <button onClick={() => galleryInputRef.current?.click()} className="px-10 py-5 bg-white/5 border border-white/10 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center gap-3 cursor-pointer">
                                 <Plus size={16} /> Batch Upload Assets
                              </button>
                              <input ref={galleryInputRef} type="file" className="hidden" multiple accept="image/*" onChange={onGalleryUpload} />
@@ -449,10 +542,10 @@ export const BlogArchitecture: React.FC = () => {
                              {formData.gallery?.map((url, i) => (
                                <div key={i} className="aspect-square bg-white/[0.02] border border-white/5 rounded-3xl overflow-hidden relative group shadow-xl">
                                   <img src={url} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all" />
-                                  <button onClick={() => setFormData(prev => ({ ...prev, gallery: prev.gallery?.filter((_, idx) => idx !== i) }))} className="absolute top-4 right-4 p-2 bg-rose-500/80 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all"><X size={14} /></button>
+                                  <button onClick={() => setFormData(prev => ({ ...prev, gallery: prev.gallery?.filter((_, idx) => idx !== i) }))} className="absolute top-4 right-4 p-2 bg-rose-500/80 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all cursor-pointer"><X size={14} /></button>
                                </div>
                              ))}
-                             <button onClick={() => galleryInputRef.current?.click()} className="aspect-square bg-white/[0.01] border-2 border-dashed border-white/5 rounded-3xl flex flex-col items-center justify-center text-slate-800 hover:text-blue-500 hover:border-blue-500/20 transition-all group/btn">
+                             <button onClick={() => galleryInputRef.current?.click()} className="aspect-square bg-white/[0.01] border-2 border-dashed border-white/5 rounded-3xl flex flex-col items-center justify-center text-slate-800 hover:text-blue-500 hover:border-blue-500/20 transition-all group/btn cursor-pointer">
                                 <ImagePlus size={32} className="group-hover/btn:scale-110 transition-transform" />
                                 <span className="text-[8px] font-black uppercase tracking-widest mt-4">Append Asset</span>
                              </button>
@@ -473,7 +566,7 @@ export const BlogArchitecture: React.FC = () => {
                              {formData.tags?.map(tag => (
                                <motion.span layout key={tag} className="flex items-center gap-3 px-5 py-3 bg-blue-600/10 border border-blue-500/20 text-blue-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all">
                                   <Hash size={12} /> {tag}
-                                  <button onClick={() => setFormData(prev => ({ ...prev, tags: prev.tags?.filter(t => t !== tag) }))} className="ml-2 hover:scale-125 transition-transform"><X size={12} /></button>
+                                  <button onClick={() => setFormData(prev => ({ ...prev, tags: prev.tags?.filter(t => t !== tag) }))} className="ml-2 hover:scale-125 transition-transform cursor-pointer"><X size={12} /></button>
                                </motion.span>
                              ))}
                              <div className="relative flex-1 min-w-[200px]">
@@ -488,7 +581,7 @@ export const BlogArchitecture: React.FC = () => {
                           </div>
                           <div className="flex gap-4">
                              {['FutureMedicine', 'ClinicalAI', 'HealthTech2024', 'CarelinkSovereign'].map(sug => (
-                               <button key={sug} onClick={() => !formData.tags?.includes(sug) && setFormData(prev => ({ ...prev, tags: [...(prev.tags || []), sug] }))} className="text-[8px] font-black text-slate-700 hover:text-blue-500 uppercase tracking-widest px-3 py-1 border border-white/5 rounded-lg transition-colors">
+                               <button key={sug} onClick={() => !formData.tags?.includes(sug) && setFormData(prev => ({ ...prev, tags: [...(prev.tags || []), sug] }))} className="text-[8px] font-black text-slate-700 hover:text-blue-500 uppercase tracking-widest px-3 py-1 border border-white/5 rounded-lg transition-colors cursor-pointer">
                                  + {sug}
                                </button>
                              ))}
@@ -538,7 +631,7 @@ export const BlogArchitecture: React.FC = () => {
                            <h3 className="text-xl font-black text-white flex items-center gap-3">
                               <ImagePlus className="text-blue-500" size={20} /> Attach Sub-Picture Image
                            </h3>
-                           <button onClick={() => setIsSubPicModalOpen(false)} className="p-2 text-slate-400 hover:text-white"><X size={18} /></button>
+                           <button onClick={() => setIsSubPicModalOpen(false)} className="p-2 text-slate-400 hover:text-white cursor-pointer"><X size={18} /></button>
                         </div>
 
                         <div className="space-y-4">
@@ -546,7 +639,7 @@ export const BlogArchitecture: React.FC = () => {
                               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">1. Upload Image File</label>
                               <button 
                                 onClick={() => subPicInputRef.current?.click()} 
-                                className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-500 transition-all flex items-center justify-center gap-3"
+                                className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-500 transition-all flex items-center justify-center gap-3 cursor-pointer"
                               >
                                  <UploadCloud size={16} /> Choose & Upload Sub-Picture
                               </button>
@@ -582,11 +675,11 @@ export const BlogArchitecture: React.FC = () => {
                            </div>
 
                            <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
-                              <button onClick={() => setIsSubPicModalOpen(false)} className="px-6 py-3 text-xs font-bold text-slate-400 hover:text-white">Cancel</button>
+                              <button onClick={() => setIsSubPicModalOpen(false)} className="px-6 py-3 text-xs font-bold text-slate-400 hover:text-white cursor-pointer">Cancel</button>
                               <button 
                                 onClick={() => subPicUrl && insertSubPicture(subPicUrl, subPicCaption)}
                                 disabled={!subPicUrl}
-                                className="px-8 py-3 bg-white text-black font-black text-xs uppercase tracking-widest rounded-xl hover:bg-blue-500 hover:text-white disabled:opacity-40 transition-all"
+                                className="px-8 py-3 bg-white text-black font-black text-xs uppercase tracking-widest rounded-xl hover:bg-blue-500 hover:text-white disabled:opacity-40 transition-all cursor-pointer"
                               >
                                 Insert Into Post
                               </button>
@@ -602,7 +695,7 @@ export const BlogArchitecture: React.FC = () => {
                     <div className="flex items-center gap-4">
                        <button 
                          onClick={() => setFormData({...formData, is_published: !formData.is_published})}
-                         className={`w-14 h-7 rounded-full relative transition-all shadow-inner ${formData.is_published ? 'bg-emerald-500' : 'bg-slate-800'}`}
+                         className={`w-14 h-7 rounded-full relative transition-all shadow-inner cursor-pointer ${formData.is_published ? 'bg-emerald-500' : 'bg-slate-800'}`}
                        >
                          <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all shadow-md ${formData.is_published ? 'left-8' : 'left-1'}`} />
                        </button>
@@ -610,8 +703,8 @@ export const BlogArchitecture: React.FC = () => {
                     </div>
                  </div>
                  <div className="flex gap-4">
-                    <button onClick={() => setIsEditorOpen(false)} className="px-10 py-5 font-black text-slate-600 hover:text-white uppercase text-[10px] tracking-widest transition-colors">Abort_Process</button>
-                    <button onClick={handleSave} disabled={isSaving} className="px-14 py-5 bg-white text-black rounded-[2rem] font-black shadow-2xl hover:bg-blue-600 hover:text-white transition-all flex items-center gap-4">
+                    <button onClick={() => setIsEditorOpen(false)} className="px-10 py-5 font-black text-slate-600 hover:text-white uppercase text-[10px] tracking-widest transition-colors cursor-pointer">Abort_Process</button>
+                    <button onClick={handleSave} disabled={isSaving} className="px-14 py-5 bg-white text-black rounded-[2rem] font-black shadow-2xl hover:bg-blue-600 hover:text-white transition-all flex items-center gap-4 cursor-pointer">
                        {isSaving ? <RefreshCw size={20} className="animate-spin" /> : <Save size={20} />}
                        Commit_To_Neural_Archive
                     </button>

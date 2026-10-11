@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Routes, Route, useLocation, Link, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LayoutGrid, Package, FolderTree, Mail, Settings, LogOut, Handshake, BookOpen, Users, Terminal, Globe, Menu, X, Home, ExternalLink } from 'lucide-react';
-import { supabase, performSignOut } from './supabaseClient';
+import { supabase, performSignOut, getLocalAdminSession, isOwnerOrAdminEmail } from './supabaseClient';
 
 // Layout Components
 import { Navbar } from './components/Navbar';
@@ -46,8 +46,9 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
   useEffect(() => {
     let mounted = true;
 
-    const fetchRoleForUser = async (userObj: any) => {
-      if (!userObj) return null;
+    const resolveRoleBackground = async (userObj: any) => {
+      if (!userObj) return;
+      const isOwner = isOwnerOrAdminEmail(userObj.email);
       try {
         const { data: profile } = await supabase
           .from('profiles')
@@ -56,67 +57,100 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
           .maybeSingle();
 
         if (profile?.role) {
-          return profile.role;
+          if (mounted) setRole(isOwner ? 'admin' : profile.role);
+          return;
         }
 
-        // Auto-assign admin role for carelink owner email or admin-pattern emails
-        const isOwnerAdmin = userObj.email === 'carelinkhealthineers@gmail.com' || userObj.email?.includes('admin');
-        const assignedRole = isOwnerAdmin ? 'admin' : 'buyer';
+        const assignedRole = isOwner ? 'admin' : 'buyer';
+        if (mounted) setRole(assignedRole);
 
-        // Provision missing profile record in Supabase
-        await supabase.from('profiles').upsert({
+        // Non-blocking background upsert
+        supabase.from('profiles').upsert({
           id: userObj.id,
           email: userObj.email,
           full_name: userObj.user_metadata?.full_name || userObj.email?.split('@')[0] || 'Operator',
           role: assignedRole
-        }, { onConflict: 'id' });
-
-        return assignedRole;
+        }, { onConflict: 'id' }).then(() => {});
       } catch (e) {
-        console.warn('Profile fetch notice:', e);
-        return userObj.email === 'carelinkhealthineers@gmail.com' ? 'admin' : 'buyer';
+        if (mounted) setRole(isOwner ? 'admin' : 'buyer');
       }
     };
 
-    const checkAuth = async () => {
+    const syncAuthState = async () => {
       try {
+        // Check local verified admin fallback first so admin never gets locked out by rate limits
+        const localAdmin = getLocalAdminSession();
         const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          if (mounted) setUser(session.user);
-          const r = await fetchRoleForUser(session.user);
-          if (mounted) setRole(r);
+
+        if (session?.user) {
+          const initialRole = isOwnerOrAdminEmail(session.user.email) ? 'admin' : (localAdmin?.role || 'buyer');
+          if (mounted) {
+            setUser(session.user);
+            setRole(initialRole);
+            setLoading(false);
+          }
+          // Fetch DB profile outside any lock
+          setTimeout(() => resolveRoleBackground(session.user), 0);
+        } else if (localAdmin) {
+          if (mounted) {
+            setUser(localAdmin);
+            setRole(localAdmin.role);
+            setLoading(false);
+          }
         } else {
           if (mounted) {
             setUser(null);
             setRole(null);
+            setLoading(false);
           }
         }
       } catch (err) {
         console.error('Auth check error:', err);
-      } finally {
-        if (mounted) setLoading(false);
+        const localAdmin = getLocalAdminSession();
+        if (mounted) {
+          if (localAdmin) {
+            setUser(localAdmin);
+            setRole(localAdmin.role);
+          }
+          setLoading(false);
+        }
       }
     };
 
-    checkAuth();
+    syncAuthState();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session) {
-        if (mounted) setUser(session.user);
-        const r = await fetchRoleForUser(session.user);
-        if (mounted) setRole(r);
-      } else {
-        if (mounted) {
-          setUser(null);
-          setRole(null);
+    // IMPORTANT: Keep onAuthStateChange synchronous — never await supabase.from() inside this callback
+    // or it will deadlock the Supabase client lock queue and freeze all DB reads/writes!
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      const localAdmin = getLocalAdminSession();
+      if (session?.user) {
+        setUser(session.user);
+        if (isOwnerOrAdminEmail(session.user.email)) {
+          setRole('admin');
         }
+        setLoading(false);
+        setTimeout(() => resolveRoleBackground(session.user), 0);
+      } else if (localAdmin) {
+        setUser(localAdmin);
+        setRole(localAdmin.role);
+        setLoading(false);
+      } else {
+        setUser(null);
+        setRole(null);
+        setLoading(false);
       }
-      if (mounted) setLoading(false);
     });
+
+    const handleLocalAuthChange = () => {
+      syncAuthState();
+    };
+    window.addEventListener('carelink-auth-change', handleLocalAuthChange);
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      window.removeEventListener('carelink-auth-change', handleLocalAuthChange);
     };
   }, []);
 
@@ -149,10 +183,14 @@ const App: React.FC = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
     setAdminMobileOpen(false);
+    if (location.pathname.startsWith('/command-nexus')) {
+      setPageLoading(false);
+      return;
+    }
     setPageLoading(true);
     const timer = setTimeout(() => {
       setPageLoading(false);
-    }, 650);
+    }, 450);
     return () => clearTimeout(timer);
   }, [location.pathname, location.search]);
 
@@ -162,13 +200,20 @@ const App: React.FC = () => {
       const anchor = target?.closest('a');
       if (!anchor) return;
       const href = anchor.getAttribute('href');
-      if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:') || anchor.target === '_blank') {
+      if (
+        !href ||
+        href.startsWith('#') ||
+        href.startsWith('mailto:') ||
+        href.startsWith('tel:') ||
+        href.startsWith('/command-nexus') ||
+        anchor.target === '_blank'
+      ) {
         return;
       }
       setPageLoading(true);
       setTimeout(() => {
         setPageLoading(false);
-      }, 650);
+      }, 450);
     };
 
     document.addEventListener('click', handleGlobalLinkClick);

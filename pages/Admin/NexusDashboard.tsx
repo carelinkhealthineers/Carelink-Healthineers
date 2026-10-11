@@ -80,7 +80,7 @@ export const NexusDashboard: React.FC = () => {
   }, []);
 
   return (
-    <div className="p-10 lg:p-16">
+    <div className="p-10 lg:p-16 bg-[#020408] text-white min-h-screen rounded-[2.5rem]">
       <header className="mb-16 flex flex-col md:flex-row md:items-end justify-between gap-8">
         <div className="space-y-4">
            <div className="flex items-center gap-3">

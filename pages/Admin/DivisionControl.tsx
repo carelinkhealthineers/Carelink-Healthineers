@@ -69,6 +69,17 @@ export const DivisionControl: React.FC = () => {
     setIsEditorOpen(true);
   };
 
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this clinical division?')) return;
+    try {
+      const { error } = await supabase.from('divisions').delete().eq('id', id);
+      if (error) throw error;
+      setDivisions(prev => prev.filter(d => d.id !== id));
+    } catch (err: any) {
+      alert('Failed to delete division: ' + (err.message || 'Check if products are linked to this division.'));
+    }
+  };
+
   return (
     <div className="p-8">
       <header className="mb-10 flex items-center justify-between">
@@ -99,7 +110,7 @@ export const DivisionControl: React.FC = () => {
                  <button onClick={() => toggleEditor(div)} className="flex-1 py-3 bg-gray-50 rounded-xl font-bold text-gray-500 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center gap-2">
                    <Edit3 size={16} /> Edit
                  </button>
-                 <button className="p-3 bg-gray-50 text-rose-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all">
+                 <button onClick={() => handleDelete(div.id)} className="p-3 bg-gray-50 text-rose-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all cursor-pointer">
                    <Trash2 size={18} />
                  </button>
                </div>

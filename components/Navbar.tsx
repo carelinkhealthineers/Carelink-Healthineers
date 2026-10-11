@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, ChevronDown, LayoutGrid, Activity, ArrowRight, User, Shield, LogOut, Settings } from 'lucide-react';
-import { supabase, performSignOut } from '../supabaseClient';
+import { supabase, performSignOut, getLocalAdminSession, isOwnerOrAdminEmail } from '../supabaseClient';
 import { Division } from '../types';
 
 const NAV_ITEMS = [
@@ -30,17 +30,35 @@ export const Navbar: React.FC = () => {
     supabase.from('divisions').select('*').order('order_index')
       .then(({ data }) => setDivisions(data || []));
 
+    const fetchProfileRole = async (userObj: any) => {
+      if (!userObj) return;
+      if (isOwnerOrAdminEmail(userObj.email)) {
+        setRole('admin');
+        return;
+      }
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', userObj.id)
+          .maybeSingle();
+        setRole(profile?.role || 'buyer');
+      } catch {
+        setRole('buyer');
+      }
+    };
+
     const checkSession = async () => {
       try {
+        const localAdmin = getLocalAdminSession();
         const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
+        if (session?.user) {
           setUser(session.user);
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', session.user.id)
-            .maybeSingle();
-          setRole(profile?.role || (session.user.email === 'carelinkhealthineers@gmail.com' || session.user.email?.includes('admin') ? 'admin' : 'buyer'));
+          setRole(isOwnerOrAdminEmail(session.user.email) ? 'admin' : 'buyer');
+          setTimeout(() => fetchProfileRole(session.user), 0);
+        } else if (localAdmin) {
+          setUser(localAdmin);
+          setRole(localAdmin.role);
         } else {
           setUser(null);
           setRole(null);
@@ -52,26 +70,28 @@ export const Navbar: React.FC = () => {
 
     checkSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      try {
-        if (session) {
-          setUser(session.user);
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', session.user.id)
-            .maybeSingle();
-          setRole(profile?.role || (session.user.email === 'carelinkhealthineers@gmail.com' || session.user.email?.includes('admin') ? 'admin' : 'buyer'));
-        } else {
-          setUser(null);
-          setRole(null);
-        }
-      } catch (err) {
-        console.warn('Navbar auth state notice:', err);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const localAdmin = getLocalAdminSession();
+      if (session?.user) {
+        setUser(session.user);
+        setRole(isOwnerOrAdminEmail(session.user.email) ? 'admin' : 'buyer');
+        setTimeout(() => fetchProfileRole(session.user), 0);
+      } else if (localAdmin) {
+        setUser(localAdmin);
+        setRole(localAdmin.role);
+      } else {
+        setUser(null);
+        setRole(null);
       }
     });
 
-    return () => subscription.unsubscribe();
+    const handleLocalChange = () => checkSession();
+    window.addEventListener('carelink-auth-change', handleLocalChange);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('carelink-auth-change', handleLocalChange);
+    };
   }, []);
 
   // Close dropdowns when clicking outside

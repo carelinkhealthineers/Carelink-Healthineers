@@ -57,18 +57,24 @@ export const SEO: React.FC<SEOProps> = ({
     const fetchDynamicSEO = async () => {
       try {
         const { data } = await supabase
-          .from('page_seo_settings')
-          .select('*')
-          .eq('page_path', location.pathname)
+          .from('settings')
+          .select('value')
+          .eq('key', 'page_seo_matrix')
           .maybeSingle();
 
-        if (data && !isCancelled) {
-          setMeta({
-            title: data.title || initialTitle,
-            description: data.meta_description || initialDescription,
-            keywords: data.keywords || initialKeywords,
-            image: data.og_image || initialImage
-          });
+        if (data?.value && !isCancelled) {
+          const parsed = JSON.parse(data.value);
+          if (Array.isArray(parsed)) {
+            const matched = parsed.find((item: any) => item.page_path === location.pathname);
+            if (matched) {
+              setMeta({
+                title: matched.title || initialTitle,
+                description: matched.meta_description || initialDescription,
+                keywords: matched.keywords || initialKeywords,
+                image: matched.og_image || initialImage
+              });
+            }
+          }
         }
       } catch (err) {
         console.warn('SEO dynamic fetch notice:', err);
