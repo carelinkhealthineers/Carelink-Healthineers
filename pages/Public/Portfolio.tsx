@@ -179,13 +179,18 @@ export const Portfolio: React.FC = () => {
       const matchSubcategory = selectedSubcategories.length === 0 || selectedSubcategories.includes(subcat);
       const matchBrand = selectedBrands.length === 0 || selectedBrands.includes(brand);
 
+      const primaryKw = (p.primary_keyword || p.technical_specs?._primary_keyword || '').toLowerCase();
+      const relatedKws = (p.technical_specs?._related_keywords || '').toLowerCase();
+
       const matchSearch =
         !q ||
         p.name.toLowerCase().includes(q) ||
         (p.model_number || '').toLowerCase().includes(q) ||
         subcat.toLowerCase().includes(q) ||
         (p.short_description || '').toLowerCase().includes(q) ||
-        (division?.name || '').toLowerCase().includes(q);
+        (division?.name || '').toLowerCase().includes(q) ||
+        primaryKw.includes(q) ||
+        relatedKws.includes(q);
 
       return matchCategory && matchSubcategory && matchBrand && matchSearch;
     });

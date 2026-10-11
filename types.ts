@@ -35,6 +35,8 @@ export interface Product {
   show_video?: boolean;
   warranty_info?: string;
   is_published: boolean;
+  primary_keyword?: string;
+  related_keywords?: string[];
   meta_title?: string;
   meta_description?: string;
   created_at: string;

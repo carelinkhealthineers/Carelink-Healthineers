@@ -167,36 +167,101 @@ export const ProductDetails: React.FC = () => {
 
   const gallery = [product.main_image, ...(product.image_gallery || [])].filter(Boolean);
 
+  const primaryKeyword = (
+    product.primary_keyword ||
+    product.technical_specs?._primary_keyword ||
+    ''
+  ).trim();
+
+  const relatedKeywordsList: string[] = Array.isArray(product.related_keywords) && product.related_keywords.length > 0
+    ? product.related_keywords
+    : (product.technical_specs?._related_keywords || '')
+        .split(',')
+        .map(k => k.trim())
+        .filter(Boolean);
+
+  const customSeoTitle = (product.meta_title || product.technical_specs?._seo_title || '').trim();
+  const customSeoDesc = (product.meta_description || product.technical_specs?._seo_description || '').trim();
+
+  const finalSeoTitle =
+    customSeoTitle ||
+    (primaryKeyword
+      ? `${product.name} (${product.model_number}) – ${primaryKeyword}`
+      : `${product.name} (${product.model_number})`);
+
+  const finalSeoDescription =
+    customSeoDesc ||
+    (primaryKeyword
+      ? `${primaryKeyword} — ${product.short_description} Official warranty and direct factory quote from Carelink Healthineers.`
+      : product.short_description);
+
+  const allSeoKeywords = Array.from(
+    new Set(
+      [
+        primaryKeyword,
+        ...relatedKeywordsList,
+        product.name,
+        product.model_number,
+        product.category_tag,
+        'medical equipment Bangladesh',
+        'Dürr Dental Bangladesh',
+        'Carelink Healthineers'
+      ].filter(Boolean)
+    )
+  );
+
+  const visibleSpecsEntries = Object.entries(product.technical_specs || {}).filter(
+    ([k]) => !k.startsWith('_') && !k.toLowerCase().includes('video')
+  );
+
   const productSchema = {
     "@context": "https://schema.org/",
     "@type": "Product",
     "name": product.name,
     "image": gallery,
-    "description": product.short_description,
+    "description": finalSeoDescription,
     "sku": product.id,
     "mpn": product.model_number,
+    "category": product.category_tag,
+    "keywords": allSeoKeywords.join(', '),
     "brand": {
       "@type": "Brand",
-      "name": "Carelink Healthineers"
+      "name": product.name.toLowerCase().includes('vista') || product.name.toLowerCase().includes('dürr')
+        ? "Dürr Dental"
+        : "Carelink Healthineers"
     },
+    "additionalProperty": visibleSpecsEntries.map(([name, value]) => ({
+      "@type": "PropertyValue",
+      "name": name,
+      "value": value
+    })),
     "offers": {
       "@type": "Offer",
       "url": window.location.href,
       "priceCurrency": "USD",
-      "price": "0", // Request for quote
+      "price": "0",
       "availability": "https://schema.org/InStock",
-      "itemCondition": "https://schema.org/NewCondition"
+      "itemCondition": "https://schema.org/NewCondition",
+      "seller": {
+        "@type": "Organization",
+        "name": "Carelink Healthineers"
+      }
     }
   };
 
   return (
     <div className="pt-24 pb-48 bg-white text-slate-600 selection:bg-blue-600 selection:text-white">
       <SEO 
-        title={product.name} 
-        description={product.short_description} 
+        title={finalSeoTitle} 
+        description={finalSeoDescription} 
         image={product.main_image}
         type="product"
-        keywords={[product.name, product.model_number, product.category_tag, 'medical equipment', 'medical asset']}
+        keywords={allSeoKeywords}
+        breadcrumbs={[
+          { name: 'Home', item: '/' },
+          { name: 'Products', item: '/portfolio' },
+          { name: product.name, item: `/portfolio/${product.slug}` }
+        ]}
         jsonLd={productSchema}
       />
       
@@ -510,6 +575,30 @@ export const ProductDetails: React.FC = () => {
               </AnimatePresence>
            </div>
         </div>
+
+        {/* On-Page SEO Primary & Related Keywords Indexing Block */}
+        {(primaryKeyword || relatedKeywordsList.length > 0) && (
+          <div className="mt-20 pt-10 border-t border-slate-100">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-2">
+                Search Topics &amp; Clinical Tags:
+              </span>
+              {primaryKeyword && (
+                <span className="px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold">
+                  {primaryKeyword}
+                </span>
+              )}
+              {relatedKeywordsList.map((kw, idx) => (
+                <span
+                  key={idx}
+                  className="px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-slate-600 text-xs font-medium"
+                >
+                  {kw}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Global Support Call-to-Action */}
         <div className="mt-40 p-12 bg-slate-50 border border-slate-200/60 rounded-[3rem] flex flex-col md:flex-row items-center justify-between gap-10 shadow-sm text-slate-950">
