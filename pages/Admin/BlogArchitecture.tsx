@@ -251,49 +251,75 @@ export const BlogArchitecture: React.FC = () => {
   };
 
   return (
-    <div className="p-10 lg:p-16 bg-[#020408] min-h-screen text-white selection:bg-blue-600 rounded-[2.5rem]">
-      <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-8">
-        <div className="space-y-4">
-           <div className="flex items-center gap-3">
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
-              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.4em]">Node_Status: Editorial_Active</span>
-           </div>
-           <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter">Briefing <span className="text-slate-700 italic">Archive.</span></h1>
+    <div className="space-y-6 text-slate-100">
+      <header className="p-6 lg:p-8 rounded-3xl bg-[#0d111a] border border-[#1d2436] shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+            <BookOpen size={22} className="text-white" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
+                Insights &amp; Articles
+              </h1>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                {blogs.length} posts
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Publish clinical intelligence, equipment guides, and industry news.
+            </p>
+          </div>
         </div>
-        <div className="flex gap-4">
-          <button onClick={fetchBlogs} className="p-4 bg-white/5 border border-white/10 rounded-2xl text-slate-400 hover:text-white transition-all cursor-pointer">
-            <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={fetchBlogs}
+            disabled={isLoading}
+            className="p-2.5 bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 hover:text-white rounded-xl border border-[#21293d] transition-all cursor-pointer"
+            title="Refresh Articles"
+          >
+            <RefreshCw size={16} className={isLoading ? 'animate-spin text-blue-400' : ''} />
           </button>
-          <button onClick={() => toggleEditor()} className="px-8 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all flex items-center gap-3 cursor-pointer">
-             <Plus size={18} /> Initialize New Briefing
+          <button
+            onClick={() => toggleEditor()}
+            className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-2xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-blue-500/25 transition-all cursor-pointer"
+          >
+            <Plus size={16} />
+            <span>Add Article</span>
           </button>
         </div>
       </header>
 
       {errorBanner && !isEditorOpen && (
-        <div className="mb-10 p-6 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 space-y-1">
-          <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-rose-400">
-            <AlertTriangle size={16} />
-            <span>{errorBanner.title}</span>
-          </div>
-          <p className="text-xs font-medium leading-relaxed">{errorBanner.message}</p>
+        <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-xs flex items-center gap-2">
+          <AlertTriangle size={16} className="text-rose-400 shrink-0" />
+          <span>{errorBanner.message}</span>
         </div>
       )}
 
-      {/* Modern Search */}
-      <div className="relative group mb-16">
-        <Search size={18} className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-700 group-focus-within:text-blue-500 transition-colors" />
+      {/* Search Input */}
+      <div className="p-3 bg-[#0d111a] rounded-2xl border border-[#1d2436] flex items-center gap-3">
+        <Search className="text-slate-500 ml-2 shrink-0" size={18} />
         <input 
           type="text" 
-          placeholder="SEARCH INTEL REGISTRY..." 
-          className="w-full bg-white/[0.02] border border-white/5 rounded-3xl pl-16 pr-8 py-6 text-[10px] font-black text-white placeholder:text-slate-800 uppercase tracking-widest outline-none focus:border-blue-600 focus:bg-white/[0.04] transition-all"
+          placeholder="Search articles by title or tag..." 
+          className="flex-1 py-1 bg-transparent text-sm text-white placeholder-slate-500 outline-none"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
+        {searchTerm && (
+          <button
+            onClick={() => setSearchTerm('')}
+            className="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg bg-white/5"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
-      {/* Blog Matrix */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+      {/* Blog Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading ? (
           [...Array(3)].map((_, i) => (
             <div key={i} className="aspect-[4/3] rounded-[3rem] bg-white/[0.01] border border-white/5 animate-pulse" />

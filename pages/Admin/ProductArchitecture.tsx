@@ -5,7 +5,7 @@ import {
   RefreshCw, Loader2, 
   Box, Terminal, ImagePlus, 
   ChevronRight, ImageIcon, Trash,
-  FileText, Tv, Globe, Sparkles, Tag, CheckCircle2
+  FileText, Tv, Globe, Sparkles, Tag, CheckCircle2, Package
 } from 'lucide-react';
 import { slugify } from '../../utils/slugify';
 import { supabase } from '../../supabaseClient';
@@ -405,10 +405,13 @@ export const ProductArchitecture: React.FC = () => {
       };
 
       // Clean out UI-only fields before sending to Supabase products table
+      // (show_video and video_url are stored safely inside technical_specs._show_video and technical_specs._video_url)
       const {
         primary_keyword,
         related_keywords,
         parts: _unusedParts,
+        show_video: _uiShowVideo,
+        video_url: _uiVideoUrl,
         ...dbFields
       } = formData as any;
 
@@ -416,8 +419,6 @@ export const ProductArchitecture: React.FC = () => {
         ...dbFields, 
         meta_title: finalMetaTitle || null,
         meta_description: finalMetaDesc || null,
-        show_video: isVidOn,
-        video_url: formData.video_url || '',
         technical_specs: techSpecs,
         slug 
       };
@@ -711,43 +712,71 @@ export const ProductArchitecture: React.FC = () => {
   });
 
   return (
-    <div className="p-10 lg:p-16 bg-[#020408] min-h-screen text-white">
-      <header className="mb-16 flex flex-col md:flex-row md:items-end justify-between gap-8">
-        <div className="space-y-4">
-           <div className="flex items-center gap-3">
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.4em]">Node_Control: Asset_Master</span>
-           </div>
-           <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter">Product <span className="text-slate-700 italic">Architecture.</span></h1>
+    <div className="space-y-6 text-slate-100">
+      <header className="p-6 lg:p-8 rounded-3xl bg-[#0d111a] border border-[#1d2436] shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-400 flex items-center justify-center shadow-lg shadow-blue-500/25">
+            <Package size={22} className="text-white" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
+                Products
+              </h1>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                {products.length} items
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Manage medical equipment catalog, specifications, and SEO keywords.
+            </p>
+          </div>
         </div>
-        <div className="flex gap-4">
-          <button onClick={fetchData} className="p-4 bg-white/5 border border-white/10 rounded-2xl text-slate-400 hover:text-white transition-all shadow-xl">
-            <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={fetchData}
+            disabled={isLoading}
+            className="p-2.5 bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 hover:text-white rounded-xl border border-[#21293d] transition-all cursor-pointer"
+            title="Refresh Products"
+          >
+            <RefreshCw size={16} className={isLoading ? 'animate-spin text-blue-400' : ''} />
           </button>
-          <button onClick={() => toggleEditor()} className="flex items-center gap-4 px-10 py-5 bg-white text-black rounded-3xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all shadow-2xl cursor-pointer">
-            <Plus size={18} /> Deploy New Asset
+          <button
+            onClick={() => toggleEditor()}
+            className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-2xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-blue-500/25 transition-all cursor-pointer"
+          >
+            <Plus size={16} />
+            <span>Add Product</span>
           </button>
         </div>
       </header>
 
-      {/* Modern Search Node */}
-      <div className="relative group mb-16">
-        <Search size={18} className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-700 group-focus-within:text-blue-500 transition-colors" />
+      {/* Search Input */}
+      <div className="p-3 bg-[#0d111a] rounded-2xl border border-[#1d2436] flex items-center gap-3">
+        <Search className="text-slate-500 ml-2 shrink-0" size={18} />
         <input 
           type="text" 
-          placeholder="QUERY REGISTRY BY PRODUCT NAME, MODEL, OR SEO KEYWORD..." 
-          className="w-full bg-white/[0.02] border border-white/5 rounded-3xl pl-16 pr-8 py-6 text-[10px] font-black text-white placeholder:text-slate-800 uppercase tracking-widest outline-none focus:border-blue-600 focus:bg-white/[0.04] transition-all"
+          placeholder="Search products by name, model, or SEO keyword..." 
+          className="flex-1 py-1 bg-transparent text-sm text-white placeholder-slate-500 outline-none"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
+        {searchTerm && (
+          <button
+            onClick={() => setSearchTerm('')}
+            className="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg bg-white/5"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
-      {/* Asset Matrix */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-10">
+      {/* Asset Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
         {isLoading ? (
-          <div className="col-span-full py-60 flex flex-col items-center justify-center opacity-30">
-             <Loader2 size={64} className="animate-spin mb-8 text-blue-500" />
-             <span className="text-[9px] font-black uppercase tracking-[0.8em]">Syncing Neural Database...</span>
+          <div className="col-span-full py-28 flex flex-col items-center justify-center text-slate-400">
+             <Loader2 size={36} className="animate-spin mb-3 text-blue-500" />
+             <span className="text-xs font-bold">Loading product catalog...</span>
           </div>
         ) : (
           filteredProductsList.map((item) => {

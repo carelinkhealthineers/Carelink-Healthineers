@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { SEO } from '../../components/SEO';
 import { supabase } from '../../supabaseClient';
 import { Product, Division } from '../../types';
+import { recordAnalyticsEvent } from '../../utils/analyticsTracker';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -209,9 +210,19 @@ export const Portfolio: React.FC = () => {
     });
   }, [products, divisions, selectedCategories, selectedSubcategories, selectedBrands, search, sortBy]);
 
-  // Reset pagination when filters change
+  // Reset pagination when filters change & record debounced search query
   useEffect(() => {
     setCurrentPage(1);
+    const trimmed = search.trim();
+    if (trimmed.length >= 2) {
+      const timer = setTimeout(() => {
+        recordAnalyticsEvent('search', {
+          searchQuery: trimmed,
+          routePath: '/portfolio',
+        });
+      }, 900);
+      return () => clearTimeout(timer);
+    }
   }, [search, selectedCategories, selectedSubcategories, selectedBrands, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE));
@@ -302,6 +313,10 @@ export const Portfolio: React.FC = () => {
         }
       ]);
       if (error) throw error;
+      recordAnalyticsEvent('quote_form_submit', {
+        productName: quoteForm.productName || quoteForm.category,
+        routePath: '/portfolio',
+      });
       setQuoteSubmitted(true);
       setTimeout(() => {
         setQuoteModalOpen(false);
@@ -462,7 +477,7 @@ export const Portfolio: React.FC = () => {
                 </div>
                 <div className="filter-options filter-options-scroll" id="brandOptions">
                   {brandOptions.map(b => (
-                    <label key={b.name} className="filter-option">
+                    <label key={`brand-opt-${b.name}`} className="filter-option">
                       <input
                         type="checkbox"
                         checked={selectedBrands.includes(b.name)}
@@ -532,7 +547,7 @@ export const Portfolio: React.FC = () => {
                   );
                 })}
                 {selectedSubcategories.map(sub => (
-                  <span key={sub} className="chip">
+                  <span key={`chip-sub-${sub}`} className="chip">
                     {sub}
                     <button type="button" onClick={() => toggleSubcategory(sub)} aria-label="Remove subcategory filter">
                       &times;
@@ -540,7 +555,7 @@ export const Portfolio: React.FC = () => {
                   </span>
                 ))}
                 {selectedBrands.map(brand => (
-                  <span key={brand} className="chip">
+                  <span key={`chip-brand-${brand}`} className="chip">
                     {brand}
                     <button type="button" onClick={() => toggleBrand(brand)} aria-label="Remove brand filter">
                       &times;

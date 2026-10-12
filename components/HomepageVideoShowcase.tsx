@@ -4,7 +4,7 @@ import {
   Play, Tv, Sparkles, Film, 
   ChevronRight, ArrowUpRight, Settings, CheckCircle2
 } from 'lucide-react';
-import { supabase } from '../supabaseClient';
+import { supabase, getSafeSession } from '../supabaseClient';
 import { VideoItem, getAutoThumbnail } from '../utils/videoUtils';
 import { VideoTheatreModal } from './VideoTheatreModal';
 import { Link } from 'react-router-dom';
@@ -48,9 +48,9 @@ export const HomepageVideoShowcase: React.FC = () => {
   useEffect(() => {
     const fetchHomepageVideos = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
+        const session = await getSafeSession();
+        if (session?.user) {
+          const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).maybeSingle();
           if (profile?.role === 'admin') setIsAdmin(true);
         }
 

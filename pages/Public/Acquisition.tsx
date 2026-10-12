@@ -10,6 +10,7 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import { SEO } from '../../components/SEO';
 import { supabase } from '../../supabaseClient';
+import { recordAnalyticsEvent } from '../../utils/analyticsTracker';
 
 export const Acquisition: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -75,6 +76,10 @@ export const Acquisition: React.FC = () => {
           status: 'pending'
       }]);
       if (error) throw error;
+      recordAnalyticsEvent('quote_form_submit', {
+        productName: productName || formData.interest,
+        routePath: '/acquisition',
+      });
       setSubmitted(true);
     } catch (err) {
       console.error(err);

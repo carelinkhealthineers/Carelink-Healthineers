@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, ChevronDown, LayoutGrid, Activity, ArrowRight, User, Shield, LogOut, Settings } from 'lucide-react';
-import { supabase, performSignOut } from '../supabaseClient';
+import { supabase, performSignOut, getSafeSession } from '../supabaseClient';
 import { Division } from '../types';
 
 const NAV_ITEMS = [
@@ -46,7 +46,7 @@ export const Navbar: React.FC = () => {
 
     const checkSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const session = await getSafeSession();
         if (session?.user) {
           setUser(session.user);
           setTimeout(() => fetchProfileRole(session.user), 0);

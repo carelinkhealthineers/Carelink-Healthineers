@@ -206,39 +206,41 @@ export const HomepageControl: React.FC = () => {
   });
 
   return (
-    <div className="p-8 lg:p-14 bg-[#020408] text-white min-h-screen rounded-[2.5rem] space-y-12">
+    <div className="space-y-8 font-sans text-slate-100">
       {/* Header */}
-      <header className="flex flex-col xl:flex-row xl:items-end justify-between gap-8 border-b border-white/10 pb-10">
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-            <span className="text-[10px] font-black text-blue-400 uppercase tracking-[0.4em]">
-              Command_Nexus: Homepage_Master_Control
+      <header className="p-8 lg:p-10 rounded-[2.5rem] bg-gradient-to-br from-[#0F172A] via-[#0D1527] to-[#0A0F1D] border border-blue-500/15 shadow-2xl flex flex-col xl:flex-row xl:items-center justify-between gap-6 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-cyan-500/10 via-purple-500/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="space-y-2 relative z-10">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-400">
+              Command Nexus · Homepage Master Control
             </span>
           </div>
-          <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter">
-            Homepage <span className="text-blue-500 italic">Control Center.</span>
+          <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">
+            Homepage <span className="text-cyan-400 italic">Control Center.</span>
           </h1>
-          <p className="text-slate-400 text-sm font-medium max-w-2xl">
+          <p className="text-slate-400 text-xs sm:text-sm font-medium max-w-2xl">
             Control every section of your Home page, handpick &amp; reorder custom highlighted products for the Hero slider, configure a Featured Spotlight product banner, and customize homepage copy.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3 relative z-10">
           <Link
             to="/"
             target="_blank"
-            className="px-6 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-300 flex items-center gap-2 transition-all"
+            className="px-5 py-3.5 bg-[#0A0F1D] hover:bg-[#131F38] border border-[#1E2E50] rounded-2xl text-[10px] font-bold uppercase tracking-widest text-slate-300 hover:text-cyan-300 flex items-center gap-2 transition-all shadow-md"
           >
-            <ExternalLink size={15} /> Preview Live Homepage
+            <ExternalLink size={14} className="text-cyan-400" /> Preview Live
           </Link>
           <button
             type="button"
             onClick={() => handleSaveConfig()}
             disabled={isSaving}
-            className="px-10 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl shadow-blue-600/30 flex items-center gap-3 transition-all cursor-pointer"
+            className="px-7 py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white rounded-2xl text-[11px] font-bold uppercase tracking-wider shadow-lg shadow-blue-500/25 flex items-center gap-2.5 transition-all cursor-pointer"
           >
-            {isSaving ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />}
+            {isSaving ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />}
             <span>{isSaving ? 'Saving Changes...' : 'Save Homepage Settings'}</span>
           </button>
         </div>
@@ -248,7 +250,7 @@ export const HomepageControl: React.FC = () => {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-5 bg-emerald-500/15 border border-emerald-500/30 rounded-2xl flex items-center justify-between text-emerald-300"
+          className="p-5 bg-emerald-500/15 border border-emerald-500/30 rounded-2xl flex items-center justify-between text-emerald-300 shadow-md"
         >
           <div className="flex items-center gap-3 text-xs font-bold">
             <CheckCircle2 size={18} className="text-emerald-400" />
@@ -261,22 +263,22 @@ export const HomepageControl: React.FC = () => {
       )}
 
       {/* Navigation Tabs */}
-      <nav className="flex flex-wrap gap-2 bg-white/[0.03] p-2 rounded-3xl border border-white/10">
+      <nav className="flex flex-wrap gap-2 bg-[#0D1527]/90 p-2 rounded-2xl border border-[#182642] shadow-lg">
         {[
-          { id: 'highlighted', label: '1. Hero Highlighted Products', icon: <Star size={15} /> },
-          { id: 'spotlight', label: '2. Custom Product Spotlight Banner', icon: <Sparkles size={15} /> },
-          { id: 'sections', label: '3. Section Visibility & Hero Text', icon: <Layers size={15} /> },
-          { id: 'corporate', label: '4. Corporate Cards & Quote Text', icon: <Building2 size={15} /> },
-          { id: 'videos', label: '5. Homepage Video Showcase', icon: <Tv size={15} /> },
+          { id: 'highlighted', label: '1. Hero Highlighted Products', icon: <Star size={14} /> },
+          { id: 'spotlight', label: '2. Product Spotlight Banner', icon: <Sparkles size={14} /> },
+          { id: 'sections', label: '3. Section Visibility & Copy', icon: <Layers size={14} /> },
+          { id: 'corporate', label: '4. Corporate Cards & Quotes', icon: <Building2 size={14} /> },
+          { id: 'videos', label: '5. Video Showcase', icon: <Tv size={14} /> },
         ].map(tab => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id as ControlTab)}
-            className={`px-6 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2.5 transition-all cursor-pointer ${
+            className={`px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === tab.id
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
+                ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-blue-500/20'
+                : 'text-slate-400 hover:text-white hover:bg-[#121B30]'
             }`}
           >
             {tab.icon}

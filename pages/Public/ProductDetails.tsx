@@ -13,7 +13,7 @@ import { VideoTheatreModal } from '../../components/VideoTheatreModal';
 import { VideoItem } from '../../utils/videoUtils';
 import { supabase } from '../../supabaseClient';
 import { Product, ProductPart } from '../../types';
-import { recordProductView } from '../../utils/analyticsTracker';
+import { recordProductView, recordAnalyticsEvent } from '../../utils/analyticsTracker';
 
 export const ProductDetails: React.FC = () => {
   const { productSlug } = useParams();
@@ -39,6 +39,11 @@ export const ProductDetails: React.FC = () => {
 
   const handleOpenQuoteModal = () => {
     if (product) {
+      recordAnalyticsEvent('quote_form_start', {
+        productId: product.id,
+        productName: product.name,
+        routePath: `/portfolio/${product.slug}`,
+      });
       setQuoteForm(prev => ({
         ...prev,
         category: product.category_tag || 'Medical Equipment',
@@ -67,6 +72,11 @@ export const ProductDetails: React.FC = () => {
         }
       ]);
       if (error) throw error;
+      recordAnalyticsEvent('quote_form_submit', {
+        productId: product.id,
+        productName: product.name,
+        routePath: `/portfolio/${product.slug}`,
+      });
       setQuoteSubmitted(true);
       setTimeout(() => {
         setQuoteModalOpen(false);
@@ -362,6 +372,13 @@ export const ProductDetails: React.FC = () => {
                     rel="noopener noreferrer"
                     className="btn btn-primary"
                     id="modalWhatsapp"
+                    onClick={() =>
+                      recordAnalyticsEvent('whatsapp_click', {
+                        productId: product.id,
+                        productName: product.name,
+                        routePath: `/portfolio/${product.slug}`,
+                      })
+                    }
                   >
                     WhatsApp Inquiry
                   </a>

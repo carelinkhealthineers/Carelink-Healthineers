@@ -13,6 +13,7 @@ import { HomepageVideoShowcase } from '../../components/HomepageVideoShowcase';
 import { DepthMotionCarousel } from '../../components/DepthMotionCarousel';
 import { supabase } from '../../supabaseClient';
 import { Product, Blog } from '../../types';
+import { recordAnalyticsEvent } from '../../utils/analyticsTracker';
 import {
   HomepageControlConfig,
   DEFAULT_HOMEPAGE_CONFIG,
@@ -222,6 +223,10 @@ export const Origin: React.FC = () => {
       }]);
 
       if (error) throw error;
+      recordAnalyticsEvent('quote_form_submit', {
+        productName: configData.interest,
+        routePath: '/',
+      });
       setConfigSubmitted(true);
     } catch (err) {
       console.error("Quote submit failed:", err);

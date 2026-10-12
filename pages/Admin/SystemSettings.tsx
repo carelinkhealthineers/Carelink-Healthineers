@@ -1,30 +1,43 @@
-
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Save, RefreshCw, Loader2, Globe, ShieldAlert, Database, Settings, Server, Terminal, Info, Layout, Activity, Tv, Film } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Settings,
+  RefreshCw,
+  Loader2,
+  ShieldCheck,
+  Check,
+  Sparkles,
+  Sliders,
+  Info,
+  CheckCircle2,
+} from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import { Setting } from '../../types';
-import { AdminVideoManager } from '../../components/AdminVideoManager';
 
 export const SystemSettings: React.FC = () => {
   const [settings, setSettings] = useState<Setting[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [status, setStatus] = useState<'nominal' | 'degraded' | 'offline'>('nominal');
-  const [activeTab, setActiveTab] = useState<'videos' | 'config'>('videos');
+  const [savedKey, setSavedKey] = useState<string | null>(null);
+  const [status, setStatus] = useState<'online' | 'offline'>('online');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.from('settings').select('*').order('category', { ascending: false }).order('key');
+      const { data, error } = await supabase
+        .from('settings')
+        .select('*')
+        .order('category', { ascending: false })
+        .order('key');
       if (error) {
         setStatus('offline');
         throw error;
       }
       setSettings(data || []);
-      setStatus('nominal');
+      setStatus('online');
     } catch (err) {
-      console.error(err);
+      console.error('Settings load error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -34,154 +47,196 @@ export const SystemSettings: React.FC = () => {
     fetchSettings();
   }, []);
 
-  const handleUpdate = async (id: string, value: string) => {
+  const handleUpdate = async (id: string, keyName: string, value: string) => {
     setIsSaving(true);
     try {
-      const { data, error } = await supabase.from('settings').update({ value }).eq('id', id).select();
+      const { data, error } = await supabase
+        .from('settings')
+        .update({ value })
+        .eq('id', id)
+        .select();
       if (error) throw error;
       if (!data || data.length === 0) {
-        throw new Error('Update blocked by Row-Level Security (0 rows modified in public.settings).');
+        throw new Error('Update blocked by database permissions.');
       }
-      setSettings(prev => prev.map(s => s.id === id ? { ...s, value } : s));
+      setSettings((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, value } : s))
+      );
+      setSavedKey(keyName);
+      setTimeout(() => setSavedKey(null), 2500);
     } catch (err: any) {
-      alert(`Registry Sync Failed: ${err?.message || 'Unknown error'}`);
+      alert(`Save failed: ${err?.message || 'Database error'}`);
       await fetchSettings();
     } finally {
       setIsSaving(false);
     }
   };
 
-  const categories = Array.from(new Set(settings.map(s => s.category || 'general')));
+  const categories = Array.from(
+    new Set(settings.map((s) => s.category || 'general'))
+  );
+
+  const filteredSettings =
+    selectedCategory === 'all'
+      ? settings
+      : settings.filter((s) => (s.category || 'general') === selectedCategory);
 
   return (
-    <div className="p-10 lg:p-16 bg-[#020408] text-white min-h-screen rounded-[2.5rem]">
-      <header className="mb-16 flex flex-col md:flex-row md:items-end justify-between gap-8">
-        <div className="space-y-4">
-           <div className="flex items-center gap-3">
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.4em]">Core_Registry: System_Config</span>
-           </div>
-           <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter">System <span className="text-slate-700 italic">Configuration.</span></h1>
+    <div className="space-y-8 text-slate-100">
+      {/* Cute Header */}
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 lg:p-8 rounded-3xl bg-[#0d111a] border border-[#1d2436] shadow-xl">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+            <Settings size={22} className="text-white" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
+                Settings
+              </h1>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                Variables
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Manage configuration variables and website settings.
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-4 bg-white/5 p-2 px-6 rounded-2xl border border-white/10 shadow-xl backdrop-blur-xl">
-           <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${status === 'nominal' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-           <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Node Status: <span className={status === 'nominal' ? 'text-emerald-500' : 'text-rose-500'}>{status.toUpperCase()}</span></span>
-           <button onClick={fetchSettings} className="ml-4 p-2 text-slate-700 hover:text-white transition-colors">
-              <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
-           </button>
+
+        <div className="flex items-center gap-3">
+          {savedKey && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              className="px-3.5 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center gap-1.5 shadow-sm"
+            >
+              <CheckCircle2 size={14} />
+              <span>Saved</span>
+            </motion.div>
+          )}
+
+          <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/[0.03] border border-[#21293d] text-xs font-semibold text-slate-300">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                status === 'online'
+                  ? 'bg-emerald-400 animate-pulse'
+                  : 'bg-rose-400'
+              }`}
+            />
+            <span className="capitalize">{status}</span>
+          </div>
+
+          <button
+            onClick={fetchSettings}
+            disabled={isLoading}
+            className="p-2.5 bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 hover:text-white rounded-xl border border-[#21293d] transition-all cursor-pointer"
+            title="Refresh Settings"
+          >
+            <RefreshCw
+              size={16}
+              className={isLoading ? 'animate-spin text-blue-400' : ''}
+            />
+          </button>
         </div>
       </header>
 
-      {/* Tab Controls */}
-      <div className="flex gap-4 mb-12 border-b border-white/10 pb-4 overflow-x-auto">
+      {/* Cute Category Filter Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
         <button
-          onClick={() => setActiveTab('videos')}
-          className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center gap-2.5 transition-all ${
-            activeTab === 'videos' 
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' 
-              : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+          onClick={() => setSelectedCategory('all')}
+          className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            selectedCategory === 'all'
+              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20'
+              : 'bg-[#0d111a] text-slate-400 hover:text-white border border-[#1d2436]'
           }`}
         >
-          <Tv size={16} />
-          <span>Homepage Video Theatre</span>
+          All Settings ({settings.length})
         </button>
-
-        <button
-          onClick={() => setActiveTab('config')}
-          className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center gap-2.5 transition-all ${
-            activeTab === 'config' 
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' 
-              : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
-          }`}
-        >
-          <Settings size={16} />
-          <span>Core System Variables</span>
-        </button>
+        {categories.map((cat) => (
+          <button
+            key={cat}
+            onClick={() => setSelectedCategory(cat)}
+            className={`px-4 py-2 rounded-2xl text-xs font-bold capitalize transition-all cursor-pointer whitespace-nowrap ${
+              selectedCategory === cat
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20'
+                : 'bg-[#0d111a] text-slate-400 hover:text-white border border-[#1d2436]'
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
       </div>
 
-      {activeTab === 'videos' ? (
-        <AdminVideoManager />
+      {/* Settings Grid */}
+      {isLoading ? (
+        <div className="py-28 flex flex-col items-center justify-center text-slate-400">
+          <Loader2 className="animate-spin text-blue-500 mb-3" size={32} />
+          <span className="text-xs font-bold">Loading settings...</span>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
-        {/* Settings Terminal Area */}
-        <div className="lg:col-span-7 space-y-16">
-          {isLoading ? (
-            <div className="py-40 flex flex-col items-center justify-center opacity-30">
-               <Loader2 className="animate-spin mb-4 text-blue-500" size={40} />
-               <span className="text-[9px] font-black uppercase tracking-widest">Accessing Neural Config...</span>
-            </div>
-          ) : (
-            categories.map(category => (
-              <div key={category} className="space-y-8">
-                <div className="flex items-center gap-4">
-                   <div className="w-6 h-px bg-blue-600/30" />
-                   <h2 className="text-[10px] font-black text-white uppercase tracking-[0.4em]">{category} Protocol</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredSettings.map((setting) => (
+            <motion.div
+              key={setting.id}
+              layout
+              className="p-5 lg:p-6 rounded-3xl bg-[#0d111a] border border-[#1d2436] hover:border-blue-500/30 transition-all space-y-4 shadow-lg group"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20 shrink-0">
+                    <Sliders size={14} />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-xs font-bold text-white block truncate">
+                      {setting.key}
+                    </span>
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+                      {setting.category || 'General'}
+                    </span>
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 gap-6">
-                  {settings.filter(s => s.category === category).map(setting => (
-                    <div key={setting.key} className="bg-white/[0.01] p-8 rounded-[2.5rem] border border-white/5 shadow-2xl group hover:border-blue-500/30 transition-all">
-                      <div className="flex items-center justify-between mb-8">
-                         <div className="flex items-center gap-4">
-                            <Terminal size={14} className="text-blue-500" />
-                            <div className="text-[10px] font-black text-white uppercase tracking-[0.2em]">{setting.key}</div>
-                         </div>
-                         <div className="px-3 py-1 bg-white/5 text-[8px] font-black text-slate-700 uppercase tracking-widest rounded-lg border border-white/5">Active_Node</div>
-                      </div>
-                      <input 
-                        className="w-full px-8 py-5 bg-black border border-white/5 rounded-2xl outline-none font-black text-white placeholder:text-slate-800 focus:border-blue-600 transition-all mb-4"
-                        value={setting.value}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setSettings(prev => prev.map(s => s.id === setting.id ? { ...s, value: val } : s));
-                        }}
-                        onBlur={(e) => handleUpdate(setting.id, e.target.value)}
-                      />
-                      <div className="flex items-start gap-3 px-2">
-                         <Info size={14} className="text-slate-800 mt-0.5 shrink-0" />
-                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight leading-relaxed italic opacity-60">{setting.description}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
 
-        {/* Diagnostic Sidebar */}
-        <div className="lg:col-span-5 space-y-10">
-           <div className="sticky top-24 space-y-10">
-              <div className="bg-[#05070a] p-12 rounded-[4rem] border border-white/5 shadow-4xl relative overflow-hidden group">
-                 <div className="absolute top-0 right-0 p-12 opacity-5 group-hover:rotate-12 transition-transform pointer-events-none">
-                    <ShieldAlert size={240} className="text-blue-600" />
-                 </div>
-                 <div className="relative z-10">
-                   <div className="w-16 h-16 bg-blue-600/10 text-blue-500 rounded-2xl flex items-center justify-center mb-10 border border-blue-500/20">
-                      <ShieldAlert size={32} />
-                   </div>
-                   <h3 className="text-3xl font-black mb-6 tracking-tight">Security & Policy</h3>
-                   <p className="text-slate-500 text-sm font-medium leading-relaxed mb-12 italic opacity-80">All registry modifications are telemetrically logged for audit within the Command Nexus ecosystem. System state is governed by RBAC protocols injected via Supabase Auth.</p>
-                   <div className="flex items-center gap-4 p-6 bg-white/[0.02] rounded-3xl border border-white/5 backdrop-blur-md">
-                      <Globe className="text-blue-500" size={24} />
-                      <div className="text-[9px] font-black uppercase tracking-widest text-slate-400">Api_Link: <span className="text-emerald-500">STABLE_ENCRYPTED</span></div>
-                   </div>
-                 </div>
-              </div>
-              
-              <div className="p-12 border-2 border-dashed border-white/5 rounded-[4rem] text-center bg-white/[0.01] group hover:bg-white/[0.02] transition-all">
-                 <Server className="mx-auto text-slate-900 mb-8 group-hover:text-blue-500 transition-colors" size={64} />
-                 <h4 className="font-black text-slate-700 group-hover:text-white transition-colors uppercase tracking-[0.4em] text-xs">Infrastructure Layer</h4>
-                 <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest mt-6 leading-relaxed max-w-xs mx-auto opacity-50 italic">Extended technical config and neural routing parameters are locked until v2.0 cycle.</p>
-                 <button className="mt-10 px-10 py-5 bg-white/5 text-slate-800 rounded-3xl text-[9px] font-black uppercase tracking-[0.2em] cursor-not-allowed border border-white/5">Initialize_Root_Access</button>
+                {savedKey === setting.key && (
+                  <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Check size={10} /> Saved
+                  </span>
+                )}
               </div>
 
-              <div className="flex items-center justify-between px-10 py-6 bg-white/[0.01] rounded-full border border-white/5 text-[9px] font-black text-slate-700 uppercase tracking-[0.5em]">
-                 <div className="flex items-center gap-3"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> DURR_DENTAL_PARTNER: VERIFIED</div>
-                 <Activity size={14} className="text-slate-800" />
+              <div className="space-y-1.5">
+                <input
+                  type="text"
+                  className="w-full px-4 py-3 bg-[#07090e] border border-[#1d2436] rounded-2xl text-xs font-medium text-white placeholder-slate-600 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all"
+                  value={setting.value || ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSettings((prev) =>
+                      prev.map((s) =>
+                        s.id === setting.id ? { ...s, value: val } : s
+                      )
+                    );
+                  }}
+                  onBlur={(e) =>
+                    handleUpdate(setting.id, setting.key, e.target.value)
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  placeholder="Enter value..."
+                />
+                {setting.description && (
+                  <p className="text-[11px] text-slate-500 leading-relaxed px-1">
+                    {setting.description}
+                  </p>
+                )}
               </div>
-           </div>
+            </motion.div>
+          ))}
         </div>
-      </div>
       )}
     </div>
   );

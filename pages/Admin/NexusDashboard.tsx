@@ -1,41 +1,67 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-} from 'recharts';
-import {
-  Package,
-  Mail,
+  LayoutGrid,
   Activity,
-  TrendingUp,
-  Loader2,
+  Package,
+  MapPin,
+  Globe,
+  Mail,
+  FileSpreadsheet,
   RefreshCw,
-  Terminal,
   Home,
   Eye,
+  Users,
   Trophy,
-  Globe,
+  Phone,
+  MessageSquare,
+  Clock,
+  TrendingUp,
+  Search,
   ExternalLink,
+  ChevronRight,
+  ShieldCheck,
   Star,
-  MapPin,
+  Layers,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
-import { Product } from '../../types';
+import { Product, Inquiry } from '../../types';
 import {
   fetchSiteAnalytics,
   SiteTrafficAnalytics,
   ProductViewMetric,
   LocationTrafficMetric,
 } from '../../utils/analyticsTracker';
+import {
+  AnalyticsDateFilter,
+  computeDateRanges,
+  aggregateRangeMetrics,
+  generateDailyTrendPoints,
+  formatDuration,
+} from '../../utils/analyticsCalculations';
+
+// Imported Modular Analytics Tabs
+import { YouTubeMetricCard } from '../../components/analytics/YouTubeMetricCard';
+import { AnalyticsDateFilterBar } from '../../components/analytics/AnalyticsDateFilterBar';
+import {
+  InteractiveTrafficChart,
+  ChartMetricKey,
+} from '../../components/analytics/InteractiveTrafficChart';
+import { BangladeshDistrictAnalytics } from '../../components/analytics/BangladeshDistrictAnalytics';
+import { ProductAnalyticsTab } from '../../components/analytics/ProductAnalyticsTab';
+import { SEOPerformanceTab } from '../../components/analytics/SEOPerformanceTab';
+import { MedicalBusinessInquiriesTab } from '../../components/analytics/MedicalBusinessInquiriesTab';
+import { AnalyticsReportsExport } from '../../components/analytics/AnalyticsReportsExport';
+
+export type DashboardActiveView =
+  | 'overview'
+  | 'traffic'
+  | 'products'
+  | 'districts'
+  | 'seo'
+  | 'inquiries'
+  | 'reports';
 
 const ROUTE_LABELS: Record<string, string> = {
   '/': 'Home Page (Origin)',
@@ -50,32 +76,41 @@ const ROUTE_LABELS: Record<string, string> = {
 };
 
 export const NexusDashboard: React.FC = () => {
+  // Navigation View State
+  const [activeView, setActiveView] = useState<DashboardActiveView>('overview');
+
+  // Date Filter State
+  const [dateFilter, setDateFilter] = useState<AnalyticsDateFilter>('last_28_days');
+  const [customStart, setCustomStart] = useState<string>('');
+  const [customEnd, setCustomEnd] = useState<string>('');
+
+  // Interactive Chart Metrics Toggle State (YouTube Studio style)
+  const [chartActiveMetrics, setChartActiveMetrics] = useState<ChartMetricKey[]>([
+    'pageViews',
+    'uniqueVisitors',
+    'productViews',
+  ]);
+
+  // Telemetry & DB State
+  const [analytics, setAnalytics] = useState<SiteTrafficAnalytics | null>(null);
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [stats, setStats] = useState({
     products: 0,
     inquiries: 0,
     alliances: 0,
     pending: 0,
   });
-  const [chartData, setChartData] = useState<any[]>([]);
-  const [dailyTrafficData, setDailyTrafficData] = useState<any[]>([]);
-  const [analytics, setAnalytics] = useState<SiteTrafficAnalytics | null>(null);
-  const [rankedProducts, setRankedProducts] = useState<ProductViewMetric[]>([]);
-  const [rankedLocations, setRankedLocations] = useState<LocationTrafficMetric[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchStats = async () => {
+  // Fetch all live data
+  const fetchData = async () => {
     setIsLoading(true);
     try {
-      const sixMonthsAgo = new Date();
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
-      sixMonthsAgo.setDate(1);
-      sixMonthsAgo.setHours(0, 0, 0, 0);
-
       const [
         allProductsRes,
-        recentInquiriesRes,
+        inquiriesRes,
         pCountRes,
-        iCountRes,
         aCountRes,
         pendCountRes,
       ] = await Promise.all([
@@ -85,10 +120,9 @@ export const NexusDashboard: React.FC = () => {
           .order('created_at', { ascending: false }),
         supabase
           .from('inquiries')
-          .select('created_at')
-          .gte('created_at', sixMonthsAgo.toISOString()),
+          .select('*')
+          .order('created_at', { ascending: false }),
         supabase.from('products').select('id', { count: 'exact', head: true }),
-        supabase.from('inquiries').select('id', { count: 'exact', head: true }),
         supabase.from('alliances').select('id', { count: 'exact', head: true }),
         supabase
           .from('inquiries')
@@ -96,700 +130,645 @@ export const NexusDashboard: React.FC = () => {
           .eq('status', 'pending'),
       ]);
 
-      const catalogProducts: Product[] = allProductsRes.data || [];
+      const productsList: Product[] = allProductsRes.data || [];
+      const inquiriesList: Inquiry[] = inquiriesRes.data || [];
 
+      setCatalogProducts(productsList);
+      setInquiries(inquiriesList);
       setStats({
-        products: pCountRes.count || catalogProducts.length || 0,
-        inquiries: iCountRes.count || 0,
+        products: pCountRes.count || productsList.length || 0,
+        inquiries: inquiriesList.length,
         alliances: aCountRes.count || 0,
-        pending: pendCountRes.count || 0,
+        pending: pendCountRes.count || inquiriesList.filter((i) => i.status === 'pending').length,
       });
 
-      // Load live traffic, silent IP city locations & product views analytics
-      const trafficData = await fetchSiteAnalytics(catalogProducts);
+      // Fetch live analytics telemetry from public.settings
+      const trafficData = await fetchSiteAnalytics(productsList);
       setAnalytics(trafficData);
-
-      // Sort products by highest view count
-      const sortedProdMetrics = Object.values(trafficData.productViews).sort(
-        (a, b) => b.views - a.views || a.name.localeCompare(b.name)
-      );
-      setRankedProducts(sortedProdMetrics);
-
-      // Sort locations by highest activity
-      const sortedLocs = Object.values(trafficData.locationViews || {}).sort(
-        (a, b) =>
-          b.productViews + b.pageViews - (a.productViews + a.pageViews)
-      );
-      setRankedLocations(sortedLocs);
-
-      // Build last 7 days daily traffic chart data
-      const shortMonths = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-      ];
-      const today = new Date();
-      const dailyPoints: any[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(today);
-        d.setDate(today.getDate() - i);
-        const key = d.toISOString().split('T')[0];
-        const entry = trafficData.dailyHistory[key] || {
-          pageViews: 0,
-          productViews: 0,
-        };
-        dailyPoints.push({
-          date: key,
-          label: `${shortMonths[d.getMonth()]} ${d.getDate()}`,
-          pageViews: entry.pageViews,
-          productViews: entry.productViews,
-        });
-      }
-      setDailyTrafficData(dailyPoints);
-
-      // Build 6-month inquiry & product chart data
-      const dataMap = new Map();
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-        const key = `${d.getFullYear()}-${d.getMonth()}`;
-        dataMap.set(key, {
-          name: shortMonths[d.getMonth()],
-          sortVal: d.getTime(),
-          inquiries: 0,
-          products: 0,
-        });
-      }
-
-      const processEntries = (
-        entries: any[],
-        type: 'products' | 'inquiries'
-      ) => {
-        entries.forEach((entry) => {
-          if (!entry.created_at) return;
-          const d = new Date(entry.created_at);
-          const key = `${d.getFullYear()}-${d.getMonth()}`;
-          if (dataMap.has(key)) {
-            dataMap.get(key)[type]++;
-          }
-        });
-      };
-
-      processEntries(catalogProducts, 'products');
-      processEntries(recentInquiriesRes.data || [], 'inquiries');
-
-      const finalChartData = Array.from(dataMap.values()).sort(
-        (a, b) => a.sortVal - b.sortVal
-      );
-      setChartData(finalChartData);
     } catch (err) {
-      console.error('Stats Error:', err);
+      console.error('Nexus Dashboard Fetch Error:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchStats();
+    fetchData();
   }, []);
 
-  const todayKey = new Date().toISOString().split('T')[0];
-  const todayViews = analytics?.dailyHistory?.[todayKey]?.pageViews || 0;
-  const todayProdViews = analytics?.dailyHistory?.[todayKey]?.productViews || 0;
+  // Compute date ranges and comparison
+  const comparison = useMemo(() => {
+    return computeDateRanges(dateFilter, customStart, customEnd);
+  }, [dateFilter, customStart, customEnd]);
+
+  // Aggregate current period vs previous equivalent period
+  const currentMetrics = useMemo(() => {
+    return aggregateRangeMetrics(
+      analytics,
+      comparison.currentRange.startDate,
+      comparison.currentRange.endDate
+    );
+  }, [analytics, comparison]);
+
+  const previousMetrics = useMemo(() => {
+    return aggregateRangeMetrics(
+      analytics,
+      comparison.previousRange.startDate,
+      comparison.previousRange.endDate
+    );
+  }, [analytics, comparison]);
+
+  // Trend chart data points for the date range
+  const dailyChartPoints = useMemo(() => {
+    return generateDailyTrendPoints(
+      analytics,
+      comparison.currentRange.startDate,
+      comparison.currentRange.endDate
+    );
+  }, [analytics, comparison]);
+
+  // Ranked Products list
+  const rankedProducts = useMemo(() => {
+    if (!analytics) return [];
+    return (Object.values(analytics.productViews) as ProductViewMetric[]).sort(
+      (a, b) => b.views - a.views || a.name.localeCompare(b.name)
+    );
+  }, [analytics]);
+
   const topViewedProduct = rankedProducts.find((p) => p.views > 0) || rankedProducts[0];
-  const topCityEntry = rankedLocations[0];
+  const maxProductViews = Math.max(1, ...rankedProducts.map((p) => p.views || 0));
 
-  const maxProductViews = Math.max(
-    1,
-    ...rankedProducts.map((p) => p.views || 0)
-  );
-  const totalTrackedProdViews = Math.max(
-    1,
-    rankedProducts.reduce((sum, p) => sum + (p.views || 0), 0)
-  );
+  // Toggle chart metric pill
+  const handleToggleChartMetric = (key: ChartMetricKey) => {
+    setChartActiveMetrics((prev) => {
+      if (prev.includes(key)) {
+        if (prev.length === 1) return prev; // Keep at least one
+        return prev.filter((k) => k !== key);
+      }
+      return [...prev, key];
+    });
+  };
 
-  const sortedRoutes = Object.entries(analytics?.routeViews || {})
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 6);
+  // Inquiry update handler
+  const handleUpdateInquiryStatus = async (id: string, status: Inquiry['status']) => {
+    try {
+      const { error } = await supabase
+        .from('inquiries')
+        .update({ status })
+        .eq('id', id);
+      if (error) throw error;
+      setInquiries((prev) =>
+        prev.map((inq) => (inq.id === id ? { ...inq, status } : inq))
+      );
+    } catch (err: any) {
+      alert(`Status update error: ${err.message}`);
+    }
+  };
+
+  const navTabs: Array<{ id: DashboardActiveView; label: string; icon: any }> = [
+    { id: 'overview', label: 'Overview', icon: LayoutGrid },
+    { id: 'traffic', label: 'Traffic Analytics', icon: Activity },
+    { id: 'products', label: 'Product Analytics', icon: Package },
+    { id: 'districts', label: 'District Analytics (64 BD)', icon: MapPin },
+    { id: 'seo', label: 'SEO Performance', icon: Globe },
+    { id: 'inquiries', label: 'Customer Inquiries', icon: Mail },
+    { id: 'reports', label: 'Reports & Export', icon: FileSpreadsheet },
+  ];
 
   return (
-    <div className="p-10 lg:p-16 bg-[#020408] text-white min-h-screen rounded-[2.5rem] space-y-14">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-8">
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.4em]">
-              Node_Status: Live Traffic, City Geo &amp; Asset Telemetry
+    <div className="min-h-screen bg-[#07090d] text-white p-4 sm:p-6 lg:p-10 space-y-8 rounded-[2rem] border border-[#171b24]">
+      {/* Top Header Bar */}
+      <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-[#1b2029] pb-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">
+              YouTube Studio Engine · Real Telemetry Verified
             </span>
           </div>
-          <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter">
-            Command <span className="text-slate-700 italic">Overview.</span>
+          <h1 className="text-3xl lg:text-4xl font-black text-white tracking-tight flex items-center gap-3">
+            <span>Command Nexus</span>
+            <span className="text-sm font-bold text-slate-500 font-mono py-1 px-2.5 rounded-lg bg-white/5 border border-white/10">
+              v2.5 Studio
+            </span>
           </h1>
         </div>
-        <div className="flex flex-wrap gap-4">
+
+        <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={fetchStats}
-            className="p-4 bg-white/5 border border-white/10 rounded-2xl text-slate-400 hover:text-white transition-all cursor-pointer"
-            title="Refresh Live Traffic & Metrics"
+            onClick={fetchData}
+            disabled={isLoading}
+            className="p-3 bg-[#0f1115] hover:bg-[#151921] border border-[#222731] rounded-xl text-slate-400 hover:text-white transition-all flex items-center gap-2 text-xs font-bold"
+            title="Refresh Live Data"
           >
-            <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
+            <RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} />
+            <span className="hidden sm:inline">Refresh Data</span>
           </button>
+
           <Link
             to="/command-nexus/homepage"
-            className="px-8 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all flex items-center gap-2.5"
+            className="px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold tracking-wider transition-all flex items-center gap-2 shadow-lg shadow-blue-600/20"
           >
-            <Home size={15} /> Homepage Control
+            <Home size={15} />
+            <span>Homepage Control</span>
           </Link>
         </div>
       </header>
 
-      {/* Top KPI Cards: Website Views, Product Views, Most Viewed Product, Active Inquiries */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
-        {/* Card 1: Total Website Traffic Views */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white/[0.02] p-8 rounded-[2.5rem] border border-white/5 relative group hover:border-blue-500/30 transition-all shadow-2xl"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <div className="p-4 rounded-2xl bg-blue-500/10 text-blue-400 border border-blue-500/20 group-hover:bg-blue-600 group-hover:text-white transition-all">
-              <Eye size={20} />
-            </div>
-            <div className="flex items-center gap-1.5 text-[9px] font-black text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-              <TrendingUp size={12} /> +{todayViews} Today
-            </div>
-          </div>
-          {isLoading ? (
-            <Loader2 className="animate-spin text-slate-800" size={32} />
-          ) : (
-            <div className="text-4xl font-black text-white tracking-tighter mb-2 font-mono tabular-nums">
-              {(analytics?.totalPageViews || 0).toLocaleString()}
-            </div>
-          )}
-          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">
-            Total Website Views
-          </div>
-          <div className="text-[10px] text-slate-500 font-medium mt-2 flex items-center justify-between">
-            <span>
-              Sessions: <strong className="text-slate-300">{(analytics?.uniqueVisitors || 0).toLocaleString()}</strong>
-            </span>
-            {topCityEntry && (
-              <span className="text-emerald-400 font-bold flex items-center gap-1">
-                <MapPin size={10} /> {topCityEntry.city}
-              </span>
-            )}
-          </div>
-        </motion.div>
-
-        {/* Card 2: Total Product Page Views */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.08 }}
-          className="bg-white/[0.02] p-8 rounded-[2.5rem] border border-white/5 relative group hover:border-indigo-500/30 transition-all shadow-2xl"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <div className="p-4 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-              <Package size={20} />
-            </div>
-            <div className="flex items-center gap-1.5 text-[9px] font-black text-indigo-300 uppercase tracking-widest bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">
-              +{todayProdViews} Today
-            </div>
-          </div>
-          {isLoading ? (
-            <Loader2 className="animate-spin text-slate-800" size={32} />
-          ) : (
-            <div className="text-4xl font-black text-white tracking-tighter mb-2 font-mono tabular-nums">
-              {(analytics?.totalProductViews || 0).toLocaleString()}
-            </div>
-          )}
-          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">
-            Product Detail Views
-          </div>
-          <div className="text-[10px] text-slate-500 font-medium mt-2">
-            Across <strong className="text-slate-300">{stats.products}</strong> Active Catalog Products
-          </div>
-        </motion.div>
-
-        {/* Card 3: #1 Most Viewed Product */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.16 }}
-          className="bg-gradient-to-br from-amber-500/10 via-white/[0.02] to-transparent p-8 rounded-[2.5rem] border border-amber-500/25 relative group hover:border-amber-400/50 transition-all shadow-2xl"
-        >
-          <div className="flex items-center justify-between mb-5">
-            <div className="p-4 rounded-2xl bg-amber-400/15 text-amber-400 border border-amber-400/30">
-              <Trophy size={20} />
-            </div>
-            <div className="flex items-center gap-1.5 text-[9px] font-black text-amber-300 uppercase tracking-widest bg-amber-400/15 px-3 py-1 rounded-full border border-amber-400/30">
-              <Star size={11} className="fill-amber-400 text-amber-400" /> #1 Most Viewed
-            </div>
-          </div>
-          {isLoading ? (
-            <Loader2 className="animate-spin text-slate-800" size={32} />
-          ) : topViewedProduct ? (
-            <>
-              <div className="text-lg font-black text-white tracking-tight line-clamp-1 mb-1">
-                {topViewedProduct.name}
-              </div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-2xl font-black text-amber-400 font-mono tabular-nums">
-                  {topViewedProduct.views.toLocaleString()}
-                </span>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Views · {topViewedProduct.modelNumber}
-                </span>
-              </div>
-            </>
-          ) : (
-            <div className="text-sm font-bold text-slate-500 py-2">
-              No product views yet
-            </div>
-          )}
-          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">
-            Top Performing Equipment
-          </div>
-        </motion.div>
-
-        {/* Card 4: Active Inquiries */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.24 }}
-          className="bg-white/[0.02] p-8 rounded-[2.5rem] border border-white/5 relative group hover:border-emerald-500/30 transition-all shadow-2xl"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <div className="p-4 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 group-hover:bg-emerald-600 group-hover:text-white transition-all">
-              <Mail size={20} />
-            </div>
-            <div className="flex items-center gap-1.5 text-[9px] font-black text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-              {stats.pending} Pending
-            </div>
-          </div>
-          {isLoading ? (
-            <Loader2 className="animate-spin text-slate-800" size={32} />
-          ) : (
-            <div className="text-4xl font-black text-white tracking-tighter mb-2 font-mono tabular-nums">
-              {stats.inquiries.toLocaleString()}
-            </div>
-          )}
-          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">
-            Total Quote Inquiries
-          </div>
-          <div className="text-[10px] text-slate-500 font-medium mt-2">
-            Alliances: <strong className="text-slate-300">{stats.alliances}</strong> Partners
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Charts Row: Daily Traffic Views Chart + Monthly Inquiry Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-        {/* Daily Traffic & Product Views Chart (Last 7 Days) */}
-        <div className="bg-white/[0.02] p-10 rounded-[3rem] border border-white/5 shadow-2xl">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h3 className="text-sm font-black text-white uppercase tracking-widest">
-                Live_Traffic_Velocity (Last 7 Days)
-              </h3>
-              <p className="text-xs text-slate-500 font-medium mt-1">
-                Daily Website Page Views vs. Product Detail Views
-              </p>
-            </div>
-            <Eye size={16} className="text-blue-500" />
-          </div>
-          <div className="h-72 w-full">
-            {isLoading ? (
-              <div className="w-full h-full flex items-center justify-center">
-                <Loader2 className="animate-spin text-slate-700" size={40} />
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={dailyTrafficData}>
-                  <defs>
-                    <linearGradient id="colorPageViews" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="colorProdViews" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    stroke="rgba(255,255,255,0.04)"
-                  />
-                  <XAxis
-                    dataKey="label"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 10, fill: '#64748B', fontWeight: 800 }}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 10, fill: '#64748B', fontWeight: 800 }}
-                    allowDecimals={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#020408',
-                      border: '1px solid rgba(255,255,255,0.12)',
-                      borderRadius: '16px',
-                      fontSize: '11px',
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="pageViews"
-                    name="Website Views"
-                    stroke="#3B82F6"
-                    strokeWidth={3}
-                    fillOpacity={1}
-                    fill="url(#colorPageViews)"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="productViews"
-                    name="Product Views"
-                    stroke="#10B981"
-                    strokeWidth={3}
-                    fillOpacity={1}
-                    fill="url(#colorProdViews)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        {/* Inquiry Flow Chart */}
-        <div className="bg-white/[0.02] p-10 rounded-[3rem] border border-white/5 shadow-2xl">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h3 className="text-sm font-black text-white uppercase tracking-widest">
-                Inquiry_Traffic_Metrics (6 Months)
-              </h3>
-              <p className="text-xs text-slate-500 font-medium mt-1">
-                Monthly Equipment Quotation &amp; Procurement Requisitions
-              </p>
-            </div>
-            <Terminal size={16} className="text-slate-600" />
-          </div>
-          <div className="h-72 w-full">
-            {isLoading ? (
-              <div className="w-full h-full flex items-center justify-center">
-                <Loader2 className="animate-spin text-slate-700" size={40} />
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    stroke="rgba(255,255,255,0.04)"
-                  />
-                  <XAxis
-                    dataKey="name"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 10, fill: '#64748B', fontWeight: 800 }}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 10, fill: '#64748B', fontWeight: 800 }}
-                    allowDecimals={false}
-                  />
-                  <Tooltip
-                    cursor={{ fill: 'rgba(255,255,255,0.02)' }}
-                    contentStyle={{
-                      backgroundColor: '#020408',
-                      border: '1px solid rgba(255,255,255,0.12)',
-                      borderRadius: '16px',
-                      fontSize: '11px',
-                    }}
-                  />
-                  <Bar
-                    dataKey="inquiries"
-                    name="Quote Inquiries"
-                    fill="#3B82F6"
-                    radius={[6, 6, 0, 0]}
-                    barSize={26}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Most Viewed Products Leaderboard (with City Location Badges) + Visitor Locations & Routes */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
-        {/* Most Viewed Products Leaderboard (8 cols) */}
-        <div className="xl:col-span-8 bg-white/[0.02] p-8 md:p-10 rounded-[3rem] border border-white/5 shadow-2xl space-y-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6">
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-amber-400/15 border border-amber-400/30 text-amber-400 flex items-center justify-center">
-                <Trophy size={22} />
-              </div>
-              <div>
-                <h3 className="text-lg font-black text-white tracking-tight">
-                  Most Viewed Products &amp; City Breakdown
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Real-time product view rankings with automatic IP-based city detection (e.g. Dhaka, Chattogram) — zero visitor permission required.
-                </p>
-              </div>
-            </div>
-
-            <Link
-              to="/command-nexus/homepage"
-              className="px-4 py-2.5 bg-white/5 hover:bg-blue-600 text-slate-300 hover:text-white border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all self-start sm:self-auto"
+      {/* Modern Dashboard Sub-Navigation Tabs (YouTube Studio style) */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-[#161a22] no-scrollbar">
+        {navTabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeView === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveView(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                isActive
+                  ? 'bg-white/10 text-white border border-white/15 shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+              }`}
             >
-              Highlight Top Products &rarr;
-            </Link>
-          </div>
-
-          {rankedProducts.length === 0 ? (
-            <div className="py-16 text-center text-slate-500 text-xs font-bold uppercase tracking-widest">
-              No products found in catalog.
-            </div>
-          ) : (
-            <div className="space-y-4 max-h-[640px] overflow-y-auto pr-2 custom-scrollbar">
-              {rankedProducts.slice(0, 12).map((prod, idx) => {
-                const widthPercent = Math.max(
-                  4,
-                  Math.round(((prod.views || 0) / maxProductViews) * 100)
-                );
-                const sharePercent =
-                  analytics && analytics.totalProductViews > 0
-                    ? Math.round(((prod.views || 0) / totalTrackedProdViews) * 100)
-                    : 0;
-
-                const cityEntries = Object.entries(prod.locations || {}).sort(
-                  (a, b) => b[1] - a[1]
-                );
-
-                return (
-                  <div
-                    key={prod.productId}
-                    className="p-4 sm:p-5 rounded-2xl bg-black/50 border border-white/5 hover:border-blue-500/30 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-                  >
-                    <div className="flex items-start sm:items-center gap-4 min-w-0 flex-1 w-full">
-                      {/* Rank Badge */}
-                      <div
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
-                          idx === 0
-                            ? 'bg-amber-400 text-black shadow-lg shadow-amber-400/20'
-                            : idx === 1
-                            ? 'bg-slate-300 text-black'
-                            : idx === 2
-                            ? 'bg-amber-700 text-white'
-                            : 'bg-white/5 text-slate-400 border border-white/10'
-                        }`}
-                      >
-                        #{idx + 1}
-                      </div>
-
-                      {/* Product Thumbnail */}
-                      <div className="w-14 h-14 rounded-xl bg-white p-1.5 shrink-0 flex items-center justify-center">
-                        {prod.mainImage ? (
-                          <img
-                            src={prod.mainImage}
-                            alt={prod.name}
-                            className="max-w-full max-h-full object-contain"
-                          />
-                        ) : (
-                          <Package size={20} className="text-slate-400" />
-                        )}
-                      </div>
-
-                      {/* Product Info + City Badges + Progress Bar */}
-                      <div className="min-w-0 flex-1 space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest">
-                            {prod.categoryTag}
-                          </span>
-                          <span className="text-slate-600">·</span>
-                          <span className="text-[10px] font-mono text-slate-400">
-                            {prod.modelNumber}
-                          </span>
-                        </div>
-
-                        <h4 className="text-sm font-black text-white truncate">
-                          {prod.name}
-                        </h4>
-
-                        {/* City Breakdown Chips for this Product (e.g. Dhaka 20) */}
-                        {cityEntries.length > 0 ? (
-                          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                            {cityEntries.slice(0, 5).map(([city, count]) => (
-                              <span
-                                key={city}
-                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-[10px] font-bold"
-                              >
-                                <MapPin size={10} className="text-emerald-400" />
-                                <span>
-                                  {city}: <strong>{count}</strong>
-                                </span>
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-[10px] text-slate-600 italic">
-                            Awaiting first city view telemetry...
-                          </div>
-                        )}
-
-                        <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all duration-500 ${
-                              idx === 0
-                                ? 'bg-amber-400'
-                                : idx < 3
-                                ? 'bg-blue-500'
-                                : 'bg-slate-600'
-                            }`}
-                            style={{ width: `${widthPercent}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Views Counter & Action */}
-                    <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto gap-2 shrink-0 pl-13 sm:pl-0">
-                      <div className="flex items-center gap-2">
-                        <Eye size={14} className="text-blue-400" />
-                        <span className="text-lg font-black text-white font-mono tabular-nums">
-                          {(prod.views || 0).toLocaleString()}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">
-                          views ({sharePercent}%)
-                        </span>
-                      </div>
-
-                      {prod.slug && (
-                        <Link
-                          to={`/portfolio/${prod.slug}`}
-                          target="_blank"
-                          className="text-[10px] font-black text-blue-400 hover:text-blue-300 uppercase tracking-widest flex items-center gap-1"
-                        >
-                          <span>Inspect Page</span>
-                          <ExternalLink size={11} />
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Right Column (4 cols): Visitor Locations + Traffic by Page */}
-        <div className="xl:col-span-4 space-y-8">
-          {/* Card A: Visitor Locations (Zero-Permission IP Geolocation) */}
-          <div className="bg-white/[0.02] p-8 rounded-[3rem] border border-white/5 shadow-2xl space-y-6">
-            <div className="flex items-center gap-3.5 border-b border-white/10 pb-5">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
-                <MapPin size={22} />
-              </div>
-              <div>
-                <h3 className="text-lg font-black text-white tracking-tight">
-                  Visitor Cities &amp; Regions
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Detected silently via IP &amp; network (no browser permission prompt).
-                </p>
-              </div>
-            </div>
-
-            {rankedLocations.length === 0 ? (
-              <div className="py-8 text-center text-xs text-slate-500 font-bold">
-                Visitor city data will appear automatically as pages &amp; products are viewed.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {rankedLocations.slice(0, 6).map((loc) => (
-                  <div
-                    key={loc.city}
-                    className="p-4 rounded-2xl bg-black/40 border border-white/5 flex items-center justify-between gap-3"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-                        <MapPin size={14} />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-xs font-black text-white truncate">
-                          {loc.city}
-                        </div>
-                        <div className="text-[10px] text-slate-500 truncate">
-                          {loc.country}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <div className="text-xs font-mono font-black text-emerald-400">
-                        {loc.productViews} product views
-                      </div>
-                      <div className="text-[10px] font-mono text-slate-400">
-                        {loc.pageViews} page views
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Card B: Traffic by Page */}
-          <div className="bg-white/[0.02] p-8 rounded-[3rem] border border-white/5 shadow-2xl space-y-6">
-            <div className="flex items-center gap-3.5 border-b border-white/10 pb-5">
-              <div className="w-12 h-12 rounded-2xl bg-blue-500/15 border border-blue-500/30 text-blue-400 flex items-center justify-center">
-                <Globe size={22} />
-              </div>
-              <div>
-                <h3 className="text-lg font-black text-white tracking-tight">
-                  Traffic by Page
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Most visited sections of your website.
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3.5">
-              {sortedRoutes.map(([route, count]) => {
-                const totalViews = Math.max(1, analytics?.totalPageViews || 1);
-                const pct = Math.min(100, Math.round((count / totalViews) * 100));
-                return (
-                  <div
-                    key={route}
-                    className="p-4 rounded-2xl bg-black/40 border border-white/5 space-y-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold text-white truncate">
-                        {ROUTE_LABELS[route] || route}
-                      </span>
-                      <span className="text-xs font-mono font-black text-blue-400 shrink-0">
-                        {count.toLocaleString()} views
-                      </span>
-                    </div>
-                    <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-blue-500 rounded-full"
-                        style={{ width: `${Math.max(4, pct)}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+              <Icon size={14} className={isActive ? 'text-blue-400' : 'text-slate-500'} />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
+
+      {/* Global Date Filter Bar (Applies across all views) */}
+      <AnalyticsDateFilterBar
+        currentFilter={dateFilter}
+        comparison={comparison}
+        onFilterChange={setDateFilter}
+        customStartDate={customStart}
+        customEndDate={customEnd}
+        onCustomRangeChange={(start, end) => {
+          setCustomStart(start);
+          setCustomEnd(end);
+          setDateFilter('custom');
+        }}
+        onRefresh={fetchData}
+        isLoading={isLoading}
+      />
+
+      {/* =========================================================================
+          VIEW 1: MAIN OVERVIEW DASHBOARD (12 YouTube Studio KPI Cards + Velocity Chart)
+          ========================================================================= */}
+      {activeView === 'overview' && (
+        <div className="space-y-10">
+          {/* Top 12 KPI Performance Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {/* 1. Total Website Views */}
+            <YouTubeMetricCard
+              label="Total Website Views"
+              value={currentMetrics.pageViews}
+              previousValue={previousMetrics.pageViews}
+              currentNumeric={currentMetrics.pageViews}
+              icon={Eye}
+              accentColor="blue"
+              tooltip="All page views across the website during this period"
+              isLoading={isLoading}
+            />
+
+            {/* 2. Unique Visitors */}
+            <YouTubeMetricCard
+              label="Unique Visitors"
+              value={currentMetrics.uniqueVisitors}
+              previousValue={previousMetrics.uniqueVisitors}
+              currentNumeric={currentMetrics.uniqueVisitors}
+              icon={Users}
+              accentColor="purple"
+              tooltip="Distinct visitor sessions detected"
+              isLoading={isLoading}
+            />
+
+            {/* 3. Product Page Views */}
+            <YouTubeMetricCard
+              label="Product Page Views"
+              value={currentMetrics.productViews}
+              previousValue={previousMetrics.productViews}
+              currentNumeric={currentMetrics.productViews}
+              icon={Package}
+              accentColor="emerald"
+              tooltip="Views specifically on medical equipment detail pages"
+              isLoading={isLoading}
+            />
+
+            {/* 4. Most Viewed Product */}
+            <div className="p-5 rounded-2xl bg-[#0f1115] border border-[#222731] flex flex-col justify-between">
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  #1 Most Viewed Equipment
+                </span>
+                <span className="p-1.5 rounded-lg bg-amber-400/10 text-amber-400 border border-amber-400/20">
+                  <Trophy size={14} />
+                </span>
+              </div>
+              <div className="my-1">
+                {topViewedProduct ? (
+                  <>
+                    <div className="text-sm font-bold text-white truncate max-w-xs">
+                      {topViewedProduct.name}
+                    </div>
+                    <div className="text-xl font-black text-amber-400 font-mono mt-0.5">
+                      {topViewedProduct.views.toLocaleString()} views
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-xs text-slate-500">No views yet</div>
+                )}
+              </div>
+              <div className="pt-2 border-t border-[#1a1f29] text-[10px] text-slate-500 truncate">
+                {topViewedProduct?.modelNumber || 'Across catalog'}
+              </div>
+            </div>
+
+            {/* 5. Total Customer Inquiries */}
+            <YouTubeMetricCard
+              label="Customer Inquiries"
+              value={currentMetrics.inquiries}
+              previousValue={previousMetrics.inquiries}
+              currentNumeric={currentMetrics.inquiries}
+              icon={Mail}
+              accentColor="amber"
+              tooltip="Procurement inquiries received via contact & RFQ forms"
+              isLoading={isLoading}
+            />
+
+            {/* 6. WhatsApp Clicks */}
+            <YouTubeMetricCard
+              label="WhatsApp Clicks"
+              value={currentMetrics.whatsappClicks}
+              previousValue={previousMetrics.whatsappClicks}
+              currentNumeric={currentMetrics.whatsappClicks}
+              icon={MessageSquare}
+              accentColor="emerald"
+              tooltip="Direct WhatsApp communication buttons clicked by buyers"
+              isLoading={isLoading}
+            />
+
+            {/* 7. Phone Number Clicks */}
+            <YouTubeMetricCard
+              label="Phone Number Clicks"
+              value={currentMetrics.phoneClicks}
+              previousValue={previousMetrics.phoneClicks}
+              currentNumeric={currentMetrics.phoneClicks}
+              icon={Phone}
+              accentColor="cyan"
+              tooltip="Mobile telephone calls triggered from website links"
+              isLoading={isLoading}
+            />
+
+            {/* 8. Email Clicks */}
+            <YouTubeMetricCard
+              label="Email Clicks"
+              value={currentMetrics.emailClicks}
+              previousValue={previousMetrics.emailClicks}
+              currentNumeric={currentMetrics.emailClicks}
+              icon={Mail}
+              accentColor="indigo"
+              tooltip="Mailto link clicks to carelinkhealthineers@gmail.com"
+              isLoading={isLoading}
+            />
+
+            {/* 9. Quote Request Submissions */}
+            <YouTubeMetricCard
+              label="Quote Request Submissions"
+              value={currentMetrics.quoteSubmits}
+              previousValue={previousMetrics.quoteSubmits}
+              currentNumeric={currentMetrics.quoteSubmits}
+              icon={FileSpreadsheet}
+              accentColor="blue"
+              tooltip="Completed clinical procurement and RFQ forms"
+              isLoading={isLoading}
+            />
+
+            {/* 10. Organic Search Traffic */}
+            <YouTubeMetricCard
+              label="Organic Search Traffic"
+              value={currentMetrics.organicViews}
+              previousValue={previousMetrics.organicViews}
+              currentNumeric={currentMetrics.organicViews}
+              icon={Globe}
+              accentColor="cyan"
+              tooltip="Visits referred organically via Google, Bing, Yahoo, DuckDuckGo"
+              isLoading={isLoading}
+            />
+
+            {/* 11. Average Engagement Time */}
+            <YouTubeMetricCard
+              label="Avg Engagement Time"
+              value={formatDuration(currentMetrics.avgEngagementSeconds)}
+              icon={Clock}
+              accentColor="purple"
+              tooltip="Active on-page reading and session duration"
+              subtext="Real visibility & focus timer"
+              isLoading={isLoading}
+            />
+
+            {/* 12. Conversion Rate */}
+            <YouTubeMetricCard
+              label="Conversion Rate"
+              value={currentMetrics.conversionRate}
+              unit="%"
+              icon={TrendingUp}
+              accentColor="emerald"
+              tooltip="Percentage of website visits generating inquiries or direct contact"
+              subtext="Direct leads per 100 views"
+              isLoading={isLoading}
+            />
+          </div>
+
+          {/* Interactive Multi-Metric Velocity Chart (YouTube Studio style) */}
+          <InteractiveTrafficChart
+            data={dailyChartPoints}
+            activeMetrics={chartActiveMetrics}
+            onToggleMetric={handleToggleChartMetric}
+            isLoading={isLoading}
+          />
+
+          {/* Overview Quick Drilldowns: Top Equipment & 64 Districts Highlights */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            {/* Top Products Quick Table (8 cols) */}
+            <div className="lg:col-span-8 p-6 lg:p-8 rounded-3xl bg-[#0f1115] border border-[#222731] space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                    Top Performing Medical Equipment
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Live product view ranking with automated zero-permission district detection
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveView('products')}
+                  className="text-xs text-blue-400 hover:text-blue-300 font-bold flex items-center gap-1"
+                >
+                  <span>View All Products</span>
+                  <ChevronRight size={13} />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {rankedProducts.slice(0, 5).map((prod, idx) => {
+                  const widthPercent = Math.max(
+                    4,
+                    Math.round(((prod.views || 0) / maxProductViews) * 100)
+                  );
+                  const cityEntries = Object.entries(prod.locations || {}).sort(
+                    (a, b) => Number(b[1]) - Number(a[1])
+                  );
+
+                  return (
+                    <div
+                      key={prod.productId || `prod-rank-${idx}`}
+                      className="p-4 rounded-2xl bg-[#07090d] border border-[#1e232e] hover:border-blue-500/30 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    >
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <div
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center font-mono font-bold text-xs shrink-0 ${
+                            idx === 0
+                              ? 'bg-amber-400 text-black'
+                              : idx === 1
+                              ? 'bg-slate-300 text-black'
+                              : 'bg-white/5 text-slate-400'
+                          }`}
+                        >
+                          #{idx + 1}
+                        </div>
+
+                        <div className="w-12 h-12 rounded-xl bg-white p-1 shrink-0 flex items-center justify-center">
+                          {prod.mainImage ? (
+                            <img
+                              src={prod.mainImage}
+                              alt={prod.name}
+                              className="max-w-full max-h-full object-contain"
+                            />
+                          ) : (
+                            <Package size={16} className="text-slate-400" />
+                          )}
+                        </div>
+
+                        <div className="min-w-0">
+                          <div className="font-bold text-white text-xs truncate">
+                            {prod.name}
+                          </div>
+                          <div className="text-[10px] text-slate-500 font-mono">
+                            {prod.modelNumber} · {prod.categoryTag}
+                          </div>
+
+                          {/* District badges for this product */}
+                          {cityEntries.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1 mt-1">
+                              {cityEntries.slice(0, 3).map(([dist, cnt]) => (
+                                <span
+                                  key={`${prod.productId || idx}-${dist}`}
+                                  className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold"
+                                >
+                                  {dist}: {cnt}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <div className="text-base font-black text-white font-mono">
+                          {(prod.views || 0).toLocaleString()}
+                        </div>
+                        <div className="text-[10px] text-slate-500">views</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Top Districts Quick Card (4 cols) */}
+            <div className="lg:col-span-4 p-6 lg:p-8 rounded-3xl bg-[#0f1115] border border-[#222731] flex flex-col justify-between space-y-6">
+              <div>
+                <div className="flex items-center justify-between border-b border-[#222731] pb-4 mb-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                      Top Bangladesh Districts
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Leading geographic demand
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setActiveView('districts')}
+                    className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-600 hover:text-white transition-colors"
+                  >
+                    <MapPin size={14} />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {(Object.values(analytics?.districtStats || {}) as any[])
+                    .sort((a, b) => (b.productViews || 0) - (a.productViews || 0))
+                    .slice(0, 5)
+                    .map((d, dIdx) => (
+                      <div
+                        key={d.districtId || d.districtName || `dist-${dIdx}`}
+                        className="p-3 rounded-xl bg-[#07090d] border border-[#1e232e] flex items-center justify-between text-xs"
+                      >
+                        <div className="flex items-center gap-2">
+                          <MapPin size={12} className="text-blue-400" />
+                          <span className="font-bold text-white">{d.districtName}</span>
+                          <span className="text-[10px] text-slate-500">({d.divisionName})</span>
+                        </div>
+                        <div className="text-right font-mono font-bold text-emerald-400">
+                          {d.productViews} prod views
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              <button
+                onClick={() => setActiveView('districts')}
+                className="w-full py-2.5 bg-blue-600/15 hover:bg-blue-600 text-blue-300 hover:text-white rounded-xl text-xs font-bold transition-all text-center"
+              >
+                Inspect All 64 Districts &rarr;
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          VIEW 2: TRAFFIC ANALYTICS (Detailed Channels, Pages & Velocity)
+          ========================================================================= */}
+      {activeView === 'traffic' && (
+        <div className="space-y-8">
+          <InteractiveTrafficChart
+            data={dailyChartPoints}
+            activeMetrics={chartActiveMetrics}
+            onToggleMetric={handleToggleChartMetric}
+            isLoading={isLoading}
+          />
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Traffic Channels Breakdown */}
+            <div className="p-6 lg:p-8 rounded-3xl bg-[#0f1115] border border-[#222731] space-y-4">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                Traffic Acquisition Channels
+              </h3>
+              <div className="space-y-3 pt-2">
+                {Object.entries(analytics?.channelViews || {}).map(([chan, count]) => {
+                  const total = Math.max(1, analytics?.totalPageViews || 1);
+                  const cnt = Number(count) || 0;
+                  const pct = Math.round((cnt / total) * 100);
+                  return (
+                    <div key={chan} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-white">{chan}</span>
+                        <span className="font-mono text-slate-400">
+                          {cnt.toLocaleString()} views ({pct}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-[#1b2029] h-2 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-blue-500 rounded-full"
+                          style={{ width: `${Math.max(4, pct)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Traffic by Page */}
+            <div className="p-6 lg:p-8 rounded-3xl bg-[#0f1115] border border-[#222731] space-y-4">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                Top Visited Public Pages
+              </h3>
+              <div className="space-y-3 pt-2">
+                {Object.entries(analytics?.routeViews || {})
+                  .sort((a, b) => Number(b[1]) - Number(a[1]))
+                  .map(([route, count]) => {
+                    const total = Math.max(1, analytics?.totalPageViews || 1);
+                    const cnt = Number(count) || 0;
+                    const pct = Math.round((cnt / total) * 100);
+                    return (
+                      <div
+                        key={route}
+                        className="p-3.5 rounded-xl bg-[#07090d] border border-[#1e232e] flex items-center justify-between text-xs"
+                      >
+                        <span className="font-bold text-white truncate max-w-xs">
+                          {ROUTE_LABELS[route] || route}
+                        </span>
+                        <span className="font-mono font-bold text-blue-400">
+                          {cnt.toLocaleString()} views ({pct}%)
+                        </span>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          VIEW 3: PRODUCT ANALYTICS
+          ========================================================================= */}
+      {activeView === 'products' && (
+        <ProductAnalyticsTab
+          analytics={analytics}
+          catalogProducts={catalogProducts}
+        />
+      )}
+
+      {/* =========================================================================
+          VIEW 4: BANGLADESH 64 DISTRICTS ANALYTICS
+          ========================================================================= */}
+      {activeView === 'districts' && (
+        <BangladeshDistrictAnalytics
+          analytics={analytics}
+          catalogProducts={catalogProducts}
+        />
+      )}
+
+      {/* =========================================================================
+          VIEW 5: SEO PERFORMANCE
+          ========================================================================= */}
+      {activeView === 'seo' && (
+        <SEOPerformanceTab
+          analytics={analytics}
+          catalogProducts={catalogProducts}
+        />
+      )}
+
+      {/* =========================================================================
+          VIEW 6: CUSTOMER INQUIRIES & B2B PROCUREMENT
+          ========================================================================= */}
+      {activeView === 'inquiries' && (
+        <MedicalBusinessInquiriesTab
+          inquiries={inquiries}
+          analytics={analytics}
+          catalogProducts={catalogProducts}
+          onUpdateInquiryStatus={handleUpdateInquiryStatus}
+        />
+      )}
+
+      {/* =========================================================================
+          VIEW 7: REPORTS & EXPORT
+          ========================================================================= */}
+      {activeView === 'reports' && (
+        <AnalyticsReportsExport
+          analytics={analytics}
+          catalogProducts={catalogProducts}
+          inquiries={inquiries}
+          currentDateFilter={dateFilter}
+        />
+      )}
     </div>
   );
 };
+export default NexusDashboard;

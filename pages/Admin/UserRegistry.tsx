@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Search, RefreshCw, Shield, User, Terminal, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import {
+  Users,
+  Search,
+  RefreshCw,
+  Shield,
+  User,
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
+} from 'lucide-react';
 import { supabase, classifySupabaseError } from '../../supabaseClient';
 
 export const UserRegistry: React.FC = () => {
@@ -18,7 +27,7 @@ export const UserRegistry: React.FC = () => {
         .select('*')
         .limit(10000)
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
       setUsers(data || []);
     } catch (err: any) {
@@ -51,15 +60,14 @@ export const UserRegistry: React.FC = () => {
 
       if (!data || data.length === 0) {
         setErrorBanner({
-          title: 'Row-Level Security (RLS) Blocked Role Update',
-          message:
-            'Zero rows were updated in public.profiles. Ensure you are signed in with a verified admin account and that the profiles UPDATE policy allows admins to update roles (see schema.sql).',
+          title: 'Update Blocked',
+          message: 'Could not modify role in public.profiles. Check database permissions.',
         });
         return;
       }
 
       setSuccessToast(`Role updated to ${newRole.toUpperCase()}`);
-      setTimeout(() => setSuccessToast(null), 3500);
+      setTimeout(() => setSuccessToast(null), 3000);
       await fetchUsers();
     } catch (err: any) {
       console.error('Error updating role:', err);
@@ -75,102 +83,155 @@ export const UserRegistry: React.FC = () => {
   });
 
   return (
-    <div className="p-10 lg:p-16 bg-[#020408] text-white min-h-screen rounded-[2.5rem]">
-      <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-8">
-        <div className="space-y-4">
-           <div className="flex items-center gap-3">
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.4em]">Auth_Node: Operator_Registry</span>
-           </div>
-           <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter">Operator <span className="text-slate-700 italic">Registry.</span></h1>
-        </div>
+    <div className="space-y-6 text-slate-100">
+      {/* Cute Header Card */}
+      <header className="p-6 lg:p-8 rounded-3xl bg-[#0d111a] border border-[#1d2436] shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-400 flex items-center justify-center shadow-lg shadow-blue-500/25">
+            <Users size={22} className="text-white" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
+                User Registry
+              </h1>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                {users.length} accounts
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Manage registered operators and account roles.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
           {successToast && (
-            <div className="px-4 py-2.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-2">
-              <CheckCircle2 size={16} /> {successToast}
+            <div className="px-3.5 py-2 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm">
+              <CheckCircle2 size={14} />
+              <span>{successToast}</span>
             </div>
           )}
-          <button onClick={fetchUsers} className="p-4 bg-white/5 border border-white/10 rounded-2xl text-slate-400 hover:text-white transition-all shadow-xl cursor-pointer">
-            <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+
+          <button
+            onClick={fetchUsers}
+            disabled={loading}
+            className="p-2.5 bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 hover:text-white rounded-xl border border-[#21293d] transition-all cursor-pointer"
+            title="Refresh Users"
+          >
+            <RefreshCw
+              size={16}
+              className={loading ? 'animate-spin text-blue-400' : ''}
+            />
           </button>
         </div>
       </header>
 
       {errorBanner && (
-        <div className="mb-8 p-6 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 space-y-1">
-          <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-rose-400">
-            <AlertTriangle size={16} />
-            <span>{errorBanner.title}</span>
-          </div>
-          <p className="text-xs font-medium leading-relaxed">{errorBanner.message}</p>
+        <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-xs flex items-center gap-2">
+          <AlertTriangle size={16} className="text-rose-400 shrink-0" />
+          <span>{errorBanner.message}</span>
         </div>
       )}
 
-      <div className="relative group mb-12">
-        <Search size={18} className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-700 group-focus-within:text-blue-500 transition-colors" />
-        <input 
-          type="text" 
-          placeholder="QUERY OPERATOR BY IDENTITY OR EMAIL..." 
-          className="w-full bg-white/[0.02] border border-white/5 rounded-3xl pl-16 pr-8 py-6 text-[10px] font-black text-white placeholder:text-slate-800 uppercase tracking-widest outline-none focus:border-blue-600 focus:bg-white/[0.04] transition-all"
+      {/* Cute Search Bar */}
+      <div className="p-3 bg-[#0d111a] rounded-2xl border border-[#1d2436] flex items-center gap-3">
+        <Search className="text-slate-500 ml-2 shrink-0" size={18} />
+        <input
+          type="text"
+          placeholder="Search by name or email..."
+          className="flex-1 py-1 bg-transparent text-sm text-white placeholder-slate-500 outline-none"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={e => setSearchTerm(e.target.value)}
         />
+        {searchTerm && (
+          <button
+            onClick={() => setSearchTerm('')}
+            className="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg bg-white/5"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
-      <div className="bg-white/[0.01] rounded-[2.5rem] border border-white/5 shadow-2xl overflow-hidden">
+      {/* Cute Users Table Card */}
+      <div className="rounded-3xl bg-[#0d111a] border border-[#1d2436] shadow-xl overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full text-left text-xs">
             <thead>
-              <tr className="bg-white/[0.02] border-b border-white/5 text-[9px] font-black text-slate-500 uppercase tracking-[0.4em]">
-                <th className="px-10 py-8">Operator Identity</th>
-                <th className="px-10 py-8">Access Level</th>
-                <th className="px-10 py-8">Registry Date</th>
-                <th className="px-10 py-8 text-right">Command</th>
+              <tr className="bg-[#07090e]/60 border-b border-[#1d2436] text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <th className="px-6 py-4">User</th>
+                <th className="px-6 py-4">Role</th>
+                <th className="px-6 py-4">Joined</th>
+                <th className="px-6 py-4 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
-              {filtered.map(user => (
-                <tr key={user.id} className="hover:bg-white/[0.02] transition-colors group">
-                  <td className="px-10 py-8">
-                    <div className="flex items-center gap-6">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all ${user.role === 'admin' ? 'bg-blue-600 text-white border-blue-500 shadow-xl shadow-blue-500/20' : 'bg-white/5 text-slate-400 border-white/5'}`}>
-                        {user.role === 'admin' ? <Shield size={20} /> : <User size={20} />}
-                      </div>
-                      <div>
-                        <div className="font-black text-white tracking-tight">{user.full_name || 'ANONYMOUS_ENTITY'}</div>
-                        <div className="text-[10px] text-slate-400 font-mono tracking-tighter mt-1">{user.email || 'NO_EMAIL_DETECTED'}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-10 py-8">
-                    <span className={`px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border ${
-                      user.role === 'admin' 
-                      ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' 
-                      : 'bg-white/5 text-slate-400 border-white/5'
-                    }`}>
-                      {user.role || 'GUEST'}
-                    </span>
-                  </td>
-                  <td className="px-10 py-8 text-[10px] text-slate-400 font-bold tracking-widest">
-                    {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'UNKNOWN'}
-                  </td>
-                  <td className="px-10 py-8 text-right">
-                    <button 
-                      onClick={() => toggleRole(user.id, user.role)}
-                      className="text-[9px] font-black text-slate-300 hover:text-white uppercase tracking-widest bg-white/5 hover:bg-blue-600 px-6 py-3 rounded-xl transition-all border border-white/5 group-hover:border-blue-500/30 cursor-pointer"
-                    >
-                      Shift_Permission
-                    </button>
+            <tbody className="divide-y divide-[#1d2436]">
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="py-20 text-center text-slate-400">
+                    <Loader2 className="animate-spin text-blue-500 mx-auto mb-2" size={24} />
+                    <span>Loading user accounts...</span>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filtered.map(user => (
+                  <tr key={user.id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
+                            user.role === 'admin'
+                              ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                              : 'bg-white/5 text-slate-400 border border-white/5'
+                          }`}
+                        >
+                          {user.role === 'admin' ? <Shield size={16} /> : <User size={16} />}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-bold text-white text-xs truncate">
+                            {user.full_name || 'Anonymous User'}
+                          </div>
+                          <div className="text-[11px] text-slate-400 font-mono truncate">
+                            {user.email || 'No email'}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                          user.role === 'admin'
+                            ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
+                            : 'bg-white/5 text-slate-400 border-white/10'
+                        }`}
+                      >
+                        {user.role || 'buyer'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-slate-400 font-medium">
+                      {user.created_at
+                        ? new Date(user.created_at).toLocaleDateString()
+                        : '—'}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() => toggleRole(user.id, user.role)}
+                        className="px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-slate-200 hover:text-white border border-[#21293d] text-xs font-semibold transition-all cursor-pointer"
+                      >
+                        Switch to {user.role === 'admin' ? 'Buyer' : 'Admin'}
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
-        {filtered.length === 0 && !loading && (
-          <div className="py-32 text-center opacity-20">
-            <Terminal className="mx-auto mb-6" size={48} />
-            <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">No matching entities found in registry.</p>
+
+        {!loading && filtered.length === 0 && (
+          <div className="py-20 text-center text-slate-500 text-xs font-medium">
+            No matching users found.
           </div>
         )}
       </div>

@@ -1400,3 +1400,36 @@
     transform: rotate(-1turn);
   }
 }
+
+/* ============================================================
+   PREMIUM ADMIN DARK UI UTILITIES (Carelink Healthineers)
+   ============================================================ */
+.admin-dark-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.admin-dark-scrollbar::-webkit-scrollbar-track {
+  background: #080c16;
+}
+.admin-dark-scrollbar::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 9999px;
+}
+.admin-dark-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #38bdf8;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #080c16;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #38bdf8;
+}
