@@ -91,13 +91,7 @@ export const Portfolio: React.FC = () => {
         return v.trim();
       }
     }
-    if (p.name.toLowerCase().includes('dürr') || p.name.toLowerCase().includes('durr') || p.name.toLowerCase().includes('vista')) {
-      return 'Dürr Dental';
-    }
-    if (p.name.toLowerCase().includes('mindray')) {
-      return 'Mindray';
-    }
-    return 'Carelink Certified';
+    return 'Dürr Dental';
   };
 
   // Helper to extract price if present in technical_specs, else return 'Request Quote'

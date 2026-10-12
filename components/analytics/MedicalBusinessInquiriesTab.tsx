@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Inquiry, Product } from '../../types';
 import { SiteTrafficAnalytics } from '../../utils/analyticsTracker';
+import { ExportActionMenu } from '../common/ExportActionMenu';
 
 interface MedicalBusinessInquiriesTabProps {
   inquiries: Inquiry[];
@@ -84,7 +85,7 @@ export const MedicalBusinessInquiriesTab: React.FC<MedicalBusinessInquiriesTabPr
     });
   }, [inquiries, filter, searchQuery]);
 
-  const handleExportCSV = () => {
+  const getExportData = () => {
     const headers = [
       'Inquiry ID',
       'Hospital / Clinic',
@@ -96,27 +97,22 @@ export const MedicalBusinessInquiriesTab: React.FC<MedicalBusinessInquiriesTabPr
     ];
     const rows = filteredInquiries.map((inq) => [
       inq.id,
-      `"${inq.company}"`,
-      `"${inq.name}"`,
-      `"${inq.email}"`,
-      inq.created_at,
+      inq.company || '—',
+      inq.name,
+      inq.email,
+      new Date(inq.created_at).toLocaleDateString(),
       inq.status,
-      `"${inq.message.replace(/"/g, '""')}"`,
+      inq.message.replace(/\[.*?\]/g, '').trim(),
     ]);
 
-    const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute(
-      'download',
-      `medical_inquiries_report_${new Date().toISOString().split('T')[0]}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    return {
+      filename: `medical_inquiries_report_${new Date().toISOString().split('T')[0]}`,
+      sheetName: 'Inquiries',
+      title: 'Carelink Healthineers Medical Procurement Inquiries',
+      subtitle: `Filtered Inquiries Count: ${filteredInquiries.length}`,
+      headers,
+      rows,
+    };
   };
 
   return (
@@ -283,13 +279,7 @@ export const MedicalBusinessInquiriesTab: React.FC<MedicalBusinessInquiriesTabPr
               <option value="archived">Archived</option>
             </select>
 
-            <button
-              onClick={handleExportCSV}
-              className="px-3 py-2 bg-[#171b24] hover:bg-[#202634] border border-[#2b3345] rounded-xl text-xs font-bold text-slate-200 hover:text-white transition-all flex items-center gap-1.5"
-            >
-              <Download size={13} className="text-blue-400" />
-              <span>Export CSV</span>
-            </button>
+            <ExportActionMenu label="Export Inquiries" getData={getExportData} />
           </div>
         </div>
 
