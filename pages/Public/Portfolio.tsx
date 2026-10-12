@@ -596,17 +596,7 @@ export const Portfolio: React.FC = () => {
                             {product.name}
                           </Link>
                         </h4>
-                        <div className="product-specs">
-                          <span>
-                            Model: <b>{product.model_number || 'Standard'}</b>
-                          </span>
-                          <span>
-                            Type: <b>{product.category_tag || 'Clinical'}</b>
-                          </span>
-                          <span>
-                            Brand: <b>{brandLabel}</b>
-                          </span>
-                        </div>
+
                         <Link
                           to={`/portfolio/${product.slug}`}
                           className="btn btn-ghost product-details-btn"
