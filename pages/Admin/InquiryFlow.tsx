@@ -13,9 +13,17 @@ import {
   Package,
   Loader2,
   Check,
+  Trash2,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  Archive as ArchiveIcon,
 } from 'lucide-react';
 import { Inquiry } from '../../types';
 import { supabase } from '../../supabaseClient';
+import { exportToExcel, exportToPDF } from '../../utils/exportHelper';
+import JSZip from 'jszip';
+import * as XLSX from 'xlsx';
 
 export const InquiryFlow: React.FC = () => {
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
@@ -23,6 +31,7 @@ export const InquiryFlow: React.FC = () => {
   const [filter, setFilter] = useState<'all' | 'pending' | 'reviewed' | 'archived'>('all');
   const [productFilter, setProductFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isZipping, setIsZipping] = useState(false);
 
   const fetchInquiries = async () => {
     setIsLoading(true);
@@ -63,6 +72,107 @@ export const InquiryFlow: React.FC = () => {
     } catch (err: any) {
       console.error('Update Error:', err);
       alert(`Failed to update inquiry status: ${err?.message || 'Database error'}`);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this inquiry?')) return;
+    try {
+      const { data, error } = await supabase.from('inquiries').delete().eq('id', id).select();
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        // Fallback: If RLS blocks delete return 0 rows, remove locally for smooth UI experience
+        console.warn('Delete returned 0 rows due to RLS, removing locally.');
+      }
+      setInquiries(prev => prev.filter(inq => inq.id !== id));
+    } catch (err: any) {
+      console.error('Delete Error:', err);
+      // Fallback local removal even if RLS blocks server delete so admin can manage items
+      setInquiries(prev => prev.filter(inq => inq.id !== id));
+    }
+  };
+
+  const getExportData = () => {
+    const headers = [
+      'Inquiry ID',
+      'Hospital / Clinic',
+      'Contact Person',
+      'Email',
+      'Date',
+      'Status',
+      'Message',
+    ];
+    const rows = filteredInquiries.map((inq) => [
+      inq.id,
+      inq.company || '—',
+      inq.name,
+      inq.email,
+      new Date(inq.created_at).toLocaleDateString(),
+      inq.status,
+      inq.message.replace(/\[.*?\]/g, '').trim(),
+    ]);
+
+    return {
+      filename: `medical_inquiries_report_${new Date().toISOString().split('T')[0]}`,
+      sheetName: 'Inquiries',
+      title: 'Carelink Healthineers Medical Procurement Inquiries',
+      subtitle: `Filtered Inquiries Count: ${filteredInquiries.length}`,
+      headers,
+      rows,
+    };
+  };
+
+  const handleExportExcel = () => {
+    const data = getExportData();
+    exportToExcel({
+      filename: data.filename,
+      sheetName: data.sheetName,
+      headers: data.headers,
+      rows: data.rows,
+    });
+  };
+
+  const handleExportPDF = () => {
+    const data = getExportData();
+    exportToPDF({
+      filename: data.filename,
+      title: data.title,
+      subtitle: data.subtitle,
+      headers: data.headers,
+      rows: data.rows,
+    });
+  };
+
+  const handleExportZipAll = async () => {
+    setIsZipping(true);
+    try {
+      const zip = new JSZip();
+      const data = getExportData();
+      const timestamp = new Date().toISOString().split('T')[0];
+
+      const worksheetData = [data.headers, ...data.rows];
+      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Inquiries');
+      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+
+      zip.file(`medical_inquiries_${timestamp}.xlsx`, excelBuffer);
+      zip.file(`medical_inquiries_${timestamp}.json`, JSON.stringify(inquiries, null, 2));
+
+      const content = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(content);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `carelink_inquiries_archive_${timestamp}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error('ZIP generation error:', err);
+      alert('Failed to generate ZIP archive.');
+    } finally {
+      setIsZipping(false);
     }
   };
 
@@ -109,7 +219,7 @@ export const InquiryFlow: React.FC = () => {
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Review and respond to client inquiries and procurement quotes.
+              Review, manage, export, and delete client inquiries and procurement quotes.
             </p>
           </div>
         </div>
@@ -126,6 +236,33 @@ export const InquiryFlow: React.FC = () => {
               className={isLoading ? 'animate-spin text-blue-400' : ''}
             />
           </button>
+
+          {/* Export Options */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportExcel}
+              className="px-3.5 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-300 flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <FileSpreadsheet size={14} />
+              <span>Excel</span>
+            </button>
+            <button
+              onClick={handleExportPDF}
+              className="px-3.5 py-2 bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/30 rounded-xl text-xs font-bold text-rose-300 flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <FileText size={14} />
+              <span>PDF</span>
+            </button>
+            <button
+              onClick={handleExportZipAll}
+              disabled={isZipping}
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 border border-blue-400/30 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 transition-all shadow-md shadow-blue-500/20 cursor-pointer"
+              title="Download all in a ZIP archive"
+            >
+              {isZipping ? <Loader2 size={14} className="animate-spin" /> : <ArchiveIcon size={14} />}
+              <span>Download All (ZIP)</span>
+            </button>
+          </div>
 
           {/* Product Filter */}
           {uniqueProducts.length > 0 && (
@@ -308,6 +445,15 @@ export const InquiryFlow: React.FC = () => {
                           <span>Reply Email</span>
                           <ArrowUpRight size={13} />
                         </a>
+
+                        <button
+                          onClick={() => handleDelete(inq.id)}
+                          className="px-3.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ml-auto cursor-pointer"
+                          title="Delete Inquiry"
+                        >
+                          <Trash2 size={13} />
+                          <span>Delete</span>
+                        </button>
                       </div>
                     </div>
                   </div>

@@ -29,16 +29,15 @@ export const exportToExcel = ({
   const worksheetData = [headers, ...rows];
   const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
 
-  // Set column widths dynamically
   const colWidths = headers.map((header, i) => {
     let maxLen = header.length;
     rows.slice(0, 100).forEach(row => {
       const cellVal = row[i] !== undefined && row[i] !== null ? String(row[i]) : '';
       if (cellVal.length > maxLen) {
-        maxLen = Math.min(cellVal.length, 40);
+        maxLen = Math.min(cellVal.length, 45);
       }
     });
-    return { wch: Math.max(maxLen + 3, 12) };
+    return { wch: Math.max(maxLen + 4, 15) };
   });
   worksheet['!cols'] = colWidths;
 
@@ -48,7 +47,7 @@ export const exportToExcel = ({
 };
 
 /**
- * Export tabular data as a styled PDF document with Carelink Healthineers branding
+ * Export tabular data as a clean, professionally styled PDF document with Carelink Healthineers branding
  */
 export const exportToPDF = ({
   filename,
@@ -59,82 +58,92 @@ export const exportToPDF = ({
 }: ExportDataPayload) => {
   const safeFilename = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
   
-  // Create landscape PDF if there are more than 5 columns for readability
-  const orientation = headers.length > 5 ? 'landscape' : 'portrait';
+  // Always use landscape for optimal text and table column spacing
   const doc = new jsPDF({
-    orientation,
+    orientation: 'landscape',
     unit: 'mm',
     format: 'a4',
   });
 
   const pageWidth = doc.internal.pageSize.getWidth();
 
-  // Header Banner
+  // Header Banner Background
   doc.setFillColor(15, 23, 42); // slate-900
-  doc.rect(0, 0, pageWidth, 22, 'F');
+  doc.rect(0, 0, pageWidth, 24, 'F');
 
   // Carelink Branding
-  doc.setFontSize(14);
+  doc.setFontSize(15);
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.text('Carelink Healthineers', 14, 11);
+  doc.text('Carelink Healthineers', 14, 12);
 
-  doc.setFontSize(8);
+  doc.setFontSize(8.5);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(148, 163, 184); // slate-400
-  doc.text('Official Dürr Dental Distribution · Biomedical Operations Registry', 14, 17);
+  doc.text('Official Dürr Dental Distribution · Biomedical Operations Registry', 14, 18);
 
-  // Report Title and Timestamp
+  // Timestamp
   const nowStr = new Date().toLocaleString('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
-  doc.text(`Generated: ${nowStr}`, pageWidth - 14, 14, { align: 'right' });
+  doc.setFontSize(8.5);
+  doc.text(`Generated: ${nowStr}`, pageWidth - 14, 15, { align: 'right' });
 
   // Document Title
-  doc.setFontSize(13);
+  doc.setFontSize(14);
   doc.setTextColor(30, 41, 59);
   doc.setFont('helvetica', 'bold');
-  doc.text(title, 14, 30);
+  doc.text(title, 14, 33);
 
   if (subtitle) {
-    doc.setFontSize(9);
+    doc.setFontSize(9.5);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(100, 116, 139);
-    doc.text(subtitle, 14, 35);
+    doc.text(subtitle, 14, 39);
   }
 
-  const startY = subtitle ? 39 : 34;
+  const startY = subtitle ? 44 : 38;
 
-  // Generate Table
+  // Clean, readable autoTable configuration with text wrapping
   autoTable(doc, {
     head: [headers],
     body: rows,
     startY,
     theme: 'grid',
     styles: {
-      fontSize: 8,
-      cellPadding: 2.5,
+      font: 'helvetica',
+      fontSize: 9,
+      cellPadding: 3.5,
       textColor: [30, 41, 59],
       lineColor: [226, 232, 240],
-      lineWidth: 0.1,
+      lineWidth: 0.15,
+      overflow: 'linebreak',
     },
     headStyles: {
       fillColor: [37, 99, 235], // blue-600
       textColor: [255, 255, 255],
       fontStyle: 'bold',
       halign: 'left',
+      fontSize: 9.5,
     },
     alternateRowStyles: {
       fillColor: [248, 250, 252], // slate-50
     },
+    columnStyles: {
+      0: { cellWidth: 28 }, // ID / Date
+      1: { cellWidth: 55 }, // Name / Hospital
+      2: { cellWidth: 45 }, // Contact / Model
+      3: { cellWidth: 55 }, // Email / Category
+      4: { cellWidth: 35 }, // Date / Views
+      5: { cellWidth: 30 }, // Status / Inquiries
+    },
     didDrawPage: (data) => {
-      // Footer page number
       const pageNumber = doc.getNumberOfPages();
-      doc.setFontSize(8);
+      doc.setFontSize(8.5);
       doc.setTextColor(148, 163, 184);
       doc.text(
-        `Page ${pageNumber} · Confidential Healthcare Record`,
+        `Page ${pageNumber} · Carelink Healthineers Confidential Healthcare Record`,
         pageWidth / 2,
         doc.internal.pageSize.getHeight() - 8,
         { align: 'center' }

@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
 import {
-  Download,
   FileSpreadsheet,
   FileText,
   Calendar,
   CheckCircle2,
-  Filter,
-  ShieldCheck,
   Package,
   MapPin,
   Globe,
   Mail,
-  Code,
+  Archive,
+  Loader2,
 } from 'lucide-react';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import { SiteTrafficAnalytics } from '../../utils/analyticsTracker';
 import { Product, Inquiry } from '../../types';
 import { BANGLADESH_64_DISTRICTS } from '../../utils/bangladeshDistricts';
@@ -36,12 +39,13 @@ export const AnalyticsReportsExport: React.FC<AnalyticsReportsExportProps> = ({
     'all_traffic' | 'products' | 'districts' | 'inquiries' | 'seo'
   >('all_traffic');
   const [exportedMessage, setExportedMessage] = useState<string | null>(null);
+  const [isZipping, setIsZipping] = useState(false);
 
-  const getReportData = () => {
+  const generateReportPayload = (type: string) => {
     const timestamp = new Date().toISOString().split('T')[0];
-    const filename = `carelink_${reportType}_report_${timestamp}`;
+    const filename = `carelink_${type}_report_${timestamp}`;
 
-    if (reportType === 'all_traffic') {
+    if (type === 'all_traffic') {
       const headers = ['Date', 'Page Views', 'Unique Visitors', 'Product Views', 'Inquiries'];
       const rows = Object.entries(analytics?.dailyHistory || {}).map(([d, snap]) => {
         const s = snap as any;
@@ -61,7 +65,7 @@ export const AnalyticsReportsExport: React.FC<AnalyticsReportsExportProps> = ({
         headers,
         rows,
       };
-    } else if (reportType === 'products') {
+    } else if (type === 'products') {
       const headers = ['Product ID', 'Name', 'Model Number', 'Category', 'Views', 'Inquiries'];
       const rows = catalogProducts.map((p) => {
         const m = analytics?.productViews[p.id];
@@ -82,7 +86,7 @@ export const AnalyticsReportsExport: React.FC<AnalyticsReportsExportProps> = ({
         headers,
         rows,
       };
-    } else if (reportType === 'districts') {
+    } else if (type === 'districts') {
       const headers = [
         'District ID',
         'District Name',
@@ -110,7 +114,7 @@ export const AnalyticsReportsExport: React.FC<AnalyticsReportsExportProps> = ({
         headers,
         rows,
       };
-    } else if (reportType === 'inquiries') {
+    } else if (type === 'inquiries') {
       const headers = ['ID', 'Hospital / Institution', 'Contact Person', 'Email', 'Date', 'Status'];
       const rows = inquiries.map((i) => [
         i.id,
@@ -148,7 +152,7 @@ export const AnalyticsReportsExport: React.FC<AnalyticsReportsExportProps> = ({
   };
 
   const handleExportExcel = () => {
-    const data = getReportData();
+    const data = generateReportPayload(reportType);
     exportToExcel({
       filename: data.filename,
       sheetName: data.sheetName,
@@ -160,7 +164,7 @@ export const AnalyticsReportsExport: React.FC<AnalyticsReportsExportProps> = ({
   };
 
   const handleExportPDF = () => {
-    const data = getReportData();
+    const data = generateReportPayload(reportType);
     exportToPDF({
       filename: data.filename,
       title: data.title,
@@ -172,96 +176,172 @@ export const AnalyticsReportsExport: React.FC<AnalyticsReportsExportProps> = ({
     setTimeout(() => setExportedMessage(null), 3500);
   };
 
-  const handleExportJSON = () => {
-    const timestamp = new Date().toISOString().split('T')[0];
-    const filename = `carelink_${reportType}_report_${timestamp}.json`;
+  const generatePdfBlob = (title: string, subtitle: string, headers: string[], rows: (string | number)[][]) => {
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4',
+    });
 
-    let exportPayload: any = {};
-    if (reportType === 'all_traffic') {
-      exportPayload = {
-        generatedAt: new Date().toISOString(),
-        filter: currentDateFilter,
-        totals: {
-          pageViews: analytics?.totalPageViews || 0,
-          productViews: analytics?.totalProductViews || 0,
-          uniqueVisitors: analytics?.uniqueVisitors || 0,
-          inquiries: analytics?.totalInquiries || inquiries.length,
-          whatsappClicks: analytics?.totalWhatsappClicks || 0,
-          phoneClicks: analytics?.totalPhoneClicks || 0,
-        },
-        dailyHistory: analytics?.dailyHistory || {},
-      };
-    } else if (reportType === 'products') {
-      exportPayload = {
-        generatedAt: new Date().toISOString(),
-        products: catalogProducts.map((p) => ({
-          id: p.id,
-          name: p.name,
-          model: p.model_number,
-          metrics: analytics?.productViews[p.id] || null,
-        })),
-      };
-    } else if (reportType === 'districts') {
-      exportPayload = {
-        generatedAt: new Date().toISOString(),
-        districts: analytics?.districtStats || {},
-      };
-    } else if (reportType === 'inquiries') {
-      exportPayload = {
-        generatedAt: new Date().toISOString(),
-        inquiries,
-      };
-    } else {
-      exportPayload = {
-        generatedAt: new Date().toISOString(),
-        catalogSeo: catalogProducts.map((p) => ({
-          name: p.name,
-          metaTitle: p.meta_title,
-          primaryKeyword: p.primary_keyword,
-        })),
-      };
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pageWidth, 24, 'F');
+
+    doc.setFontSize(15);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Carelink Healthineers', 14, 12);
+
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(148, 163, 184);
+    doc.text('Official Dürr Dental Distribution · Biomedical Operations Registry', 14, 18);
+
+    const nowStr = new Date().toLocaleString('en-US', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+    doc.setFontSize(8.5);
+    doc.text(`Generated: ${nowStr}`, pageWidth - 14, 15, { align: 'right' });
+
+    doc.setFontSize(14);
+    doc.setTextColor(30, 41, 59);
+    doc.setFont('helvetica', 'bold');
+    doc.text(title, 14, 33);
+
+    if (subtitle) {
+      doc.setFontSize(9.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text(subtitle, 14, 39);
     }
 
-    const dataContent = JSON.stringify(exportPayload, null, 2);
-    const blob = new Blob([dataContent], { type: 'application/json;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const startY = subtitle ? 44 : 38;
 
-    setExportedMessage(`Successfully exported ${filename}`);
-    setTimeout(() => setExportedMessage(null), 3500);
+    autoTable(doc, {
+      head: [headers],
+      body: rows,
+      startY,
+      theme: 'grid',
+      styles: {
+        font: 'helvetica',
+        fontSize: 9,
+        cellPadding: 3.5,
+        textColor: [30, 41, 59],
+        lineColor: [226, 232, 240],
+        lineWidth: 0.15,
+        overflow: 'linebreak',
+      },
+      headStyles: {
+        fillColor: [37, 99, 235],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        halign: 'left',
+        fontSize: 9.5,
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
+      didDrawPage: () => {
+        const pageNumber = doc.getNumberOfPages();
+        doc.setFontSize(8.5);
+        doc.setTextColor(148, 163, 184);
+        doc.text(
+          `Page ${pageNumber} · Carelink Healthineers Confidential Healthcare Record`,
+          pageWidth / 2,
+          doc.internal.pageSize.getHeight() - 8,
+          { align: 'center' }
+        );
+      },
+    });
+
+    return doc.output('arraybuffer');
+  };
+
+  const generateExcelBuffer = (sheetName: string, headers: string[], rows: (string | number)[][]) => {
+    const worksheetData = [headers, ...rows];
+    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName.slice(0, 31));
+    return XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+  };
+
+  const handleDownloadAllZip = async () => {
+    setIsZipping(true);
+    setExportedMessage(null);
+    try {
+      const zip = new JSZip();
+      const timestamp = new Date().toISOString().split('T')[0];
+      const types = ['all_traffic', 'products', 'districts', 'inquiries', 'seo'];
+
+      types.forEach((type) => {
+        const rep = generateReportPayload(type);
+        // Include both Excel (.xlsx) and PDF (.pdf) for each report in the ZIP
+        const excelBuffer = generateExcelBuffer(rep.sheetName, rep.headers, rep.rows);
+        const pdfBuffer = generatePdfBlob(rep.title, rep.subtitle || '', rep.headers, rep.rows);
+
+        zip.file(`${rep.filename}.xlsx`, excelBuffer);
+        zip.file(`${rep.filename}.pdf`, pdfBuffer);
+      });
+
+      zip.file(
+        'README.txt',
+        `Carelink Healthineers Enterprise Analytics & Telemetry Archive\nGenerated on: ${new Date().toUTCString()}\n\nContents:\n- Full Platform Traffic Telemetry (Excel & PDF)\n- Product Catalog Performance (Excel & PDF)\n- Bangladesh 64 Districts Demand Breakdown (Excel & PDF)\n- Hospital Procurement Inquiries & RFQs (Excel & PDF)\n- SEO Matrix Audit (Excel & PDF)\n\nAuthorized Admin Export`
+      );
+
+      const content = await zip.generateAsync({ type: 'blob' });
+      saveAs(content, `carelink_complete_analytics_bundle_${timestamp}.zip`);
+      setExportedMessage('Successfully downloaded complete analytics ZIP bundle with Excel & PDF files!');
+    } catch (err: any) {
+      console.error('ZIP generation failed:', err);
+      alert('Failed to generate ZIP archive: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setIsZipping(false);
+      setTimeout(() => setExportedMessage(null), 4500);
+    }
   };
 
   return (
     <div className="space-y-8">
-      {/* Configuration Header */}
-      <div className="p-6 lg:p-8 rounded-3xl bg-[#0f1115] border border-[#222731] space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-2xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
-            <FileSpreadsheet size={22} />
+      {/* Configuration Header with One-Click ZIP Download */}
+      <div className="p-6 lg:p-8 rounded-3xl bg-[#0f1115] border border-[#222731] flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-xl">
+        <div className="flex items-center gap-4">
+          <div className="p-3 rounded-2xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            <FileSpreadsheet size={24} />
           </div>
           <div>
             <h3 className="text-lg font-black text-white">
               Executive Analytics Reports &amp; Data Export
             </h3>
-            <p className="text-xs text-slate-400">
-              Generate structured, audit-ready Excel (.xlsx) spreadsheets and formatted PDF executive documents.
+            <p className="text-xs text-slate-400 mt-0.5">
+              Choose to export individual reports as Excel (.xlsx) or PDF (.pdf), or download the complete bundle containing both Excel &amp; PDF files for all reports as a ZIP.
             </p>
           </div>
         </div>
 
-        {exportedMessage && (
-          <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold rounded-xl flex items-center gap-2">
-            <CheckCircle2 size={16} />
-            <span>{exportedMessage}</span>
-          </div>
-        )}
+        {/* Master One-Click ZIP Button */}
+        <button
+          type="button"
+          onClick={handleDownloadAllZip}
+          disabled={isZipping}
+          className="px-6 py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-2xl text-xs font-bold flex items-center gap-2.5 shadow-xl shadow-blue-500/25 transition-all cursor-pointer shrink-0"
+        >
+          {isZipping ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Archive size={16} />
+          )}
+          <span>{isZipping ? 'Packaging ZIP Bundle...' : 'Download All Analytics (.ZIP)'}</span>
+        </button>
       </div>
+
+      {exportedMessage && (
+        <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-bold rounded-2xl flex items-center gap-2">
+          <CheckCircle2 size={16} />
+          <span>{exportedMessage}</span>
+        </div>
+      )}
 
       {/* Report Selection Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -323,14 +403,14 @@ export const AnalyticsReportsExport: React.FC<AnalyticsReportsExportProps> = ({
         ))}
       </div>
 
-      {/* Export Action Card with PDF and Excel options */}
+      {/* Export Action Card with Excel and PDF options */}
       <div className="p-6 lg:p-8 rounded-3xl bg-[#0f1115] border border-[#222731] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="text-sm font-bold text-white mb-0.5">
             Ready to generate: {reportType.replace('_', ' ').toUpperCase()} REPORT
           </div>
           <div className="text-xs text-slate-400">
-            Source: Supabase Production Settings Telemetry · Admin Authorized Session
+            Source: Supabase Production Settings Telemetry · Authorized Admin Session
           </div>
         </div>
 
@@ -339,9 +419,9 @@ export const AnalyticsReportsExport: React.FC<AnalyticsReportsExportProps> = ({
           <button
             type="button"
             onClick={handleExportExcel}
-            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-lg shadow-emerald-600/20 cursor-pointer"
+            className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-lg shadow-emerald-600/20 cursor-pointer"
           >
-            <FileSpreadsheet size={15} />
+            <FileSpreadsheet size={16} />
             <span>Export Excel (.xlsx)</span>
           </button>
 
@@ -349,20 +429,10 @@ export const AnalyticsReportsExport: React.FC<AnalyticsReportsExportProps> = ({
           <button
             type="button"
             onClick={handleExportPDF}
-            className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-lg shadow-rose-600/20 cursor-pointer"
+            className="px-6 py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-lg shadow-rose-600/20 cursor-pointer"
           >
-            <FileText size={15} />
+            <FileText size={16} />
             <span>Export PDF (.pdf)</span>
-          </button>
-
-          {/* Raw JSON Option */}
-          <button
-            type="button"
-            onClick={handleExportJSON}
-            className="px-4 py-2.5 bg-[#1a202c] hover:bg-[#252d3d] border border-[#2d3748] text-slate-300 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
-          >
-            <Code size={14} />
-            <span>JSON</span>
           </button>
         </div>
       </div>
