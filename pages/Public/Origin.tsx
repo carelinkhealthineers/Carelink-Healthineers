@@ -556,9 +556,9 @@ export const Origin: React.FC = () => {
                 <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block">
                   {homeConfig.corporate.eyebrow}
                 </span>
-                <h2 className="text-3xl md:text-4xl font-normal text-slate-900 tracking-tight font-serif-classical">
+                <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
                   {homeConfig.corporate.titleMain}{' '}
-                  <span className="text-blue-600 font-serif-classical italic">
+                  <span className="text-blue-600 font-extrabold">
                     {homeConfig.corporate.titleAccent}
                   </span>
                 </h2>
@@ -673,9 +673,9 @@ export const Origin: React.FC = () => {
               <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block">
                 {homeConfig.quote.eyebrow}
               </span>
-              <h2 className="text-3xl md:text-5xl font-normal text-slate-900 tracking-tight leading-tight font-serif-classical">
+              <h2 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tight leading-tight">
                 {homeConfig.quote.titleLine1} <br />
-                <span className="italic text-blue-600 font-serif-classical">
+                <span className="text-blue-600 font-black">
                   {homeConfig.quote.titleAccent}
                 </span>
               </h2>
@@ -956,9 +956,9 @@ export const Origin: React.FC = () => {
                 <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block">
                   {homeConfig.blogs.eyebrow}
                 </span>
-                <h2 className="text-3xl md:text-4xl font-normal text-slate-900 tracking-tight font-serif-classical">
+                <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
                   {homeConfig.blogs.titleMain}{' '}
-                  <span className="italic text-blue-600 font-serif-classical">
+                  <span className="text-blue-600 font-extrabold">
                     {homeConfig.blogs.titleAccent}
                   </span>
                 </h2>

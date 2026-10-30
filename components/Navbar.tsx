@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, ChevronDown, LayoutGrid, Activity, ArrowRight, User, Shield, LogOut, Settings } from 'lucide-react';
+import { Menu, X, ChevronDown, LayoutGrid, Activity, ArrowRight, User, Shield, LogOut, Settings, Package, ArrowUpRight } from 'lucide-react';
 import { supabase, performSignOut, getSafeSession } from '../supabaseClient';
 import { Division } from '../types';
 
@@ -94,16 +94,16 @@ export const Navbar: React.FC = () => {
 
   return (
     <>
-      <nav className="fixed top-6 left-0 right-0 z-[100] flex justify-center px-6 pointer-events-none">
+      <nav className="fixed top-3 sm:top-6 left-0 right-0 z-[100] flex justify-center px-3 sm:px-6 pointer-events-none">
         <motion.div 
           initial={{ y: -100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: "spring", stiffness: 260, damping: 20 }}
-          className="pointer-events-auto w-full max-w-5xl bg-white/80 backdrop-blur-2xl border border-white/60 shadow-xl shadow-slate-200/10 rounded-full p-2 pl-6 pr-2 flex items-center justify-between relative"
+          className="pointer-events-auto w-full max-w-5xl bg-white/85 backdrop-blur-2xl border border-white/60 shadow-xl shadow-slate-200/10 rounded-full p-1.5 sm:p-2 pl-3 sm:pl-6 pr-1.5 sm:pr-2 flex items-center justify-between relative"
         >
           {/* LEFT: Identity */}
-          <Link to="/" className="flex items-center gap-3 group mr-6 shrink-0">
-            <div className="relative w-8 h-8">
+          <Link to="/" className="flex items-center gap-2 sm:gap-3 group mr-2 sm:mr-6 shrink-0">
+            <div className="relative w-7 h-7 sm:w-8 sm:h-8 shrink-0">
               <div className="absolute inset-0 bg-blue-500 rounded-full blur opacity-20 group-hover:opacity-40 transition-opacity" />
               <img 
                 src="https://i.imgur.com/y0UvXGu.png" 
@@ -111,9 +111,9 @@ export const Navbar: React.FC = () => {
                 className="w-full h-full object-contain relative z-10"
               />
             </div>
-            <div className="hidden sm:flex flex-col">
-              <span className="text-sm font-black tracking-tighter text-slate-900 leading-none">CARELINK</span>
-              <span className="text-[9px] font-bold text-slate-500 tracking-widest mt-0.5 uppercase">Healthineers</span>
+            <div className="flex flex-col">
+              <span className="text-xs sm:text-sm font-black tracking-tighter text-slate-900 leading-none">CARELINK</span>
+              <span className="text-[8px] sm:text-[9px] font-bold text-slate-500 tracking-widest mt-0.5 uppercase leading-none">Healthineers</span>
             </div>
           </Link>
 
@@ -200,17 +200,26 @@ export const Navbar: React.FC = () => {
               </AnimatePresence>
             </div>
 
-            {/* User Dropdown Menu */}
-            <div className="relative" ref={userMenuRef}>
+            {/* Mobile: Products Option */}
+            <Link 
+              to="/portfolio"
+              className="sm:hidden flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-md shadow-blue-600/20 shrink-0"
+            >
+              <Package size={13} />
+              <span>Products</span>
+            </Link>
+
+            {/* Desktop / PC: User Dropdown or Login (Unchanged) */}
+            <div className="hidden sm:block relative" ref={userMenuRef}>
               {user ? (
                 <button 
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center gap-2 p-1 pr-4 bg-slate-50 border border-slate-100 rounded-full hover:bg-blue-50 transition-all group"
+                  className="flex items-center gap-2 p-1 pr-4 bg-slate-50 border border-slate-100 rounded-full hover:bg-blue-50 transition-all group shrink-0"
                 >
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs ${role === 'admin' ? 'bg-blue-600' : 'bg-slate-900'}`}>
                     {user.email.charAt(0).toUpperCase()}
                   </div>
-                  <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest hidden sm:inline">
+                  <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">
                     {role === 'admin' ? 'Administrator' : 'My Account'}
                   </span>
                   <ChevronDown size={12} className={`text-slate-400 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
@@ -218,9 +227,9 @@ export const Navbar: React.FC = () => {
               ) : (
                 <Link 
                   to="/login"
-                  className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-slate-900/10"
+                  className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-slate-900/10 shrink-0"
                 >
-                  <User size={14} /> Login
+                  <User size={14} /> <span>Login</span>
                 </Link>
               )}
 
@@ -262,9 +271,10 @@ export const Navbar: React.FC = () => {
 
             <button 
               onClick={() => setIsOpen(!isOpen)}
-              className="lg:hidden w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-900 border border-slate-100 shadow-sm"
+              className="lg:hidden w-8 h-8 sm:w-10 sm:h-10 bg-white rounded-full flex items-center justify-center text-slate-900 border border-slate-100 shadow-sm shrink-0"
+              aria-label="Toggle navigation menu"
             >
-              {isOpen ? <X size={18} /> : <Menu size={18} />}
+              {isOpen ? <X size={16} /> : <Menu size={16} />}
             </button>
           </div>
         </motion.div>
@@ -331,6 +341,21 @@ export const Navbar: React.FC = () => {
                     <User size={16} /> Login
                   </Link>
                 )}
+
+                <div className="pt-3 pb-1 text-center border-t border-slate-100 mt-3">
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    Developed by{' '}
+                    <a 
+                      href="https://zaironx.top"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-slate-800 font-bold hover:text-blue-600 underline underline-offset-2 transition-colors inline-flex items-center gap-0.5"
+                    >
+                      Mohibbul Wara Orjon
+                      <ArrowUpRight size={10} className="inline" />
+                    </a>
+                  </span>
+                </div>
               </div>
             </motion.div>
           </motion.div>

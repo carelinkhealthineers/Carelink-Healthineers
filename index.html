@@ -13,16 +13,16 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sora:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&family=Outfit:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Syne:wght@600;700;800&family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary-glow: conic-gradient(from 180deg at 50% 50%, #16abff33 0deg, #0885ff33 55deg, #54d6ff33 120deg, #0071ff33 160deg, transparent 360deg);
         }
         html {
-            font-size: 14px; /* Slightly increased base size for professionalism */
+            font-size: 14px;
         }
         body { 
-            font-family: 'Inter', sans-serif; /* Body font Inter for maximum readability */
+            font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             scroll-behavior: smooth;
             -webkit-font-smoothing: antialiased;
             background-color: #ffffff;
@@ -30,13 +30,21 @@
             line-height: 1.6;
         }
         h1, h2, h3, h4, h5, h6 {
-            font-family: 'Sora', sans-serif; /* Display font Sora for headings */
+            font-family: 'Plus Jakarta Sans', 'Syne', 'Outfit', sans-serif;
+            letter-spacing: -0.03em;
+            font-feature-settings: "cv02", "cv03", "cv04", "cv11";
         }
-        .font-serif-classical {
-            font-family: 'Playfair Display', Georgia, serif;
+        .font-display {
+            font-family: 'Plus Jakarta Sans', 'Syne', sans-serif;
+            letter-spacing: -0.035em;
         }
-        .font-serif-editorial {
-            font-family: 'Cormorant Garamond', Georgia, serif;
+        .font-serif-classical,
+        .font-serif-editorial,
+        .font-serif-classical span,
+        .font-serif-editorial span {
+            font-family: 'Plus Jakarta Sans', 'Syne', 'Outfit', sans-serif !important;
+            font-style: normal !important;
+            letter-spacing: -0.03em;
         }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
         

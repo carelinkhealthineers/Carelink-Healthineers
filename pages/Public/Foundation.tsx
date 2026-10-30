@@ -60,9 +60,9 @@ export const Foundation: React.FC = () => {
               <span className="text-blue-600 font-extrabold">OFFICIAL DISTRIBUTOR · CORPORATE &amp; PROJECTS</span>
             </div>
 
-            <h1 className="text-4xl md:text-6xl font-normal text-slate-900 leading-tight tracking-tight font-serif-classical">
+            <h1 className="text-4xl md:text-6xl font-black text-slate-900 leading-tight tracking-tight">
               Trusted Medical &amp; Dental <br />
-              <span className="italic text-blue-600 font-serif-classical">Equipment Partner.</span>
+              <span className="text-blue-600 font-black">Equipment Partner.</span>
             </h1>
 
             <p className="text-base md:text-lg text-slate-500 font-medium max-w-2xl mx-auto leading-relaxed">

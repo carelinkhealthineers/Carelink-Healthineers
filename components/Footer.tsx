@@ -623,10 +623,10 @@ export const Footer: React.FC<FooterProps> = ({
             >
               {contactInfo.email}
             </a>
-            <span aria-hidden="true" className="text-neutral-600 hidden md:inline">
+            <span aria-hidden="true" className="text-neutral-600">
               |
             </span>
-            <span className="hidden md:inline">
+            <span>
               Developed by{' '}
               <a
                 href="https://zaironx.top"

@@ -112,8 +112,8 @@ export const DepthMotionCarousel: React.FC<DepthMotionCarouselProps> = ({
               </span>
             </div>
 
-            <h2 className="text-3xl md:text-5xl font-normal text-slate-900 tracking-tight font-serif-classical">
-              {titleMain} <span className="italic text-blue-600 font-serif-classical">{titleAccent}</span>
+            <h2 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tight leading-tight">
+              {titleMain} <span className="text-blue-600 font-black">{titleAccent}</span>
             </h2>
             <p className="text-slate-500 text-sm sm:text-base font-medium max-w-xl">
               {subtitle}

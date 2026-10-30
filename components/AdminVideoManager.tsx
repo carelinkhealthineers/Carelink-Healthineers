@@ -42,7 +42,7 @@ export const AdminVideoManager: React.FC = () => {
         .from('settings')
         .select('value')
         .eq('key', 'homepage_videos')
-        .single();
+        .maybeSingle();
 
       if (data?.value) {
         const parsed = JSON.parse(data.value);

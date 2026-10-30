@@ -58,7 +58,7 @@ export const HomepageVideoShowcase: React.FC = () => {
           .from('settings')
           .select('value')
           .eq('key', 'homepage_videos')
-          .single();
+          .maybeSingle();
 
         if (data?.value) {
           try {
@@ -94,8 +94,8 @@ export const HomepageVideoShowcase: React.FC = () => {
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-100 text-blue-600 text-[10px] font-bold uppercase tracking-widest rounded-full">
               <Film size={12} /> Product Videos
             </div>
-            <h2 className="text-3xl md:text-4xl font-normal tracking-tight text-slate-900 font-serif-classical">
-              Watch Equipment <span className="italic text-blue-600 font-serif-classical">Demos</span>
+            <h2 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 leading-tight">
+              Watch Equipment <span className="text-blue-600 font-black">Demos</span>
             </h2>
             <p className="text-slate-500 text-sm sm:text-base font-medium">
               See real product videos, setup guides, and how our equipment works.

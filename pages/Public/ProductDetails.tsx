@@ -91,27 +91,59 @@ export const ProductDetails: React.FC = () => {
 
   useEffect(() => {
     const fetchFullSpecification = async () => {
+      if (!productSlug) {
+        setProduct(null);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
-        const { data: productData, error: pError } = await supabase
+        let { data: productData, error: pError } = await supabase
           .from('products')
           .select('*')
           .eq('slug', productSlug)
-          .single();
-        
-        if (pError || !productData) throw pError;
-        setProduct(productData);
-        setActiveImage(productData.main_image);
-        recordProductView(productData);
+          .maybeSingle();
 
-        const { data: partsData, error: partsError } = await supabase
-          .from('product_parts')
-          .select('*')
-          .eq('product_id', productData.id)
-          .order('order_index');
+        // If not found by exact slug, attempt UUID id or case-insensitive slug match
+        if (!productData && !pError) {
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(productSlug);
+          if (isUuid) {
+            const { data: byId } = await supabase
+              .from('products')
+              .select('*')
+              .eq('id', productSlug)
+              .maybeSingle();
+            if (byId) productData = byId;
+          } else {
+            const { data: byIlike } = await supabase
+              .from('products')
+              .select('*')
+              .ilike('slug', productSlug)
+              .maybeSingle();
+            if (byIlike) productData = byIlike;
+          }
+        }
         
-        if (!partsError) setParts(partsData || []);
-        
+        if (pError) {
+          console.error('Data loading error:', pError);
+        }
+
+        if (productData) {
+          setProduct(productData);
+          setActiveImage(productData.main_image);
+          recordProductView(productData);
+
+          const { data: partsData, error: partsError } = await supabase
+            .from('product_parts')
+            .select('*')
+            .eq('product_id', productData.id)
+            .order('order_index');
+          
+          if (!partsError) setParts(partsData || []);
+        } else {
+          setProduct(null);
+        }
       } catch (err) {
         console.error('Data loading error:', err);
       } finally {
