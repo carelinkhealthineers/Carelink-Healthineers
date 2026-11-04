@@ -5,11 +5,13 @@ import {
   RefreshCw, Loader2, 
   Box, Terminal, ImagePlus, 
   ChevronRight, ImageIcon, Trash,
-  FileText, Tv, Globe, Sparkles, Tag, CheckCircle2, Package
+  FileText, Tv, Globe, Sparkles, Tag, CheckCircle2, Package,
+  Wand2, Zap, Copy, RotateCcw, Check, AlertCircle, FileSpreadsheet
 } from 'lucide-react';
 import { slugify } from '../../utils/slugify';
 import { supabase } from '../../supabaseClient';
 import { Division, Product, ProductPart } from '../../types';
+import { parseTechnicalSpecsFromText } from '../../utils/specParser';
 
 type EditorTab = 'metadata' | 'seo' | 'blueprints' | 'visuals' | 'architecture';
 
@@ -23,6 +25,8 @@ export const ProductArchitecture: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [relatedKeywordInput, setRelatedKeywordInput] = useState('');
+  const [rawSpecInput, setRawSpecInput] = useState('');
+  const [specNotice, setSpecNotice] = useState<{ message: string; type: 'success' | 'info' | 'error'; count: number } | null>(null);
 
   const mainImageRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
@@ -159,8 +163,98 @@ export const ProductArchitecture: React.FC = () => {
     input.click();
   };
 
+  const sampleSpecParagraph = `Key Performance & Technical Metrics
+Application Concentration (VAH Requirements):
+
+2% concentration for bactericidal, levurocidal (yeasticidal), and tuberculocidal disinfection.
+
+Solution Lifespan / Stand Time: Up to 14 days (depending on the level of contamination).
+
+Material Compatibility: High compatibility via integrated corrosion inhibitors (protects sensitive rotating and surgical instruments).
+
+Spectrum of Activity (Tested under high organic loads per EN standards)
+Bactericidal / Levurocidal: Yes (e.g., 2% in 5 minutes).
+
+Tuberculocidal / Mycobactericidal: Yes (e.g., in an ultrasonic device; 2% in 60 minutes).
+
+Virucidal Activity: Limited virucidal (enveloped viruses including HBV, HCV, HIV), noroviruses, and polyomaviruses SV40.`;
+
+  const handleAutoExtractSpecs = (sourceText?: string, mode: 'replace' | 'append' = 'replace') => {
+    const textToParse = (sourceText !== undefined ? sourceText : rawSpecInput).trim();
+    if (!textToParse) {
+      setSpecNotice({
+        message: 'Please paste or provide specifications text before extracting.',
+        type: 'error',
+        count: 0
+      });
+      return;
+    }
+
+    const { specs: parsedSpecs, count } = parseTechnicalSpecsFromText(textToParse);
+    if (count === 0) {
+      setSpecNotice({
+        message: 'No technical metrics could be detected. Please ensure format contains key: value pairs or colon-ended headings.',
+        type: 'error',
+        count: 0
+      });
+      return;
+    }
+
+    // Preserve system keys starting with '_'
+    const existing = (formData.technical_specs || {}) as Record<string, unknown>;
+    const preservedUnderscores: Record<string, string> = {};
+    for (const [k, v] of Object.entries(existing)) {
+      if (k.startsWith('_')) {
+        preservedUnderscores[k] = String(v ?? '');
+      }
+    }
+
+    let finalSpecs: Record<string, string>;
+    if (mode === 'replace') {
+      finalSpecs = {
+        ...preservedUnderscores,
+        ...parsedSpecs
+      };
+    } else {
+      finalSpecs = {
+        ...(existing as Record<string, string>),
+        ...parsedSpecs
+      };
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      technical_specs: finalSpecs
+    }));
+
+    setSpecNotice({
+      message: `Successfully extracted ${count} technical specification nodes (${mode === 'replace' ? 'replaced' : 'appended'}).`,
+      type: 'success',
+      count
+    });
+  };
+
+  const handleClearAllSpecs = () => {
+    if (!confirm('Are you sure you want to clear all technical specifications for this product?')) return;
+    const existing = (formData.technical_specs || {}) as Record<string, unknown>;
+    const preservedUnderscores: Record<string, string> = {};
+    for (const [k, v] of Object.entries(existing)) {
+      if (k.startsWith('_')) {
+        preservedUnderscores[k] = String(v ?? '');
+      }
+    }
+    setFormData(prev => ({ ...prev, technical_specs: preservedUnderscores }));
+    setSpecNotice({
+      message: 'All technical specifications have been cleared.',
+      type: 'info',
+      count: 0
+    });
+  };
+
   const toggleEditor = async (product: Product | null = null) => {
     setRelatedKeywordInput('');
+    setRawSpecInput('');
+    setSpecNotice(null);
     if (product) {
       setEditingId(product.id);
       const isVidOn = Boolean(product.show_video) !== false && 
@@ -883,7 +977,7 @@ export const ProductArchitecture: React.FC = () => {
                     {[
                       { id: 'metadata', label: 'Identity & SEO' },
                       { id: 'seo', label: 'SEO Keywords' },
-                      { id: 'blueprints', label: 'Metrics' },
+                      { id: 'blueprints', label: `Specs (${Object.keys(formData.technical_specs || {}).filter(k => !k.startsWith('_')).length})` },
                       { id: 'visuals', label: 'Visuals' },
                       { id: 'architecture', label: 'Structure' }
                     ].map(tab => (
@@ -930,8 +1024,25 @@ export const ProductArchitecture: React.FC = () => {
                        </div>
 
                        <div className="space-y-3">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.4em] px-1">Technical Summary (Short Description)</label>
-                          <textarea rows={3} className="w-full px-8 py-5 bg-white/[0.02] border border-white/10 rounded-2xl outline-none font-medium leading-relaxed text-slate-300 focus:border-blue-600 transition-all" value={formData.short_description} onChange={e => setFormData({...formData, short_description: e.target.value})} placeholder="Clear summary of this medical/dental system..." />
+                          <div className="flex items-center justify-between px-1">
+                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.4em]">Technical Summary (Short Description)</label>
+                             <button
+                               type="button"
+                               onClick={() => {
+                                 if (formData.short_description?.trim()) {
+                                   handleAutoExtractSpecs(formData.short_description, 'replace');
+                                   setActiveTab('blueprints');
+                                 } else {
+                                   alert('Please enter or paste summary text first.');
+                                 }
+                               }}
+                               className="px-3 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-[9px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer"
+                             >
+                               <Wand2 size={12} />
+                               <span>Auto-Extract Specs &gt;</span>
+                             </button>
+                          </div>
+                          <textarea rows={3} className="w-full px-8 py-5 bg-white/[0.02] border border-white/10 rounded-2xl outline-none font-medium leading-relaxed text-slate-300 focus:border-blue-600 transition-all" value={formData.short_description} onChange={e => setFormData({...formData, short_description: e.target.value})} placeholder="Clear summary of this medical/dental system or raw spec paragraph..." />
                        </div>
 
                        {/* Primary & Related Keywords SEO Box directly inside the Add/Edit Product form */}
@@ -1020,34 +1131,273 @@ export const ProductArchitecture: React.FC = () => {
 
                   {activeTab === 'blueprints' && (
                     <motion.div key="tech" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-10 max-w-4xl">
-                       <header className="flex items-center justify-between mb-8">
-                          <h4 className="text-xl font-black text-white tracking-tighter">Performance Coefficients</h4>
-                          <button onClick={() => setFormData(prev => ({ ...prev, technical_specs: { ...prev.technical_specs, 'NEW_METRIC': 'NOMINAL' } }))} className="px-6 py-3 bg-white/5 border border-white/10 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all cursor-pointer">
-                             Add Node
-                          </button>
-                       </header>
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {Object.entries(formData.technical_specs || {})
-                            .filter(([key]) => !key.startsWith('_'))
-                            .map(([key, val], idx) => (
-                            <div key={idx} className="flex gap-3 items-center bg-white/[0.02] p-4 rounded-2xl border border-white/5 group">
-                               <input className="flex-1 bg-black/40 px-4 py-3 rounded-xl outline-none font-black text-[9px] uppercase tracking-widest text-slate-400" value={key} onChange={e => {
-                                 const newSpecs = { ...formData.technical_specs };
-                                 const newKey = e.target.value;
-                                 const oldVal = newSpecs[key];
-                                 delete newSpecs[key];
-                                 newSpecs[newKey] = oldVal;
-                                 setFormData({...formData, technical_specs: newSpecs});
-                               }} />
-                               <input className="flex-1 bg-black/40 px-4 py-3 rounded-xl outline-none font-bold text-[10px] text-blue-500" value={val} onChange={e => setFormData({...formData, technical_specs: { ...formData.technical_specs, [key]: e.target.value }})} />
-                               <button onClick={() => {
-                                 const newSpecs = { ...formData.technical_specs };
-                                 delete newSpecs[key];
-                                 setFormData({...formData, technical_specs: newSpecs});
-                               }} className="p-3 text-slate-600 hover:text-rose-500 transition-colors cursor-pointer"><X size={16} /></button>
+                      {/* 1. Intelligent Spec Auto-Extractor Card */}
+                      <div className="p-8 bg-gradient-to-br from-cyan-950/30 via-[#0a0f18] to-blue-950/20 rounded-[2.5rem] border border-cyan-500/25 space-y-6 shadow-2xl">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-5">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0">
+                              <Wand2 size={24} />
                             </div>
-                          ))}
-                       </div>
+                            <div>
+                              <div className="flex items-center gap-2.5">
+                                <h4 className="text-xl font-black text-white tracking-tight">
+                                  Automatic Technical Specs Parser
+                                </h4>
+                                <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                                  Zero Manual Entry
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-400 font-medium mt-1">
+                                Paste any raw paragraph, VAH/EN standards, or spec bullet points. The parser automatically structures every metric perfectly.
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRawSpecInput(sampleSpecParagraph);
+                              handleAutoExtractSpecs(sampleSpecParagraph, 'replace');
+                            }}
+                            className="px-4 py-2.5 bg-white/5 hover:bg-white/10 text-cyan-400 border border-cyan-500/30 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-2 transition-all shrink-0 cursor-pointer"
+                            title="Load and test with sample paragraph"
+                          >
+                            <Copy size={13} />
+                            <span>Load Sample Paragraph</span>
+                          </button>
+                        </div>
+
+                        {/* Raw Input Box */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.25em] flex items-center gap-2">
+                              <Zap size={13} /> Paste Unstructured Spec Paragraph / Text
+                            </label>
+                            <span className="text-[10px] font-bold text-slate-500">
+                              Supports multiline specs, tables, bullets, and EN/VAH medical standards
+                            </span>
+                          </div>
+                          <textarea
+                            rows={7}
+                            className="w-full px-6 py-4 bg-black/60 border border-cyan-500/20 rounded-2xl outline-none font-mono text-xs text-slate-200 placeholder:text-slate-600 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-500/40 transition-all custom-scrollbar leading-relaxed"
+                            placeholder={`Paste raw specifications text here, for example:\n\nApplication Concentration (VAH Requirements):\n2% concentration for bactericidal, levurocidal, and tuberculocidal disinfection.\n\nSolution Lifespan / Stand Time: Up to 14 days\nMaterial Compatibility: High compatibility via integrated corrosion inhibitors\nVirucidal Activity: Limited virucidal (HBV, HCV, HIV)`}
+                            value={rawSpecInput}
+                            onChange={e => setRawSpecInput(e.target.value)}
+                          />
+                        </div>
+
+                        {/* Extract Actions Bar */}
+                        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                          <div className="flex flex-wrap items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => handleAutoExtractSpecs(rawSpecInput, 'replace')}
+                              className="px-6 py-3.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-black rounded-2xl text-[11px] uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-cyan-500/25 transition-all cursor-pointer"
+                            >
+                              <Wand2 size={16} />
+                              <span>⚡ Auto-Extract &amp; Set Specs</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleAutoExtractSpecs(rawSpecInput, 'append')}
+                              className="px-5 py-3.5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl text-[11px] font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer"
+                            >
+                              <Plus size={15} />
+                              <span>Append to Existing</span>
+                            </button>
+                          </div>
+
+                          {rawSpecInput && (
+                            <button
+                              type="button"
+                              onClick={() => setRawSpecInput('')}
+                              className="px-4 py-2.5 text-slate-500 hover:text-slate-300 text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                            >
+                              Clear Text
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Status Notice Banner */}
+                        {specNotice && (
+                          <div className={`p-4 rounded-2xl border flex items-center justify-between gap-3 ${
+                            specNotice.type === 'success'
+                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                              : specNotice.type === 'error'
+                              ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                              : 'bg-blue-500/10 border-blue-500/30 text-blue-300'
+                          }`}>
+                            <div className="flex items-center gap-3">
+                              {specNotice.type === 'success' ? (
+                                <CheckCircle2 size={18} className="shrink-0 text-emerald-400" />
+                              ) : (
+                                <AlertCircle size={18} className="shrink-0" />
+                              )}
+                              <span className="text-xs font-bold">{specNotice.message}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setSpecNotice(null)}
+                              className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 2. Structured Specs Matrix */}
+                      <div className="space-y-6">
+                        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+                          <div>
+                            <div className="flex items-center gap-3">
+                              <h4 className="text-xl font-black text-white tracking-tight">
+                                Structured Specifications Matrix
+                              </h4>
+                              <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                                {Object.keys(formData.technical_specs || {}).filter(k => !k.startsWith('_')).length} Parameters Active
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-400 font-medium mt-1">
+                              These parameters appear in the public catalog, product specification tab, and comparison matrices.
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setFormData(prev => ({
+                                ...prev,
+                                technical_specs: { ...prev.technical_specs, [`Metric_${Date.now().toString().slice(-4)}`]: 'Value' }
+                              }))}
+                              className="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer"
+                            >
+                              <Plus size={14} />
+                              <span>Add Row</span>
+                            </button>
+
+                            {Object.keys(formData.technical_specs || {}).filter(k => !k.startsWith('_')).length > 0 && (
+                              <button
+                                type="button"
+                                onClick={handleClearAllSpecs}
+                                className="px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer"
+                              >
+                                <Trash2 size={14} />
+                                <span>Clear All</span>
+                              </button>
+                            )}
+                          </div>
+                        </header>
+
+                        {/* Grid / List of Extracted Parameters */}
+                        {Object.keys(formData.technical_specs || {}).filter(k => !k.startsWith('_')).length === 0 ? (
+                          <div className="p-12 text-center rounded-3xl bg-white/[0.01] border border-dashed border-white/10 space-y-4">
+                            <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center mx-auto border border-cyan-500/20">
+                              <FileSpreadsheet size={26} />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-white">No technical specifications entered yet.</p>
+                              <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                                Paste your specification paragraph into the Auto-Extractor above or click below to load sample specs.
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRawSpecInput(sampleSpecParagraph);
+                                handleAutoExtractSpecs(sampleSpecParagraph, 'replace');
+                              }}
+                              className="px-5 py-2.5 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 rounded-xl text-xs font-bold inline-flex items-center gap-2 transition-all cursor-pointer"
+                            >
+                              <Zap size={14} />
+                              <span>Load &amp; Auto-Extract Sample Specs</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {Object.entries((formData.technical_specs || {}) as Record<string, string>)
+                              .filter(([key]) => !key.startsWith('_'))
+                              .map(([key, rawVal], idx) => {
+                                const val = String(rawVal ?? '');
+                                return (
+                                <div
+                                  key={idx}
+                                  className="p-4 bg-white/[0.02] hover:bg-white/[0.04] rounded-2xl border border-white/5 hover:border-cyan-500/30 transition-all flex flex-col md:flex-row md:items-start gap-3 group"
+                                >
+                                  {/* Metric / Parameter Name */}
+                                  <div className="md:w-1/3 flex flex-col gap-1">
+                                    <span className="text-[9px] font-black text-cyan-400 uppercase tracking-widest px-1">
+                                      Parameter / Metric Name
+                                    </span>
+                                    <input
+                                      type="text"
+                                      className="w-full bg-black/50 border border-white/10 focus:border-cyan-500 rounded-xl px-4 py-2.5 font-bold text-xs text-white outline-none transition-all"
+                                      value={key}
+                                      onChange={e => {
+                                        const newSpecs = { ...formData.technical_specs } as Record<string, string>;
+                                        const newKey = e.target.value;
+                                        const oldVal = newSpecs[key];
+                                        delete newSpecs[key];
+                                        newSpecs[newKey] = oldVal;
+                                        setFormData({ ...formData, technical_specs: newSpecs });
+                                      }}
+                                    />
+                                  </div>
+
+                                  {/* Metric Value */}
+                                  <div className="flex-1 flex flex-col gap-1">
+                                    <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest px-1">
+                                      Specification Value / Description
+                                    </span>
+                                    {val.length > 50 || val.includes('\n') ? (
+                                      <textarea
+                                        rows={2}
+                                        className="w-full bg-black/50 border border-white/10 focus:border-blue-500 rounded-xl px-4 py-2.5 font-medium text-xs text-slate-200 outline-none transition-all leading-relaxed custom-scrollbar"
+                                        value={val}
+                                        onChange={e =>
+                                          setFormData({
+                                            ...formData,
+                                            technical_specs: { ...formData.technical_specs, [key]: e.target.value }
+                                          })
+                                        }
+                                      />
+                                    ) : (
+                                      <input
+                                        type="text"
+                                        className="w-full bg-black/50 border border-white/10 focus:border-blue-500 rounded-xl px-4 py-2.5 font-medium text-xs text-slate-200 outline-none transition-all"
+                                        value={val}
+                                        onChange={e =>
+                                          setFormData({
+                                            ...formData,
+                                            technical_specs: { ...formData.technical_specs, [key]: e.target.value }
+                                          })
+                                        }
+                                      />
+                                    )}
+                                  </div>
+
+                                  {/* Delete Button */}
+                                  <div className="pt-5 flex justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newSpecs = { ...formData.technical_specs };
+                                        delete newSpecs[key];
+                                        setFormData({ ...formData, technical_specs: newSpecs });
+                                      }}
+                                      className="p-2.5 text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all cursor-pointer"
+                                      title="Remove this metric"
+                                    >
+                                      <Trash2 size={16} />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </motion.div>
                   )}
 

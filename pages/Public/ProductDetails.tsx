@@ -533,9 +533,9 @@ export const ProductDetails: React.FC = () => {
                     className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-2"
                   >
                     {Object.entries(product.technical_specs || {}).filter(([k]) => !k.startsWith('_')).map(([k, v], i) => (
-                       <div key={i} className="flex justify-between items-center py-5 border-b border-slate-100 hover:bg-slate-50 px-4 transition-all">
-                          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{k}</span>
-                          <span className="text-xs font-bold text-slate-800 tracking-tight">{v}</span>
+                       <div key={i} className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 py-4 border-b border-slate-100 hover:bg-slate-50/80 px-4 rounded-xl transition-all">
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider shrink-0 sm:max-w-[45%]">{k}</span>
+                          <span className="text-xs font-medium text-slate-800 tracking-tight text-left sm:text-right leading-relaxed">{v}</span>
                        </div>
                     ))}
                   </motion.div>
