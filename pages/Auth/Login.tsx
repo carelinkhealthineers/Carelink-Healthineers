@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Loader2, ArrowRight, AlertTriangle } from 'lucide-react';
+import { Mail, Lock, Loader2, ArrowRight, AlertTriangle, User } from 'lucide-react';
 import { supabase, classifySupabaseError } from '../../supabaseClient';
+import { findEmployeeByIdentifier, getCanonicalAuthEmail } from '../../services/employeeService';
 import { SEO } from '../../components/SEO';
 import { motion } from 'framer-motion';
 
 export const Login: React.FC = () => {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{ title: string; message: string; category: string } | null>(null);
@@ -18,9 +19,61 @@ export const Login: React.FC = () => {
     setError(null);
 
     try {
-      const cleanEmail = email.trim().toLowerCase();
+      const cleanInput = identifier.trim();
+      if (!cleanInput) throw new Error('Please enter your email or username.');
+
+      // Check if this matches an executive account
+      const { findExecutiveByIdentifier, setExecutiveSession } = await import('../../services/executiveService');
+      const matchedExec = await findExecutiveByIdentifier(cleanInput);
+
+      if (matchedExec) {
+        if (matchedExec.status === 'inactive') {
+          setError({
+            title: 'Executive Access Inactive',
+            message: 'This executive account is currently inactive. Please contact system administration.',
+            category: 'auth',
+          });
+          setLoading(false);
+          return;
+        }
+
+        setExecutiveSession(matchedExec);
+        navigate('/executive');
+        return;
+      }
+
+      // Check if this matches a registered employee account
+      const matchedEmployee = await findEmployeeByIdentifier(cleanInput);
+
+      if (matchedEmployee) {
+        if (matchedEmployee.status === 'suspended') {
+          setError({
+            title: 'Account Suspended',
+            message: 'This employee account is suspended. Please contact the system administrator.',
+            category: 'auth',
+          });
+          setLoading(false);
+          return;
+        }
+
+        if (matchedEmployee.status === 'inactive') {
+          setError({
+            title: 'Account Inactive',
+            message: 'This employee account is currently inactive. Please contact the administrator to activate it.',
+            category: 'auth',
+          });
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Determine canonical authentication email
+      const authEmail = matchedEmployee
+        ? matchedEmployee.auth_email
+        : getCanonicalAuthEmail(cleanInput);
+
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
+        email: authEmail,
         password,
       });
 
@@ -37,12 +90,27 @@ export const Login: React.FC = () => {
         console.warn('Profile role check warning:', profileError.message);
       }
 
-      const userRole = profile?.role || 'buyer';
+      const userRole = profile?.role || data.user.user_metadata?.role || 'buyer';
 
       if (userRole === 'admin') {
         navigate('/command-nexus');
+      } else if (userRole === 'executive' || userRole === 'chairman' || userRole === 'md') {
+        navigate('/executive');
+      } else if (
+        matchedEmployee ||
+        userRole === 'employee' ||
+        userRole === 'engineer' ||
+        userRole === 'technician'
+      ) {
+        navigate('/employee-portal');
       } else {
-        navigate('/');
+        // Also check if this user email is registered as an employee in the system
+        const checkEmp = await findEmployeeByIdentifier(data.user.email || '');
+        if (checkEmp) {
+          navigate('/employee-portal');
+        } else {
+          navigate('/');
+        }
       }
     } catch (err: any) {
       const classified = classifySupabaseError(err);
@@ -89,14 +157,14 @@ export const Login: React.FC = () => {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <div className="relative group">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={18} />
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={18} />
                     <input
-                      type="email"
+                      type="text"
                       required
                       className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl text-slate-900 font-bold outline-none focus:bg-white focus:border-blue-500/20 transition-all placeholder:text-slate-300 text-sm"
-                      placeholder="Email Address"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Email or Username (e.g. ashik@engnr)"
+                      value={identifier}
+                      onChange={(e) => setIdentifier(e.target.value)}
                     />
                   </div>
                 </div>

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, ChevronDown, LayoutGrid, Activity, ArrowRight, User, Shield, LogOut, Settings, Package, ArrowUpRight } from 'lucide-react';
 import { supabase, performSignOut, getSafeSession } from '../supabaseClient';
 import { Division } from '../types';
+import { findEmployeeByIdentifier } from '../services/employeeService';
 
 const NAV_ITEMS = [
   { label: 'Home', path: '/' },
@@ -22,6 +23,7 @@ export const Navbar: React.FC = () => {
   const [hoveredPath, setHoveredPath] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
   const [role, setRole] = useState<string | null>(null);
+  const [isEmployee, setIsEmployee] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -39,8 +41,12 @@ export const Navbar: React.FC = () => {
           .eq('id', userObj.id)
           .maybeSingle();
         setRole(profile?.role || 'buyer');
+
+        const emp = await findEmployeeByIdentifier(userObj.email || '');
+        setIsEmployee(Boolean(emp));
       } catch {
         setRole('buyer');
+        setIsEmployee(false);
       }
     };
 
@@ -220,7 +226,7 @@ export const Navbar: React.FC = () => {
                     {user.email.charAt(0).toUpperCase()}
                   </div>
                   <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">
-                    {role === 'admin' ? 'Administrator' : 'My Account'}
+                    {role === 'admin' ? 'Administrator' : isEmployee ? 'Staff Portal' : 'My Account'}
                   </span>
                   <ChevronDown size={12} className={`text-slate-400 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
                 </button>
@@ -242,7 +248,7 @@ export const Navbar: React.FC = () => {
                     className="absolute top-full right-0 mt-4 w-64 bg-white/95 backdrop-blur-xl rounded-[2.5rem] border border-white/60 shadow-2xl p-3 z-50 origin-top-right overflow-hidden"
                   >
                     <div className="px-5 py-4 border-b border-slate-100 mb-2">
-                      <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Authenticated Email</div>
+                      <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Authenticated Account</div>
                       <div className="text-[10px] font-black text-slate-900 truncate">{user.email}</div>
                     </div>
                     
@@ -254,6 +260,16 @@ export const Navbar: React.FC = () => {
                           className="flex items-center gap-3 w-full p-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest text-blue-600 hover:bg-blue-50 transition-colors"
                         >
                           <Shield size={16} /> Admin Dashboard
+                        </Link>
+                      )}
+
+                      {isEmployee && (
+                        <Link 
+                          to="/employee-portal"
+                          onClick={() => setShowUserMenu(false)}
+                          className="flex items-center gap-3 w-full p-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest text-blue-600 hover:bg-blue-50 transition-colors"
+                        >
+                          <Shield size={16} /> Employee Portal
                         </Link>
                       )}
                       
@@ -323,6 +339,15 @@ export const Navbar: React.FC = () => {
                          className="block px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-blue-600 hover:bg-blue-50 transition-all flex items-center gap-3"
                        >
                          <Shield size={16} /> Admin Nexus
+                       </Link>
+                     )}
+                     {isEmployee && (
+                       <Link 
+                         to="/employee-portal"
+                         onClick={() => setIsOpen(false)}
+                         className="block px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-blue-600 hover:bg-blue-50 transition-all flex items-center gap-3"
+                       >
+                         <Shield size={16} /> Employee Portal
                        </Link>
                      )}
                      <button 

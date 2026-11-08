@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Users,
   Search,
@@ -8,6 +9,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Loader2,
+  UserCheck,
 } from 'lucide-react';
 import { supabase, classifySupabaseError } from '../../supabaseClient';
 
@@ -112,6 +114,14 @@ export const UserRegistry: React.FC = () => {
               <span>{successToast}</span>
             </div>
           )}
+
+          <Link
+            to="/command-nexus/employees"
+            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md shadow-blue-500/20 transition-all cursor-pointer"
+          >
+            <UserCheck size={14} />
+            <span>Employee Accounts</span>
+          </Link>
 
           <button
             onClick={fetchUsers}

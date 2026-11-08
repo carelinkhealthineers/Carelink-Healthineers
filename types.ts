@@ -92,3 +92,266 @@ export interface Alliance {
   created_at: string;
   website_url?: string;
 }
+
+export type EmployeeRole = 'Engineer' | 'Technician' | 'Employee';
+export type EmployeeStatus = 'active' | 'inactive' | 'suspended';
+
+export interface Employee {
+  id: string;
+  auth_user_id?: string;
+  employee_id: string;
+  full_name: string;
+  username: string;
+  auth_email: string;
+  designation: string;
+  department: string;
+  phone_number: string;
+  joining_date: string;
+  role: EmployeeRole;
+  status: EmployeeStatus;
+  accessible_modules: string[];
+  profile_picture?: string;
+  address?: string;
+  emergency_contact?: string;
+  permitted_edit_fields?: string[]; // e.g. ['phone_number', 'address', 'emergency_contact', 'profile_picture']
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
+}
+
+export interface ProfileUpdateRequest {
+  id: string;
+  employee_id: string;
+  employee_code: string;
+  employee_name: string;
+  field_name: string;
+  field_label: string;
+  current_value: string;
+  requested_value: string;
+  reason?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  submitted_at: string;
+  reviewed_at?: string;
+  review_notes?: string;
+}
+
+export type DutyStatus = 'not_started' | 'in_progress' | 'completed';
+export type DutyPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface WorkNote {
+  id: string;
+  note: string;
+  author: string;
+  created_at: string;
+}
+
+export interface DutyAttachment {
+  name: string;
+  url: string;
+}
+
+export interface CompletionDetails {
+  completed_at: string;
+  completion_notes: string;
+  parts_used_or_summary?: string;
+}
+
+export interface AssignedDuty {
+  id: string;
+  employee_id: string; // Employee.id
+  employee_name: string;
+  employee_code: string;
+  title: string;
+  description: string;
+  location: string;
+  priority: DutyPriority;
+  assigned_date: string;
+  deadline: string;
+  instructions?: string;
+  attachments?: DutyAttachment[];
+  status: DutyStatus;
+  acknowledged_at?: string;
+  work_notes?: WorkNote[];
+  completion_details?: CompletionDetails;
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
+}
+
+export interface EmployeeDuty {
+  id: string;
+  title: string;
+  time?: string;
+  location?: string;
+  priority: 'low' | 'medium' | 'high';
+  status: 'pending' | 'completed';
+  completed_at?: string;
+}
+
+export interface EmployeeTask {
+  id: string;
+  title: string;
+  category: string;
+  due_date?: string;
+  priority: 'low' | 'normal' | 'high';
+  status: 'pending' | 'completed';
+  completed_at?: string;
+  created_at: string;
+}
+
+export interface DailyServiceReport {
+  id: string;
+  title: string;
+  date: string;
+  equipment_client?: string;
+  summary: string;
+  hours_logged: number;
+  status: 'draft' | 'submitted' | 'approved';
+  created_at: string;
+}
+
+export interface EmployeeWorkspaceData {
+  duties: EmployeeDuty[];
+  tasks: EmployeeTask[];
+  reports: DailyServiceReport[];
+}
+
+/* ==========================================
+   Phase 05: Daily Work Activity Report Types
+   ========================================== */
+export type DailyReportStatus = 'draft' | 'submitted' | 'approved' | 'correction_requested';
+
+export interface DailyWorkReportAttachment {
+  name: string;
+  url: string;
+}
+
+export interface ReportHistoryItem {
+  timestamp: string;
+  action: string;
+  actor: string;
+  notes?: string;
+}
+
+export interface DailyWorkReport {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  employee_code: string;
+  report_date: string; // YYYY-MM-DD
+  work_summary: string;
+  tasks_completed: string;
+  tasks_pending: string;
+  work_location: string;
+  equipment_worked: string;
+  client_hospital: string;
+  problems_encountered: string;
+  additional_notes: string;
+  attachments?: DailyWorkReportAttachment[];
+  status: DailyReportStatus;
+  admin_remarks?: string;
+  allow_duplicate?: boolean; // Set by Admin to permit re-submitting for same date
+  submitted_at?: string;
+  reviewed_at?: string;
+  created_at: string;
+  updated_at: string;
+  history?: ReportHistoryItem[];
+}
+
+/* ==========================================
+   Phase 06: TA/DA & Expense Claim Types
+   ========================================== */
+export type TaDaClaimStatus = 'draft' | 'submitted' | 'approved' | 'rejected';
+export type PaymentStatus = 'unpaid' | 'paid';
+
+export interface ExpenseAttachment {
+  name: string;
+  url: string;
+}
+
+export interface TaDaClaim {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  employee_code: string;
+  title: string;
+  travel_start_date: string;
+  travel_end_date: string;
+  origin: string;
+  destination: string;
+  travel_allowance: number;
+  daily_allowance: number;
+  transportation_expense: number;
+  accommodation_food_expense: number;
+  total_amount: number;
+  bills_receipts?: ExpenseAttachment[];
+  remarks?: string;
+  status: TaDaClaimStatus;
+  payment_status: PaymentStatus;
+  admin_remarks?: string;
+  submitted_at?: string;
+  reviewed_at?: string;
+  paid_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/* ==========================================
+   Phase 09: Executive Management Types
+   ========================================== */
+export type ExecutiveRole = 'Chairman' | 'MD' | 'Director' | 'Executive';
+export type ExecutiveStatus = 'active' | 'inactive';
+
+export interface ExecutiveAccount {
+  id: string;
+  auth_user_id?: string;
+  full_name: string;
+  username: string; // e.g. chairman@exec, md@exec, director@exec
+  auth_email: string;
+  title_designation: string; // e.g. "Chairman & Founder", "Managing Director (MD)", "Director of Operations"
+  role: ExecutiveRole;
+  accessible_departments: string[]; // ['all'] or array of department names
+  phone_number?: string;
+  status: ExecutiveStatus;
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
+}
+
+export type DecisionPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type DecisionStatus = 'pending' | 'in_progress' | 'completed' | 'archived';
+
+export interface ManagementDecision {
+  id: string;
+  executive_id: string;
+  executive_name: string;
+  executive_role: ExecutiveRole;
+  title: string;
+  description: string;
+  target_department: string;
+  assigned_manager_name?: string;
+  priority: DecisionPriority;
+  status: DecisionStatus;
+  deadline?: string;
+  remarks?: string;
+  completion_notes?: string;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string;
+  related_report_id?: string;
+  related_employee_id?: string;
+}
+
+export interface ExecutiveRemark {
+  id: string;
+  report_id: string;
+  executive_id: string;
+  executive_name: string;
+  executive_role: ExecutiveRole;
+  remark: string;
+  flagged_urgent?: boolean;
+  created_at: string;
+}
+
+
+

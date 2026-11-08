@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, useLocation, Link, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { LayoutGrid, Package, FolderTree, Mail, Settings, LogOut, Handshake, BookOpen, Users, Terminal, Globe, Menu, X, Home, ExternalLink } from 'lucide-react';
+import { LayoutGrid, Package, FolderTree, Mail, Settings, LogOut, Handshake, BookOpen, Users, Terminal, Globe, Menu, X, Home, ExternalLink, UserCheck } from 'lucide-react';
 import { supabase, performSignOut, getSafeSession, clearStaleAuthStorage } from './supabaseClient';
 import { recordPageView, recordAnalyticsEvent, recordSessionEngagement } from './utils/analyticsTracker';
 
@@ -35,14 +35,23 @@ import { DivisionControl } from './pages/Admin/DivisionControl';
 import { SystemSettings } from './pages/Admin/SystemSettings';
 import { BlogArchitecture } from './pages/Admin/BlogArchitecture';
 import { UserRegistry } from './pages/Admin/UserRegistry';
+import { EmployeeManagement } from './pages/Admin/EmployeeManagement';
 import { SEOControl } from './pages/Admin/SEOControl';
 import { HomepageControl } from './pages/Admin/HomepageControl';
+import { EmployeePortal } from './pages/Employee/EmployeePortal';
+import { ExecutivePortal } from './pages/Executive/ExecutivePortal';
+import { findEmployeeByIdentifier } from './services/employeeService';
 
 // Protected Route Component — verifies real Supabase Auth session and public.profiles role
-const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> = ({ children, adminOnly = false }) => {
+const ProtectedRoute: React.FC<{
+  children: React.ReactNode;
+  adminOnly?: boolean;
+  employeeOnly?: boolean;
+}> = ({ children, adminOnly = false, employeeOnly = false }) => {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [role, setRole] = useState<string | null>(null);
+  const [isEmployee, setIsEmployee] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -73,14 +82,19 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
           console.error('Failed to verify profile role from database:', error.message);
         }
 
+        const employeeRecord = await findEmployeeByIdentifier(userObj.email || '');
+
         if (mounted) {
-          setRole(profile?.role || 'buyer');
+          const verifiedRole = profile?.role || (employeeRecord ? 'employee' : 'buyer');
+          setRole(verifiedRole);
+          setIsEmployee(Boolean(employeeRecord));
           setLoading(false);
         }
       } catch (e) {
         console.error('Unexpected role verification error:', e);
         if (mounted) {
           setRole('buyer');
+          setIsEmployee(false);
           setLoading(false);
         }
       }
@@ -93,6 +107,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
           if (mounted) {
             setUser(null);
             setRole(null);
+            setIsEmployee(false);
             setLoading(false);
           }
           return;
@@ -108,6 +123,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
         if (mounted) {
           setUser(null);
           setRole(null);
+          setIsEmployee(false);
           setLoading(false);
         }
       }
@@ -127,6 +143,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
       } else {
         setUser(null);
         setRole(null);
+        setIsEmployee(false);
         setLoading(false);
       }
     });
@@ -140,7 +157,21 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
   if (loading) return <GlobalLoader />;
 
   if (!user) return <Navigate to="/login" replace />;
-  if (adminOnly && role !== 'admin') return <Navigate to="/" replace />;
+
+  // Prevent unauthorized access to Admin routes
+  if (adminOnly && role !== 'admin') {
+    if (isEmployee) {
+      return <Navigate to="/employee-portal" replace />;
+    }
+    return <Navigate to="/" replace />;
+  }
+
+  // Employee-only route protection
+  if (employeeOnly) {
+    if (role !== 'admin' && !isEmployee) {
+      return <Navigate to="/" replace />;
+    }
+  }
 
   return <>{children}</>;
 };
@@ -150,6 +181,7 @@ const NAV_ADMIN_ITEMS = [
   { label: 'Homepage Control', path: '/command-nexus/homepage', icon: <Home size={18} /> },
   { label: 'Products', path: '/command-nexus/architecture', icon: <Package size={18} /> },
   { label: 'User Registry', path: '/command-nexus/users', icon: <Users size={18} /> },
+  { label: 'Employees', path: '/command-nexus/employees', icon: <UserCheck size={18} /> },
   { label: 'Insights', path: '/command-nexus/editorial', icon: <BookOpen size={18} /> },
   { label: 'Inquiry Flow', path: '/command-nexus/inquiries', icon: <Mail size={18} /> },
   { label: 'Divisions', path: '/command-nexus/divisions', icon: <FolderTree size={18} /> },
@@ -160,13 +192,19 @@ const NAV_ADMIN_ITEMS = [
 const App: React.FC = () => {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/command-nexus');
+  const isEmployeePortal = location.pathname.startsWith('/employee-portal');
+  const isExecutivePortal = location.pathname.startsWith('/executive');
   const [adminMobileOpen, setAdminMobileOpen] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
 
   useEffect(() => {
     window.scrollTo(0, 0);
     setAdminMobileOpen(false);
-    if (location.pathname.startsWith('/command-nexus')) {
+    if (
+      location.pathname.startsWith('/command-nexus') ||
+      location.pathname.startsWith('/employee-portal') ||
+      location.pathname.startsWith('/executive')
+    ) {
       setPageLoading(false);
       return;
     }
@@ -202,6 +240,7 @@ const App: React.FC = () => {
       if (
         href.startsWith('#') ||
         href.startsWith('/command-nexus') ||
+        href.startsWith('/employee-portal') ||
         anchor.target === '_blank'
       ) {
         return;
@@ -214,7 +253,11 @@ const App: React.FC = () => {
 
     const startTime = Date.now();
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden' && !window.location.pathname.startsWith('/command-nexus')) {
+      if (
+        document.visibilityState === 'hidden' &&
+        !window.location.pathname.startsWith('/command-nexus') &&
+        !window.location.pathname.startsWith('/employee-portal')
+      ) {
         const elapsedSec = Math.round((Date.now() - startTime) / 1000);
         if (elapsedSec >= 4) {
           recordSessionEngagement(elapsedSec);
@@ -248,9 +291,9 @@ const App: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
-      {!isAdmin && <Navbar />}
+      {!isAdmin && !isEmployeePortal && !isExecutivePortal && <Navbar />}
       
-      <main className={isAdmin ? 'bg-white' : 'min-h-screen'}>
+      <main className={isAdmin ? 'bg-white' : isEmployeePortal ? 'bg-[#090d14]' : isExecutivePortal ? 'bg-[#f8fafc]' : 'min-h-screen'}>
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<Origin />} />
@@ -277,6 +320,19 @@ const App: React.FC = () => {
           <Route path="/insights/:blogSlug" element={<BlogDetails />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+
+          {/* Employee Portal Route */}
+          <Route
+            path="/employee-portal"
+            element={
+              <ProtectedRoute employeeOnly>
+                <EmployeePortal />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Executive Management Dashboard Route */}
+          <Route path="/executive/*" element={<ExecutivePortal />} />
 
           {/* Admin Routes */}
           <Route path="/command-nexus/*" element={
@@ -457,6 +513,7 @@ const App: React.FC = () => {
                         <Route path="/meetings" element={<Navigate to="/command-nexus" replace />} />
                         <Route path="/architecture" element={<ProductArchitecture />} />
                         <Route path="/users" element={<UserRegistry />} />
+                        <Route path="/employees" element={<EmployeeManagement />} />
                         <Route path="/editorial" element={<BlogArchitecture />} />
                         <Route path="/alliances" element={<Navigate to="/command-nexus" replace />} />
                         <Route path="/inquiries" element={<InquiryFlow />} />
@@ -472,8 +529,8 @@ const App: React.FC = () => {
           } />
         </Routes>
       </main>
-      {!isAdmin && <Footer />}
-      {!isAdmin && <FloatingContactWidget />}
+      {!isAdmin && !isEmployeePortal && !isExecutivePortal && <Footer />}
+      {!isAdmin && !isEmployeePortal && !isExecutivePortal && <FloatingContactWidget />}
     </div>
   );
 };
