@@ -20,6 +20,8 @@ import {
   Trash2,
   FileCheck,
   Building2,
+  Download,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { TaDaClaim, TaDaClaimStatus, PaymentStatus, Employee, ExpenseAttachment } from '../../types';
 import {
@@ -29,6 +31,7 @@ import {
   TaDaClaimInput,
   deleteTaDaClaim,
 } from '../../services/tadaService';
+import { exportToExcel, exportToPDF } from '../../utils/exportHelper';
 
 interface TaDaExpenseSectionProps {
   employee: Employee;
@@ -233,6 +236,54 @@ export const TaDaExpenseSection: React.FC<TaDaExpenseSectionProps> = ({
     .filter((c) => c.payment_status === 'paid')
     .reduce((acc, c) => acc + (c.total_amount || 0), 0);
 
+  const handleExportPDF = () => {
+    const headers = ['Destination', 'Start Date', 'End Date', 'TA (BDT)', 'DA (BDT)', 'Transport', 'Hotel', 'Total (BDT)', 'Status', 'Payment'];
+    const rows = claims.map((c) => [
+      c.destination || '',
+      c.travel_start_date || '',
+      c.travel_end_date || '',
+      c.travel_allowance || 0,
+      c.daily_allowance || 0,
+      c.transportation_expense || 0,
+      c.accommodation_food_expense || 0,
+      c.total_amount || 0,
+      c.status?.toUpperCase() || '',
+      c.payment_status?.toUpperCase() || '',
+    ]);
+    exportToPDF({
+      filename: `my_tada_claims_${employee.employee_id}`,
+      title: `${employee.full_name} (${employee.employee_id}) — TA/DA & Expense Claims`,
+      subtitle: `Total Claim Value: ৳${claims.reduce((acc, c) => acc + (c.total_amount || 0), 0).toLocaleString()} · Department: ${employee.department}`,
+      headers,
+      rows,
+    });
+    onToast('Exported TA/DA claims to PDF');
+  };
+
+  const handleExportExcel = () => {
+    const headers = ['Claim Title', 'Destination', 'Start Date', 'End Date', 'TA', 'DA', 'Transport', 'Hotel & Food', 'Total Amount', 'Status', 'Payment'];
+    const rows = claims.map((c) => [
+      c.title || '',
+      c.destination || '',
+      c.travel_start_date || '',
+      c.travel_end_date || '',
+      c.travel_allowance || 0,
+      c.daily_allowance || 0,
+      c.transportation_expense || 0,
+      c.accommodation_food_expense || 0,
+      c.total_amount || 0,
+      c.status?.toUpperCase() || '',
+      c.payment_status?.toUpperCase() || '',
+    ]);
+    exportToExcel({
+      filename: `my_tada_claims_${employee.employee_id}`,
+      sheetName: 'My Expenses',
+      headers,
+      rows,
+    });
+    onToast('Exported TA/DA claims to Excel');
+  };
+
   return (
     <section className="p-6 sm:p-7 rounded-3xl bg-[#0e1422] border border-[#1c2638] space-y-6">
       {/* Header */}
@@ -252,13 +303,36 @@ export const TaDaExpenseSection: React.FC<TaDaExpenseSectionProps> = ({
           </div>
         </div>
 
-        <button
-          onClick={handleOpenNewForm}
-          className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl text-xs font-bold flex items-center gap-2 transition-all shadow-md shadow-emerald-600/20 cursor-pointer shrink-0"
-        >
-          <Plus size={15} />
-          <span>New TA/DA Expense Claim</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {claims.length > 0 && (
+            <>
+              <button
+                onClick={handleExportPDF}
+                className="px-3 py-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                title="Export claims to PDF"
+              >
+                <Download size={13} />
+                <span>PDF</span>
+              </button>
+              <button
+                onClick={handleExportExcel}
+                className="px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                title="Export claims to Excel"
+              >
+                <FileSpreadsheet size={13} />
+                <span>Excel</span>
+              </button>
+            </>
+          )}
+
+          <button
+            onClick={handleOpenNewForm}
+            className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl text-xs font-bold flex items-center gap-2 transition-all shadow-md shadow-emerald-600/20 cursor-pointer shrink-0"
+          >
+            <Plus size={15} />
+            <span>New TA/DA Expense Claim</span>
+          </button>
+        </div>
       </div>
 
       {/* Aggregates row */}

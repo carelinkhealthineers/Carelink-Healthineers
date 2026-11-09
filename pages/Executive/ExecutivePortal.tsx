@@ -33,8 +33,13 @@ import {
   Loader2,
   X,
   ChevronDown,
-  Info,
   Receipt,
+  FileSpreadsheet,
+  StickyNote,
+  Pin,
+  Trash2,
+  Stethoscope,
+  BookOpen,
 } from 'lucide-react';
 import {
   ExecutiveAccount,
@@ -47,6 +52,10 @@ import {
   DecisionPriority,
   DecisionStatus,
   ExecutiveRemark,
+  CompanyNote,
+  NoteCategory,
+  ProductSaleRecord,
+  CustomExcelPreset,
 } from '../../types';
 import {
   getCurrentExecutiveSession,
@@ -54,21 +63,44 @@ import {
   fetchManagementDecisions,
   createManagementDecision,
   updateDecisionStatus,
+  deleteManagementDecision,
   fetchExecutiveRemarks,
   addExecutiveRemark,
   setExecutiveSession,
+  fetchCompanyNotes,
+  createCompanyNote,
+  deleteCompanyNote,
+  togglePinCompanyNote,
+  fetchSalesRecords,
+  createSalesRecord,
+  deleteSalesRecord,
+  fetchMonthlyBudget,
+  saveMonthlyBudget,
+  fetchCustomExcelPresets,
+  saveCustomExcelPreset,
+  deleteCustomExcelPreset,
 } from '../../services/executiveService';
 import { fetchEmployees, DEPARTMENTS } from '../../services/employeeService';
 import { fetchDailyWorkReports, adminReviewDailyReport } from '../../services/dailyReportService';
 import { fetchAssignedDuties } from '../../services/dutyService';
 import { fetchTaDaClaims, adminReviewTaDaClaim, adminTogglePaymentStatus } from '../../services/tadaService';
 import { performSignOut } from '../../supabaseClient';
+import { exportToExcel, exportToPDF } from '../../utils/exportHelper';
+import { FinancialHishabSection } from './components/FinancialHishabSection';
+import { DoctorSalesLedgerSection } from './components/DoctorSalesLedgerSection';
+import { CustomExcelPortalSection } from './components/CustomExcelPortalSection';
+import { ExecutiveUserManualBangla } from './components/ExecutiveUserManualBangla';
+import { ManagementDecisionsSection } from './components/ManagementDecisionsSection';
 
 type TabView =
   | 'overview'
-  | 'departments'
+  | 'hishab'
+  | 'sales'
+  | 'custom-excel'
+  | 'manual'
   | 'reports'
   | 'tada'
+  | 'notes'
   | 'decisions'
   | 'analytics'
   | 'alerts';
@@ -89,6 +121,10 @@ export const ExecutivePortal: React.FC = () => {
   const [tadaClaims, setTadaClaims] = useState<TaDaClaim[]>([]);
   const [decisions, setDecisions] = useState<ManagementDecision[]>([]);
   const [remarks, setRemarks] = useState<ExecutiveRemark[]>([]);
+  const [companyNotes, setCompanyNotes] = useState<CompanyNote[]>([]);
+  const [salesRecords, setSalesRecords] = useState<ProductSaleRecord[]>([]);
+  const [monthlyBudget, setMonthlyBudget] = useState<number>(500000);
+  const [customExcelPresets, setCustomExcelPresets] = useState<CustomExcelPreset[]>([]);
 
   // Filter & Search states
   const [searchTerm, setSearchTerm] = useState('');
@@ -97,14 +133,31 @@ export const ExecutivePortal: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [execMonth, setExecMonth] = useState<string>('All');
   const [execYear, setExecYear] = useState<string>('All');
+  const [timeFrame, setTimeFrame] = useState<'all' | 'today' | 'week' | 'month'>('all');
 
   // Modal States
   const [selectedReport, setSelectedReport] = useState<DailyWorkReport | null>(null);
   const [isDecisionModalOpen, setIsDecisionModalOpen] = useState(false);
   const [isRemarkModalOpen, setIsRemarkModalOpen] = useState(false);
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [targetReportForRemark, setTargetReportForRemark] = useState<DailyWorkReport | null>(null);
   const [remarkInput, setRemarkInput] = useState('');
   const [isFlagUrgent, setIsFlagUrgent] = useState(false);
+
+  // Note Form
+  const [newNote, setNewNote] = useState<{
+    title: string;
+    content: string;
+    category: NoteCategory;
+    amount: string;
+    is_pinned: boolean;
+  }>({
+    title: '',
+    content: '',
+    category: 'expense',
+    amount: '',
+    is_pinned: false,
+  });
 
   // Decision Form
   const [newDecision, setNewDecision] = useState<{
@@ -159,15 +212,29 @@ export const ExecutivePortal: React.FC = () => {
       }
 
       // 2. Fetch all real enterprise data in parallel
-      const [empList, reportList, dutyList, claimList, decisionList, remarkList] =
-        await Promise.all([
-          fetchEmployees().catch(() => []),
-          fetchDailyWorkReports().catch(() => []),
-          fetchAssignedDuties().catch(() => []),
-          fetchTaDaClaims().catch(() => []),
-          fetchManagementDecisions().catch(() => []),
-          fetchExecutiveRemarks().catch(() => []),
-        ]);
+      const [
+        empList,
+        reportList,
+        dutyList,
+        claimList,
+        decisionList,
+        remarkList,
+        notesList,
+        salesList,
+        budgetAmount,
+        presetList,
+      ] = await Promise.all([
+        fetchEmployees().catch(() => []),
+        fetchDailyWorkReports().catch(() => []),
+        fetchAssignedDuties().catch(() => []),
+        fetchTaDaClaims().catch(() => []),
+        fetchManagementDecisions().catch(() => []),
+        fetchExecutiveRemarks().catch(() => []),
+        fetchCompanyNotes().catch(() => []),
+        fetchSalesRecords().catch(() => []),
+        fetchMonthlyBudget('2026-11').catch(() => 500000),
+        fetchCustomExcelPresets().catch(() => []),
+      ]);
 
       setEmployees(empList);
       setDailyReports(reportList);
@@ -175,6 +242,10 @@ export const ExecutivePortal: React.FC = () => {
       setTadaClaims(claimList);
       setDecisions(decisionList);
       setRemarks(remarkList);
+      setCompanyNotes(notesList);
+      setSalesRecords(salesList);
+      setMonthlyBudget(budgetAmount);
+      setCustomExcelPresets(presetList);
     } catch (err: any) {
       setErrorMsg(err?.message || 'Failed to initialize Executive Management Dashboard.');
     } finally {
@@ -305,8 +376,133 @@ export const ExecutivePortal: React.FC = () => {
     }
   };
 
-  // Data Calculations & Briefing Aggregations
+  // Company Note Handlers
+  const handleCreateNoteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!execAccount || !newNote.title.trim() || !newNote.content.trim()) return;
+
+    try {
+      const created = await createCompanyNote({
+        author_id: execAccount.id,
+        author_name: execAccount.full_name,
+        author_role: execAccount.role,
+        title: newNote.title.trim(),
+        content: newNote.content.trim(),
+        category: newNote.category,
+        is_pinned: newNote.is_pinned,
+        amount: newNote.amount ? parseFloat(newNote.amount) : undefined,
+      });
+
+      setCompanyNotes([created, ...companyNotes]);
+      setIsNoteModalOpen(false);
+      setNewNote({
+        title: '',
+        content: '',
+        category: 'expense',
+        amount: '',
+        is_pinned: false,
+      });
+      triggerToast('Company Note / Directive saved.');
+    } catch (err: any) {
+      alert(`Failed to save company note: ${err?.message}`);
+    }
+  };
+
+  const handleDeleteNote = async (id: string) => {
+    if (!window.confirm('Delete this company note?')) return;
+    try {
+      await deleteCompanyNote(id);
+      setCompanyNotes(companyNotes.filter((n) => n.id !== id));
+      triggerToast('Company note removed.');
+    } catch (err: any) {
+      alert(`Delete failed: ${err?.message}`);
+    }
+  };
+
+  const handleTogglePinNote = async (id: string) => {
+    try {
+      const updated = await togglePinCompanyNote(id);
+      setCompanyNotes(companyNotes.map((n) => (n.id === id ? updated : n)));
+      triggerToast(updated.is_pinned ? 'Note pinned to top' : 'Note unpinned');
+    } catch (err: any) {
+      alert(`Pin toggle failed: ${err?.message}`);
+    }
+  };
+
+  // Budget Handlers
+  const handleUpdateBudget = async (newBudget: number) => {
+    try {
+      await saveMonthlyBudget('2026-11', newBudget);
+      setMonthlyBudget(newBudget);
+      triggerToast(`Monthly budget updated to ৳${newBudget.toLocaleString()}`);
+    } catch (err: any) {
+      alert(`Budget update failed: ${err?.message}`);
+    }
+  };
+
+  // Sales Handlers
+  const handleAddSale = async (newSaleInput: any) => {
+    try {
+      const created = await createSalesRecord(newSaleInput);
+      setSalesRecords([created, ...salesRecords]);
+      triggerToast(`Sale recorded for ${created.doctor_name} (${created.product_name})`);
+    } catch (err: any) {
+      alert(`Failed to record sale: ${err?.message}`);
+    }
+  };
+
+  const handleDeleteSale = async (id: string) => {
+    try {
+      await deleteSalesRecord(id);
+      setSalesRecords(salesRecords.filter((s) => s.id !== id));
+      triggerToast('Equipment sale record removed.');
+    } catch (err: any) {
+      alert(`Failed to delete sale: ${err?.message}`);
+    }
+  };
+
+  // Custom Excel Presets Handlers
+  const handleSaveCustomPreset = async (presetInput: any) => {
+    try {
+      const created = await saveCustomExcelPreset(presetInput);
+      setCustomExcelPresets([created, ...customExcelPresets]);
+      triggerToast(`Custom sheet "${created.name}" saved in portal.`);
+    } catch (err: any) {
+      alert(`Failed to save preset: ${err?.message}`);
+    }
+  };
+
+  const handleDeleteCustomPreset = async (id: string) => {
+    try {
+      await deleteCustomExcelPreset(id);
+      setCustomExcelPresets(customExcelPresets.filter((p) => p.id !== id));
+      triggerToast('Custom sheet preset removed.');
+    } catch (err: any) {
+      alert(`Failed to delete preset: ${err?.message}`);
+    }
+  };
+
+  // Helper for Date & Week range filtering
   const todayStr = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
+  startOfWeek.setHours(0, 0, 0, 0);
+  const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
+
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
+
+  const matchesTimeFrame = (dateStr: string) => {
+    if (!dateStr) return true;
+    if (timeFrame === 'all') return true;
+    if (timeFrame === 'today') return dateStr === todayStr || dateStr.startsWith(todayStr);
+    if (timeFrame === 'week') return dateStr >= startOfWeekStr;
+    if (timeFrame === 'month') return dateStr >= startOfMonthStr;
+    return true;
+  };
+
+  // Data Calculations & Briefing Aggregations
   const activeEmployees = employees.filter((e) => e.status === 'active');
   const reportsToday = dailyReports.filter((r) => r.report_date === todayStr || r.submitted_at?.startsWith(todayStr));
   
@@ -320,7 +516,140 @@ export const ExecutivePortal: React.FC = () => {
   
   const pendingDecisions = decisions.filter((d) => d.status === 'pending' || d.status === 'in_progress');
 
-  // CSV Exporter
+  // Multi-format Export Handlers (Excel, PDF, CSV)
+  const handleExportReportsExcel = () => {
+    const headers = ['Report Date', 'Employee Name', 'Employee Code', 'Location', 'Hospital / Client', 'Equipment', 'Work Summary', 'Status'];
+    const rows = dailyReports.map((r) => [
+      r.report_date || '',
+      r.employee_name || '',
+      r.employee_code || '',
+      r.work_location || '',
+      r.client_hospital || '',
+      r.equipment_worked || '',
+      r.work_summary || '',
+      r.status || '',
+    ]);
+    exportToExcel({
+      filename: `carelink_daily_reports_${todayStr}`,
+      sheetName: 'Daily Reports',
+      headers,
+      rows,
+    });
+    triggerToast('Daily reports exported to Excel (.xlsx)');
+  };
+
+  const handleExportReportsPDF = () => {
+    const headers = ['Date', 'Employee', 'ID', 'Location / Hospital', 'Equipment', 'Work Summary', 'Status'];
+    const rows = dailyReports.map((r) => [
+      r.report_date || '',
+      r.employee_name || '',
+      r.employee_code || '',
+      r.client_hospital || r.work_location || '',
+      r.equipment_worked || '—',
+      (r.work_summary || '').slice(0, 70),
+      r.status?.toUpperCase() || '',
+    ]);
+    exportToPDF({
+      filename: `carelink_daily_reports_${todayStr}`,
+      title: 'Carelink Healthineers — Employee Daily Activity Report',
+      subtitle: `Generated on ${todayStr} · Total Reports: ${dailyReports.length}`,
+      headers,
+      rows,
+    });
+    triggerToast('Daily reports exported to PDF (.pdf)');
+  };
+
+  const handleExportTaDaExcel = () => {
+    const headers = ['Employee Name', 'Employee Code', 'Destination', 'Start Date', 'End Date', 'TA (BDT)', 'DA (BDT)', 'Transport (BDT)', 'Hotel/Food (BDT)', 'Total (BDT)', 'Status', 'Payment'];
+    const rows = tadaClaims.map((c) => [
+      c.employee_name || '',
+      c.employee_code || '',
+      c.destination || '',
+      c.start_date || '',
+      c.end_date || '',
+      c.travel_allowance || 0,
+      c.daily_allowance || 0,
+      c.transport_expense || 0,
+      c.accommodation_expense || 0,
+      c.total_amount || 0,
+      c.status?.toUpperCase() || '',
+      c.payment_status?.toUpperCase() || '',
+    ]);
+    exportToExcel({
+      filename: `carelink_tada_claims_${todayStr}`,
+      sheetName: 'TA-DA Claims',
+      headers,
+      rows,
+    });
+    triggerToast('TA/DA expense claims exported to Excel (.xlsx)');
+  };
+
+  const handleExportTaDaPDF = () => {
+    const headers = ['Employee', 'Destination', 'Dates', 'TA', 'DA', 'Transport', 'Hotel', 'Total (BDT)', 'Claim Status', 'Payment'];
+    const rows = tadaClaims.map((c) => [
+      c.employee_name || '',
+      c.destination || '',
+      `${c.start_date || ''} - ${c.end_date || ''}`,
+      `৳${c.travel_allowance || 0}`,
+      `৳${c.daily_allowance || 0}`,
+      `৳${c.transport_expense || 0}`,
+      `৳${c.accommodation_expense || 0}`,
+      `৳${(c.total_amount || 0).toLocaleString()}`,
+      c.status?.toUpperCase() || '',
+      c.payment_status?.toUpperCase() || '',
+    ]);
+    exportToPDF({
+      filename: `carelink_tada_claims_${todayStr}`,
+      title: 'Carelink Healthineers — Official TA/DA & Expense Claims Log',
+      subtitle: `Total Claim Value: ৳${tadaClaims.reduce((acc, c) => acc + (c.total_amount || 0), 0).toLocaleString()} · Generated on ${todayStr}`,
+      headers,
+      rows,
+    });
+    triggerToast('TA/DA expense claims exported to PDF (.pdf)');
+  };
+
+  const handleExportNotesExcel = () => {
+    const headers = ['Date', 'Author', 'Role', 'Category', 'Title', 'Content', 'Amount (BDT)', 'Pinned'];
+    const rows = companyNotes.map((n) => [
+      n.date || '',
+      n.author_name || '',
+      n.author_role || '',
+      n.category.toUpperCase(),
+      n.title || '',
+      n.content || '',
+      n.amount || 0,
+      n.is_pinned ? 'YES' : 'NO',
+    ]);
+    exportToExcel({
+      filename: `carelink_company_notes_${todayStr}`,
+      sheetName: 'Company Notes',
+      headers,
+      rows,
+    });
+    triggerToast('Company notes exported to Excel (.xlsx)');
+  };
+
+  const handleExportNotesPDF = () => {
+    const headers = ['Date', 'Author', 'Category', 'Title', 'Expense/Budget (BDT)', 'Directives & Notes'];
+    const rows = companyNotes.map((n) => [
+      n.date || '',
+      `${n.author_name} (${n.author_role})`,
+      n.category.toUpperCase(),
+      n.title || '',
+      n.amount ? `৳${n.amount.toLocaleString()}` : '—',
+      (n.content || '').slice(0, 80),
+    ]);
+    exportToPDF({
+      filename: `carelink_company_notes_${todayStr}`,
+      title: 'Carelink Healthineers — Executive Directives & Company Notes',
+      subtitle: `Official Records · Generated on ${todayStr}`,
+      headers,
+      rows,
+    });
+    triggerToast('Company notes exported to PDF (.pdf)');
+  };
+
+  // CSV Fallback Exporter
   const exportToCSV = (filename: string, rows: object[]) => {
     if (!rows || !rows.length) {
       alert('No data rows available to export.');
@@ -407,15 +736,66 @@ export const ExecutivePortal: React.FC = () => {
             </button>
 
             <button
-              onClick={() => setActiveTab('departments')}
-              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'departments'
+              onClick={() => setActiveTab('hishab')}
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'hishab'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <DollarSign size={16} />
+                <span>Financial &amp; Budget Hishab</span>
+              </div>
+              <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-300 font-mono font-bold">
+                ৳ Live
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('sales')}
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'sales'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
               }`}
             >
-              <Building2 size={16} />
-              <span>Department Monitor</span>
+              <div className="flex items-center gap-3">
+                <Stethoscope size={16} />
+                <span>Doctor &amp; Center Sales</span>
+              </div>
+              <span className="px-1.5 py-0.5 rounded text-[9px] bg-blue-500/20 text-blue-300 font-mono font-bold">
+                {salesRecords.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('custom-excel')}
+              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'custom-excel'
+                  ? 'bg-teal-600 text-white shadow-md shadow-teal-600/30'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+              }`}
+            >
+              <FileSpreadsheet size={16} />
+              <span>Custom Excel Studio</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('manual')}
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'manual'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30 font-black'
+                  : 'text-amber-300/90 hover:text-amber-200 hover:bg-amber-500/10'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <BookOpen size={16} />
+                <span>ব্যবহার বিধি (User Manual)</span>
+              </div>
+              <span className="px-1.5 py-0.5 rounded text-[9px] bg-amber-400/20 text-amber-300 font-bold">
+                বাংলা
+              </span>
             </button>
 
             <button
@@ -445,6 +825,25 @@ export const ExecutivePortal: React.FC = () => {
               {tadaClaims.filter((c) => c.status === 'pending').length > 0 && (
                 <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-300 font-extrabold">
                   {tadaClaims.filter((c) => c.status === 'pending').length}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('notes')}
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'notes'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <StickyNote size={16} />
+                <span>Company Notes &amp; Expenses</span>
+              </div>
+              {companyNotes.length > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-700 text-slate-300 font-semibold">
+                  {companyNotes.length}
                 </span>
               )}
             </button>
@@ -560,6 +959,18 @@ export const ExecutivePortal: React.FC = () => {
             </button>
 
             <button
+              onClick={() => setActiveTab('manual')}
+              className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                activeTab === 'manual'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-md'
+                  : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200'
+              }`}
+            >
+              <BookOpen size={15} className="text-amber-700" />
+              <span>সহজ বাংলা গাইড</span>
+            </button>
+
+            <button
               onClick={() => setIsDecisionModalOpen(true)}
               className="px-4 py-2.5 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md shadow-blue-700/20 transition-all cursor-pointer"
             >
@@ -570,7 +981,7 @@ export const ExecutivePortal: React.FC = () => {
         </header>
 
         {/* MAIN BODY CONTAINER */}
-        <main className="p-6 lg:p-10 space-y-8 max-w-7xl">
+        <main className="p-4 lg:p-6 space-y-6 w-full max-w-none">
           {/* TAB 1: EXECUTIVE BRIEFING & OVERVIEW */}
           {activeTab === 'overview' && (
             <div className="space-y-8">
@@ -637,13 +1048,29 @@ export const ExecutivePortal: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={handleExportReportsPDF}
+                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                      title="Export as PDF Document"
+                    >
+                      <Download size={13} />
+                      <span>PDF Brief</span>
+                    </button>
+                    <button
+                      onClick={handleExportReportsExcel}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                      title="Export as Excel Spreadsheet"
+                    >
+                      <FileSpreadsheet size={13} />
+                      <span>Excel</span>
+                    </button>
                     <button
                       onClick={() => exportToCSV('daily_executive_briefing', reportsToday)}
-                      className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                      className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
                     >
-                      <Download size={14} />
-                      <span>Export Summary</span>
+                      <Download size={13} />
+                      <span>CSV</span>
                     </button>
                   </div>
                 </div>
@@ -710,7 +1137,7 @@ export const ExecutivePortal: React.FC = () => {
                       </h3>
                       <button
                         onClick={() => setActiveTab('reports')}
-                        className="text-xs font-bold text-blue-700 hover:underline flex items-center gap-1"
+                        className="text-xs font-bold text-blue-700 hover:underline flex items-center gap-1 cursor-pointer"
                       >
                         View All Reports Archive <ChevronRight size={14} />
                       </button>
@@ -759,76 +1186,43 @@ export const ExecutivePortal: React.FC = () => {
             </div>
           )}
 
-          {/* TAB 2: DEPARTMENT MONITORING */}
-          {activeTab === 'departments' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-lg font-extrabold text-slate-900">Department Performance &amp; Activity Monitor</h2>
-                <p className="text-xs text-slate-500">
-                  Real-time operational activity aggregated by enterprise department records.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {DEPARTMENTS.map((deptName) => {
-                  const deptEmps = employees.filter((e) => e.department === deptName);
-                  const deptReports = dailyReports.filter((r) =>
-                    deptEmps.some((e) => e.id === r.employee_id)
-                  );
-                  const deptDuties = assignedDuties.filter((d) =>
-                    deptEmps.some((e) => e.id === d.employee_id)
-                  );
-                  const completedDuties = deptDuties.filter((d) => d.status === 'completed').length;
-
-                  return (
-                    <div key={deptName} className="p-6 bg-white rounded-3xl border border-slate-200 shadow-xs space-y-4">
-                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                        <div className="flex items-center gap-2.5">
-                          <Building2 size={18} className="text-blue-700" />
-                          <h3 className="text-sm font-bold text-slate-900">{deptName}</h3>
-                        </div>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                          {deptEmps.length} Staff
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3 text-xs">
-                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                          <span className="text-[10px] text-slate-500 font-bold uppercase block">Submitted Reports</span>
-                          <span className="text-lg font-black text-slate-900">{deptReports.length}</span>
-                        </div>
-                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                          <span className="text-[10px] text-slate-500 font-bold uppercase block">Duty Completion</span>
-                          <span className="text-lg font-black text-emerald-600">
-                            {deptDuties.length > 0 ? `${Math.round((completedDuties / deptDuties.length) * 100)}%` : '100%'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Staff roster snippet */}
-                      <div className="space-y-1.5 pt-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                          Assigned Staff ({deptEmps.length})
-                        </span>
-                        {deptEmps.length === 0 ? (
-                          <span className="text-xs text-slate-400 italic">No staff assigned</span>
-                        ) : (
-                          <div className="space-y-1">
-                            {deptEmps.slice(0, 3).map((emp) => (
-                              <div key={emp.id} className="text-xs font-semibold text-slate-700 flex items-center justify-between">
-                                <span>{emp.full_name}</span>
-                                <span className="text-[10px] text-slate-500 font-mono">{emp.designation}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+          {/* TAB: FINANCIAL HISHAB & BUDGET */}
+          {activeTab === 'hishab' && (
+            <FinancialHishabSection
+              tadaClaims={tadaClaims}
+              companyNotes={companyNotes}
+              salesRecords={salesRecords}
+              monthlyBudget={monthlyBudget}
+              onUpdateBudget={handleUpdateBudget}
+              currentMonthKey="2026-11"
+            />
           )}
+
+          {/* TAB: DOCTOR & MEDICAL CENTER SALES LEDGER */}
+          {activeTab === 'sales' && (
+            <DoctorSalesLedgerSection
+              salesRecords={salesRecords}
+              onAddSale={handleAddSale}
+              onDeleteSale={handleDeleteSale}
+              userName={execAccount?.full_name || 'Executive Desk'}
+            />
+          )}
+
+          {/* TAB: CUSTOM EXCEL STUDIO & IN-PORTAL SPREADSHEET */}
+          {activeTab === 'custom-excel' && (
+            <CustomExcelPortalSection
+              salesRecords={salesRecords}
+              tadaClaims={tadaClaims}
+              companyNotes={companyNotes}
+              monthlyBudget={monthlyBudget}
+              presets={customExcelPresets}
+              onSavePreset={handleSaveCustomPreset}
+              onDeletePreset={handleDeleteCustomPreset}
+            />
+          )}
+
+          {/* TAB: BENGALI USER MANUAL (সহজ বাংলা নির্দেশিকা) */}
+          {activeTab === 'manual' && <ExecutiveUserManualBangla />}
 
           {/* TAB 3: EMPLOYEE REPORTS BROWSER */}
           {activeTab === 'reports' && (
@@ -837,83 +1231,146 @@ export const ExecutivePortal: React.FC = () => {
                 <div>
                   <h2 className="text-lg font-extrabold text-slate-900">Employee Activity Reports Directory</h2>
                   <p className="text-xs text-slate-500">
-                    Browse submitted work reports, equipment logs, and field activity records.
+                    Browse submitted work reports, equipment logs, and field activity records with date, week and month filters.
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={handleExportReportsPDF}
+                    className="px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    title="Export all reports to PDF"
+                  >
+                    <Download size={14} />
+                    <span>PDF Export</span>
+                  </button>
+                  <button
+                    onClick={handleExportReportsExcel}
+                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    title="Export all reports to Excel"
+                  >
+                    <FileSpreadsheet size={14} />
+                    <span>Excel Export</span>
+                  </button>
                   <button
                     onClick={() => exportToCSV('all_employee_reports', dailyReports)}
                     className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                   >
                     <Download size={14} />
-                    <span>Export CSV</span>
+                    <span>CSV</span>
                   </button>
                 </div>
               </div>
 
-              {/* Filters Toolbar */}
-              <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between">
-                <div className="relative flex-1 w-full">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input
-                    type="text"
-                    placeholder="Search by employee name, ID, hospital, equipment, or summary..."
-                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:border-blue-600"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
+              {/* Filters Toolbar with Week/Month Selector */}
+              <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  {/* Quick Preset Buttons */}
+                  <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl text-xs">
+                    <button
+                      onClick={() => { setTimeFrame('all'); setDateFilter(''); }}
+                      className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                        timeFrame === 'all' && !dateFilter ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      All Time
+                    </button>
+                    <button
+                      onClick={() => { setTimeFrame('today'); setDateFilter(todayStr); }}
+                      className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                        timeFrame === 'today' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Today
+                    </button>
+                    <button
+                      onClick={() => { setTimeFrame('week'); setDateFilter(''); }}
+                      className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                        timeFrame === 'week' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      This Week
+                    </button>
+                    <button
+                      onClick={() => { setTimeFrame('month'); setDateFilter(''); }}
+                      className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                        timeFrame === 'month' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      This Month
+                    </button>
+                  </div>
+
+                  <div className="text-xs text-slate-500 font-medium">
+                    Showing reports filtered by schedule &amp; department
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2 w-full md:w-auto">
-                  <select
-                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 outline-none cursor-pointer"
-                    value={deptFilter}
-                    onChange={(e) => setDeptFilter(e.target.value)}
-                  >
-                    <option value="All">All Departments</option>
-                    {DEPARTMENTS.map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
+                <div className="flex flex-col md:flex-row gap-3 items-center justify-between pt-2 border-t border-slate-100">
+                  <div className="relative flex-1 w-full">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input
+                      type="text"
+                      placeholder="Search by employee name, ID, hospital, equipment, or summary..."
+                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:border-blue-600"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
 
-                  <select
-                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 outline-none cursor-pointer"
-                    value={execMonth}
-                    onChange={(e) => setExecMonth(e.target.value)}
-                  >
-                    <option value="All">All Months</option>
-                    <option value="01">January</option>
-                    <option value="02">February</option>
-                    <option value="03">March</option>
-                    <option value="04">April</option>
-                    <option value="05">May</option>
-                    <option value="06">June</option>
-                    <option value="07">July</option>
-                    <option value="08">August</option>
-                    <option value="09">September</option>
-                    <option value="10">October</option>
-                    <option value="11">November</option>
-                    <option value="12">December</option>
-                  </select>
+                  <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                    <select
+                      className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 outline-none cursor-pointer"
+                      value={deptFilter}
+                      onChange={(e) => setDeptFilter(e.target.value)}
+                    >
+                      <option value="All">All Departments</option>
+                      {DEPARTMENTS.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
 
-                  <select
-                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 outline-none cursor-pointer font-mono"
-                    value={execYear}
-                    onChange={(e) => setExecYear(e.target.value)}
-                  >
-                    <option value="All">All Years</option>
-                    <option value="2026">2026</option>
-                    <option value="2025">2025</option>
-                    <option value="2024">2024</option>
-                  </select>
+                    <select
+                      className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 outline-none cursor-pointer"
+                      value={execMonth}
+                      onChange={(e) => setExecMonth(e.target.value)}
+                    >
+                      <option value="All">All Months</option>
+                      <option value="01">January</option>
+                      <option value="02">February</option>
+                      <option value="03">March</option>
+                      <option value="04">April</option>
+                      <option value="05">May</option>
+                      <option value="06">June</option>
+                      <option value="07">July</option>
+                      <option value="08">August</option>
+                      <option value="09">September</option>
+                      <option value="10">October</option>
+                      <option value="11">November</option>
+                      <option value="12">December</option>
+                    </select>
 
-                  <input
-                    type="date"
-                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 outline-none cursor-pointer"
-                    value={dateFilter}
-                    onChange={(e) => setDateFilter(e.target.value)}
-                  />
+                    <select
+                      className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 outline-none cursor-pointer font-mono"
+                      value={execYear}
+                      onChange={(e) => setExecYear(e.target.value)}
+                    >
+                      <option value="All">All Years</option>
+                      <option value="2026">2026</option>
+                      <option value="2025">2025</option>
+                      <option value="2024">2024</option>
+                    </select>
+
+                    <input
+                      type="date"
+                      className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 outline-none cursor-pointer font-mono"
+                      value={dateFilter}
+                      onChange={(e) => {
+                        setDateFilter(e.target.value);
+                        if (e.target.value) setTimeFrame('all');
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -952,12 +1409,13 @@ export const ExecutivePortal: React.FC = () => {
                             const matchesYear = execYear === 'All' || y === execYear;
                             const matchesMonth = execMonth === 'All' || m === execMonth;
                             const matchesDate = !dateFilter || rep.report_date === dateFilter;
+                            const matchesTf = matchesTimeFrame(rep.report_date);
 
                             // Department match
                             const emp = employees.find((e) => e.id === rep.employee_id);
                             const matchesDept = deptFilter === 'All' || (emp && emp.department === deptFilter);
 
-                            return matchesSearch && matchesYear && matchesMonth && matchesDate && matchesDept;
+                            return matchesSearch && matchesYear && matchesMonth && matchesDate && matchesTf && matchesDept;
                           })
                           .map((rep) => (
                             <tr key={rep.id} className="hover:bg-slate-50 transition-colors">
@@ -1042,13 +1500,29 @@ export const ExecutivePortal: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={handleExportTaDaPDF}
+                    className="px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    title="Export TA/DA Claims as PDF"
+                  >
+                    <Download size={14} />
+                    <span>PDF Export</span>
+                  </button>
+                  <button
+                    onClick={handleExportTaDaExcel}
+                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    title="Export TA/DA Claims as Excel"
+                  >
+                    <FileSpreadsheet size={14} />
+                    <span>Excel Export</span>
+                  </button>
                   <button
                     onClick={() => exportToCSV('tada_expense_claims', tadaClaims)}
                     className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                   >
                     <Download size={14} />
-                    <span>Export Expense CSV</span>
+                    <span>CSV</span>
                   </button>
                 </div>
               </div>
@@ -1211,95 +1685,181 @@ export const ExecutivePortal: React.FC = () => {
             </div>
           )}
 
-          {/* TAB 4: MANAGEMENT DECISIONS ENGINE */}
-          {activeTab === 'decisions' && (
+          {/* TAB: COMPANY NOTES & EXPENSE DIRECTIVES */}
+          {activeTab === 'notes' && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-lg font-extrabold text-slate-900">Executive Management Decisions &amp; Directives</h2>
+                  <h2 className="text-lg font-extrabold text-slate-900">Company Notes &amp; Expense Directives</h2>
                   <p className="text-xs text-slate-500">
-                    Track formal management directives, assigned department managers, and implementation progress.
+                    Official management notes, corporate budget allocations, expense records, and internal policies.
                   </p>
                 </div>
 
-                <button
-                  onClick={() => setIsDecisionModalOpen(true)}
-                  className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md"
-                >
-                  <Crown size={15} />
-                  <span>Create Management Decision</span>
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={handleExportNotesPDF}
+                    className="px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    title="Export Company Notes to PDF"
+                  >
+                    <Download size={14} />
+                    <span>PDF Export</span>
+                  </button>
+                  <button
+                    onClick={handleExportNotesExcel}
+                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    title="Export Company Notes to Excel"
+                  >
+                    <FileSpreadsheet size={14} />
+                    <span>Excel Export</span>
+                  </button>
+                  <button
+                    onClick={() => setIsNoteModalOpen(true)}
+                    className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md"
+                  >
+                    <Plus size={15} />
+                    <span>Add Company Note</span>
+                  </button>
+                </div>
               </div>
 
-              {/* Decisions Board */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {decisions.map((dec) => (
-                  <div key={dec.id} className="p-6 bg-white rounded-3xl border border-slate-200 shadow-xs space-y-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border ${
-                              dec.priority === 'urgent'
-                                ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                : dec.priority === 'high'
-                                ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                : 'bg-blue-50 text-blue-700 border-blue-200'
-                            }`}
-                          >
-                            {dec.priority} Priority
-                          </span>
-                          <span
-                            className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
-                              dec.status === 'completed'
-                                ? 'bg-emerald-50 text-emerald-700'
-                                : 'bg-slate-100 text-slate-700'
-                            }`}
-                          >
-                            {dec.status}
-                          </span>
-                        </div>
-                        <h3 className="text-base font-bold text-slate-900">{dec.title}</h3>
-                      </div>
-                    </div>
+              {/* Notes Metrics */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Corporate Notes</span>
+                  <div className="text-2xl font-black text-slate-900">{companyNotes.length}</div>
+                </div>
 
-                    <p className="text-xs text-slate-600 leading-relaxed">{dec.description}</p>
-
-                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5 text-xs">
-                      <div className="flex justify-between text-slate-500 text-[10px] font-bold uppercase">
-                        <span>Target Department:</span>
-                        <span className="text-slate-900">{dec.target_department}</span>
-                      </div>
-                      <div className="flex justify-between text-slate-500 text-[10px] font-bold uppercase">
-                        <span>Assigned Manager:</span>
-                        <span className="text-slate-900">{dec.assigned_manager_name || 'Department Manager'}</span>
-                      </div>
-                      <div className="flex justify-between text-slate-500 text-[10px] font-bold uppercase">
-                        <span>Issued By:</span>
-                        <span className="text-blue-700">{dec.executive_name} ({dec.executive_role})</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                      <span className="text-[11px] text-slate-400 font-mono">
-                        Deadline: {dec.deadline || 'Ongoing'}
-                      </span>
-
-                      <div className="flex items-center gap-2">
-                        {dec.status !== 'completed' && (
-                          <button
-                            onClick={() => handleUpdateDecisionStatus(dec.id, 'completed')}
-                            className="px-3 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                          >
-                            Mark Implemented
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                  <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Expense Notes Logged</span>
+                  <div className="text-2xl font-black font-mono text-amber-600">
+                    ৳{companyNotes.filter((n) => n.category === 'expense').reduce((acc, n) => acc + (n.amount || 0), 0).toLocaleString()}
                   </div>
-                ))}
+                </div>
+
+                <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                  <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Pinned Directives</span>
+                  <div className="text-2xl font-black text-blue-600">
+                    {companyNotes.filter((n) => n.is_pinned).length} Pinned
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {companyNotes.length === 0 ? (
+                  <div className="col-span-2 p-12 text-center bg-white rounded-3xl border border-slate-200 text-slate-500 text-xs space-y-3">
+                    <StickyNote size={36} className="text-slate-300 mx-auto" />
+                    <p className="font-bold text-slate-700">No company notes or expense records added yet.</p>
+                    <p className="text-slate-400 max-w-sm mx-auto">
+                      Post operational directives, company-wide expense guidelines, or financial notices for board review.
+                    </p>
+                    <button
+                      onClick={() => setIsNoteModalOpen(true)}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <Plus size={14} />
+                      <span>Write First Note</span>
+                    </button>
+                  </div>
+                ) : (
+                  companyNotes.map((note) => (
+                    <div
+                      key={note.id}
+                      className={`p-5 rounded-2xl border transition-all space-y-3 relative ${
+                        note.is_pinned
+                          ? 'bg-amber-50/40 border-amber-300 shadow-xs'
+                          : 'bg-white border-slate-200 hover:border-slate-300 shadow-xs'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border ${
+                                note.category === 'expense'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : note.category === 'urgent'
+                                  ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                  : note.category === 'policy'
+                                  ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                  : 'bg-slate-100 text-slate-700 border-slate-200'
+                              }`}
+                            >
+                              {note.category}
+                            </span>
+                            {note.amount && note.amount > 0 && (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-emerald-100 text-emerald-800">
+                                ৳{note.amount.toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                          <h3 className="text-sm font-bold text-slate-900 leading-snug">{note.title}</h3>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => handleTogglePinNote(note.id)}
+                            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                              note.is_pinned ? 'text-amber-600 bg-amber-100' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'
+                            }`}
+                            title={note.is_pinned ? 'Unpin' : 'Pin note'}
+                          >
+                            <Pin size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteNote(note.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="Delete note"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">{note.content}</p>
+
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-100">
+                        <span className="font-semibold text-slate-600">
+                          {note.author_name} ({note.author_role})
+                        </span>
+                        <span className="font-mono text-slate-400">{note.date}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
+          )}
+
+          {/* TAB: MANAGEMENT DECISIONS ENGINE */}
+          {activeTab === 'decisions' && (
+            <ManagementDecisionsSection
+              decisions={decisions}
+              onCreateDecision={async (newDec) => {
+                if (!execAccount) return;
+                const created = await createManagementDecision({
+                  executive: execAccount,
+                  title: newDec.title,
+                  description: newDec.description,
+                  target_department: newDec.target_department,
+                  assigned_manager_name: newDec.assigned_manager_name,
+                  priority: newDec.priority,
+                  deadline: newDec.deadline,
+                  remarks: newDec.remarks,
+                });
+                setDecisions([created, ...decisions]);
+                triggerToast('Management decision issued and saved.');
+              }}
+              onUpdateStatus={handleUpdateDecisionStatus}
+              onDeleteDecision={async (id) => {
+                await deleteManagementDecision(id);
+                setDecisions(decisions.filter((d) => d.id !== id));
+                triggerToast('Management decision removed.');
+              }}
+              execAccount={execAccount}
+              departments={DEPARTMENTS}
+            />
           )}
 
           {/* TAB 5: REPORTS & ANALYTICS */}
@@ -1606,6 +2166,113 @@ export const ExecutivePortal: React.FC = () => {
                     className="px-5 py-2 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-xl text-xs shadow-md"
                   >
                     Save Executive Remark
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL 4: CREATE COMPANY NOTE / EXPENSE RECORD */}
+      <AnimatePresence>
+        {isNoteModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 lg:p-8 space-y-5"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-3">
+                  <StickyNote className="text-blue-700" size={22} />
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900">Add Company Note / Expense Directive</h3>
+                    <p className="text-xs text-slate-500">Record corporate guidelines, budget decisions, or operational notices.</p>
+                  </div>
+                </div>
+                <button onClick={() => setIsNoteModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-700 cursor-pointer">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateNoteSubmit} className="space-y-4 text-xs">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Note Title *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Q4 Technical Field Travel Allowance Budget Approval"
+                    className="w-full p-2.5 border border-slate-300 rounded-xl text-xs text-slate-900 outline-none focus:border-blue-600"
+                    value={newNote.title}
+                    onChange={(e) => setNewNote({ ...newNote, title: e.target.value })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Category</label>
+                    <select
+                      className="w-full p-2.5 border border-slate-300 rounded-xl text-xs text-slate-900 outline-none cursor-pointer"
+                      value={newNote.category}
+                      onChange={(e) => setNewNote({ ...newNote, category: e.target.value as NoteCategory })}
+                    >
+                      <option value="expense">Expense &amp; Finance</option>
+                      <option value="policy">Company Policy</option>
+                      <option value="operational">Operational Note</option>
+                      <option value="urgent">Urgent Matter</option>
+                      <option value="general">General Notice</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Amount / Budget (BDT, Optional)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 50000"
+                      className="w-full p-2.5 border border-slate-300 rounded-xl text-xs text-slate-900 font-mono outline-none focus:border-blue-600"
+                      value={newNote.amount}
+                      onChange={(e) => setNewNote({ ...newNote, amount: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Content &amp; Directives *</label>
+                  <textarea
+                    required
+                    rows={4}
+                    placeholder="Write details, expense parameters, authorized expenditures, or guidelines..."
+                    className="w-full p-2.5 border border-slate-300 rounded-xl text-xs text-slate-900 outline-none focus:border-blue-600 leading-relaxed"
+                    value={newNote.content}
+                    onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
+                  />
+                </div>
+
+                <label className="flex items-center gap-2 cursor-pointer text-slate-700 pt-1">
+                  <input
+                    type="checkbox"
+                    checked={newNote.is_pinned}
+                    onChange={(e) => setNewNote({ ...newNote, is_pinned: e.target.checked })}
+                    className="rounded border-slate-300 text-blue-600"
+                  />
+                  <span className="font-semibold text-slate-700">Pin this note to top for all executives</span>
+                </label>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsNoteModalOpen(false)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-xl text-xs shadow-md cursor-pointer"
+                  >
+                    Save Company Note
                   </button>
                 </div>
               </form>

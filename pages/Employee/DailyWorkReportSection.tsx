@@ -20,6 +20,8 @@ import {
   Trash2,
   History,
   Lock,
+  Download,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { DailyWorkReport, DailyReportStatus, Employee, DailyWorkReportAttachment } from '../../types';
 import {
@@ -28,6 +30,7 @@ import {
   DailyReportInput,
   deleteDailyWorkReport,
 } from '../../services/dailyReportService';
+import { exportToExcel, exportToPDF } from '../../utils/exportHelper';
 
 interface DailyWorkReportSectionProps {
   employee: Employee;
@@ -215,6 +218,47 @@ export const DailyWorkReportSection: React.FC<DailyWorkReportSectionProps> = ({
     }
   };
 
+  const handleExportPDF = () => {
+    const headers = ['Date', 'Location', 'Hospital', 'Equipment', 'Work Summary', 'Status'];
+    const rows = reports.map((r) => [
+      r.report_date || '',
+      r.work_location || '',
+      r.client_hospital || '',
+      r.equipment_worked || '',
+      (r.work_summary || '').slice(0, 60),
+      r.status?.toUpperCase() || '',
+    ]);
+    exportToPDF({
+      filename: `my_daily_reports_${employee.employee_id}`,
+      title: `${employee.full_name} (${employee.employee_id}) — Daily Activity Reports`,
+      subtitle: `Department: ${employee.department} · Designation: ${employee.designation}`,
+      headers,
+      rows,
+    });
+    onToast('Exported daily reports to PDF');
+  };
+
+  const handleExportExcel = () => {
+    const headers = ['Report Date', 'Location', 'Hospital / Client', 'Equipment', 'Work Summary', 'Completed Tasks', 'Pending Tasks', 'Status'];
+    const rows = reports.map((r) => [
+      r.report_date || '',
+      r.work_location || '',
+      r.client_hospital || '',
+      r.equipment_worked || '',
+      r.work_summary || '',
+      r.tasks_completed || '',
+      r.tasks_pending || '',
+      r.status?.toUpperCase() || '',
+    ]);
+    exportToExcel({
+      filename: `my_daily_reports_${employee.employee_id}`,
+      sheetName: 'My Reports',
+      headers,
+      rows,
+    });
+    onToast('Exported daily reports to Excel');
+  };
+
   return (
     <section className="p-6 sm:p-7 rounded-3xl bg-[#0e1422] border border-[#1c2638] space-y-6">
       {/* Header */}
@@ -234,13 +278,36 @@ export const DailyWorkReportSection: React.FC<DailyWorkReportSectionProps> = ({
           </div>
         </div>
 
-        <button
-          onClick={handleOpenNewForm}
-          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold flex items-center gap-2 transition-all shadow-md shadow-blue-600/20 cursor-pointer shrink-0"
-        >
-          <Plus size={15} />
-          <span>File New Daily Report</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {reports.length > 0 && (
+            <>
+              <button
+                onClick={handleExportPDF}
+                className="px-3 py-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                title="Export as PDF Document"
+              >
+                <Download size={13} />
+                <span>PDF</span>
+              </button>
+              <button
+                onClick={handleExportExcel}
+                className="px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                title="Export as Excel Sheet"
+              >
+                <FileSpreadsheet size={13} />
+                <span>Excel</span>
+              </button>
+            </>
+          )}
+
+          <button
+            onClick={handleOpenNewForm}
+            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold flex items-center gap-2 transition-all shadow-md shadow-blue-600/20 cursor-pointer shrink-0"
+          >
+            <Plus size={15} />
+            <span>File New Daily Report</span>
+          </button>
+        </div>
       </div>
 
       {/* Month & Year Filter Toolbar */}

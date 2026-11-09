@@ -7,11 +7,17 @@ import {
   DecisionPriority,
   DecisionStatus,
   ExecutiveRemark,
+  CompanyNote,
+  NoteCategory,
+  ProductSaleRecord,
+  MonthlyBudgetRecord,
+  CustomExcelPreset,
 } from '../types';
 
 const EXECUTIVE_ACCOUNTS_KEY = 'executive_accounts';
 const MANAGEMENT_DECISIONS_KEY = 'management_decisions';
 const EXECUTIVE_REMARKS_KEY = 'executive_remarks';
+const COMPANY_NOTES_KEY = 'company_notes_directives';
 
 /**
  * Default Executive Accounts (Empty by default — populated strictly via Admin Panel)
@@ -308,3 +314,176 @@ export async function addExecutiveRemark(
   await setStoredItem(EXECUTIVE_REMARKS_KEY, updatedList);
   return newRemark;
 }
+
+/* ==========================================
+   Company Notes & Expense Directives CRUD
+   ========================================== */
+
+export async function fetchCompanyNotes(): Promise<CompanyNote[]> {
+  return await getStoredItem<CompanyNote[]>(COMPANY_NOTES_KEY, []);
+}
+
+export interface CreateCompanyNoteInput {
+  author_id: string;
+  author_name: string;
+  author_role: string;
+  title: string;
+  content: string;
+  category: NoteCategory;
+  is_pinned?: boolean;
+  amount?: number;
+  date?: string;
+}
+
+export async function createCompanyNote(input: CreateCompanyNoteInput): Promise<CompanyNote> {
+  const notes = await fetchCompanyNotes();
+  const newNote: CompanyNote = {
+    id: `note-${Date.now()}`,
+    author_id: input.author_id,
+    author_name: input.author_name,
+    author_role: input.author_role,
+    title: input.title.trim(),
+    content: input.content.trim(),
+    category: input.category,
+    is_pinned: !!input.is_pinned,
+    amount: input.amount ? Number(input.amount) : undefined,
+    date: input.date || new Date().toISOString().split('T')[0],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const updated = [newNote, ...notes];
+  await setStoredItem(COMPANY_NOTES_KEY, updated);
+  return newNote;
+}
+
+export async function deleteCompanyNote(id: string): Promise<void> {
+  const notes = await fetchCompanyNotes();
+  const filtered = notes.filter((n) => n.id !== id);
+  await setStoredItem(COMPANY_NOTES_KEY, filtered);
+}
+
+export async function togglePinCompanyNote(id: string): Promise<CompanyNote> {
+  const notes = await fetchCompanyNotes();
+  const idx = notes.findIndex((n) => n.id === id);
+  if (idx === -1) throw new Error('Note not found.');
+  notes[idx].is_pinned = !notes[idx].is_pinned;
+  notes[idx].updated_at = new Date().toISOString();
+  await setStoredItem(COMPANY_NOTES_KEY, notes);
+  return notes[idx];
+}
+
+/* ==========================================
+   Product Sales & Doctor/Center Ledger CRUD
+   ========================================== */
+
+const PRODUCT_SALES_KEY = 'company_product_sales_records';
+const MONTHLY_BUDGETS_KEY = 'company_monthly_budgets';
+const CUSTOM_EXCEL_PRESETS_KEY = 'company_custom_excel_presets';
+
+export async function fetchSalesRecords(): Promise<ProductSaleRecord[]> {
+  const records = await getStoredItem<ProductSaleRecord[]>(PRODUCT_SALES_KEY, []);
+  // If previously saved fake initial data exists (sale-001), clear it
+  if (records.some((r) => r.id === 'sale-001' || r.id === 'sale-002')) {
+    const cleaned = records.filter((r) => !r.id.startsWith('sale-00'));
+    await setStoredItem(PRODUCT_SALES_KEY, cleaned);
+    return cleaned;
+  }
+  return records;
+}
+
+export interface CreateSaleInput {
+  product_name: string;
+  product_model?: string;
+  doctor_name: string;
+  hospital_center_name: string;
+  location_district: string;
+  sale_value: number;
+  sale_date?: string;
+  quantity?: number;
+  payment_status: ProductSaleRecord['payment_status'];
+  paid_amount?: number;
+  due_amount?: number;
+  delivery_status: ProductSaleRecord['delivery_status'];
+  warranty_period?: string;
+  recorded_by: string;
+  notes?: string;
+}
+
+export async function createSalesRecord(input: CreateSaleInput): Promise<ProductSaleRecord> {
+  const existing = await fetchSalesRecords();
+  const saleValue = Number(input.sale_value) || 0;
+  const paid = input.paid_amount !== undefined ? Number(input.paid_amount) : (input.payment_status === 'full_paid' ? saleValue : (input.payment_status === 'due' ? 0 : Math.round(saleValue * 0.5)));
+  const due = input.due_amount !== undefined ? Number(input.due_amount) : Math.max(0, saleValue - paid);
+
+  const newRecord: ProductSaleRecord = {
+    id: `sale-${Date.now()}`,
+    product_name: input.product_name.trim(),
+    product_model: (input.product_model || 'Standard Edition').trim(),
+    doctor_name: input.doctor_name.trim(),
+    hospital_center_name: input.hospital_center_name.trim(),
+    location_district: (input.location_district || 'Dhaka').trim(),
+    sale_value: saleValue,
+    sale_date: input.sale_date || new Date().toISOString().split('T')[0],
+    quantity: Number(input.quantity) || 1,
+    payment_status: input.payment_status,
+    paid_amount: paid,
+    due_amount: due,
+    delivery_status: input.delivery_status,
+    warranty_period: (input.warranty_period || '1 Year Standard').trim(),
+    recorded_by: input.recorded_by,
+    notes: input.notes?.trim(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const updated = [newRecord, ...existing];
+  await setStoredItem(PRODUCT_SALES_KEY, updated);
+  return newRecord;
+}
+
+export async function deleteSalesRecord(id: string): Promise<void> {
+  const existing = await fetchSalesRecords();
+  const filtered = existing.filter((s) => s.id !== id);
+  await setStoredItem(PRODUCT_SALES_KEY, filtered);
+}
+
+export async function fetchMonthlyBudget(monthKey: string): Promise<number> {
+  const budgets = await getStoredItem<Record<string, number>>(MONTHLY_BUDGETS_KEY, {});
+  // Default budget ৳ 500,000 if not explicitly saved
+  return budgets[monthKey] ?? 500000;
+}
+
+export async function saveMonthlyBudget(monthKey: string, amount: number): Promise<void> {
+  const budgets = await getStoredItem<Record<string, number>>(MONTHLY_BUDGETS_KEY, {});
+  budgets[monthKey] = amount;
+  await setStoredItem(MONTHLY_BUDGETS_KEY, budgets);
+}
+
+export async function fetchCustomExcelPresets(): Promise<CustomExcelPreset[]> {
+  const presets = await getStoredItem<CustomExcelPreset[]>(CUSTOM_EXCEL_PRESETS_KEY, []);
+  if (presets.some((p) => p.id === 'preset-sales-all' || p.id === 'preset-tada-summary')) {
+    const cleaned = presets.filter((p) => !p.id.startsWith('preset-'));
+    await setStoredItem(CUSTOM_EXCEL_PRESETS_KEY, cleaned);
+    return cleaned;
+  }
+  return presets;
+}
+
+export async function saveCustomExcelPreset(preset: Omit<CustomExcelPreset, 'id' | 'created_at'>): Promise<CustomExcelPreset> {
+  const existing = await fetchCustomExcelPresets();
+  const newPreset: CustomExcelPreset = {
+    ...preset,
+    id: `preset-${Date.now()}`,
+    created_at: new Date().toISOString(),
+  };
+  await setStoredItem(CUSTOM_EXCEL_PRESETS_KEY, [newPreset, ...existing]);
+  return newPreset;
+}
+
+export async function deleteCustomExcelPreset(id: string): Promise<void> {
+  const existing = await fetchCustomExcelPresets();
+  const filtered = existing.filter((p) => p.id !== id);
+  await setStoredItem(CUSTOM_EXCEL_PRESETS_KEY, filtered);
+}
+

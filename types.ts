@@ -353,5 +353,66 @@ export interface ExecutiveRemark {
   created_at: string;
 }
 
+export type NoteCategory = 'expense' | 'policy' | 'operational' | 'urgent' | 'general';
+
+export interface CompanyNote {
+  id: string;
+  author_id: string;
+  author_name: string;
+  author_role: string;
+  title: string;
+  content: string;
+  category: NoteCategory;
+  is_pinned?: boolean;
+  amount?: number;
+  date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/* ==========================================
+   Product Sales & Doctor/Center Ledger Types
+   ========================================== */
+export type SaleDeliveryStatus = 'delivered' | 'installed' | 'under_warranty' | 'pending';
+export type SalePaymentStatus = 'full_paid' | 'partial' | 'due';
+
+export interface ProductSaleRecord {
+  id: string;
+  product_name: string;
+  product_model: string;
+  doctor_name: string;
+  hospital_center_name: string;
+  location_district: string;
+  sale_value: number;
+  sale_date: string; // YYYY-MM-DD
+  quantity: number;
+  payment_status: SalePaymentStatus;
+  paid_amount: number;
+  due_amount: number;
+  delivery_status: SaleDeliveryStatus;
+  warranty_period: string; // e.g. "1 Year Comprehensive", "2 Years Service"
+  recorded_by: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MonthlyBudgetRecord {
+  month_key: string; // e.g. "2026-11"
+  budget_amount: number;
+  notes?: string;
+  updated_by?: string;
+  updated_at: string;
+}
+
+export interface CustomExcelPreset {
+  id: string;
+  name: string;
+  dataset: 'sales' | 'tada' | 'notes' | 'hishab';
+  columns: string[];
+  created_at: string;
+}
+
+
 
 
