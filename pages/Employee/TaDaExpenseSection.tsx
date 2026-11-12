@@ -32,6 +32,8 @@ import {
   deleteTaDaClaim,
 } from '../../services/tadaService';
 import { exportToExcel, exportToPDF } from '../../utils/exportHelper';
+import { ReceiptGallery, ReceiptPreviewModal } from '../../components/common/ReceiptPreviewModal';
+import { compressReceiptFile } from '../../utils/receiptHelper';
 
 interface TaDaExpenseSectionProps {
   employee: Employee;
@@ -84,6 +86,11 @@ export const TaDaExpenseSection: React.FC<TaDaExpenseSectionProps> = ({
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isCompressingFiles, setIsCompressingFiles] = useState(false);
+  const [receiptPreview, setReceiptPreview] = useState<{
+    active: ExpenseAttachment;
+    list: ExpenseAttachment[];
+  } | null>(null);
 
   const loadMyClaims = async () => {
     setLoading(true);
@@ -546,25 +553,16 @@ export const TaDaExpenseSection: React.FC<TaDaExpenseSectionProps> = ({
                   </div>
                 </div>
 
-                {/* Attachments */}
                 {(claim.bills_receipts || []).length > 0 && (
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
-                    <span className="text-[10px] font-semibold text-slate-500 uppercase">
-                      Uploaded Bills &amp; Receipts:
+                  <div className="space-y-1.5 pt-1">
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase block">
+                      Uploaded Bills &amp; Receipts (Click to Preview):
                     </span>
-                    {claim.bills_receipts?.map((att, i) => (
-                      <a
-                        key={i}
-                        href={att.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-2.5 py-1 bg-white/[0.03] hover:bg-white/[0.07] border border-white/10 rounded-lg text-xs text-blue-400 hover:text-blue-300 transition-colors inline-flex items-center gap-1 font-medium"
-                      >
-                        <Paperclip size={12} />
-                        <span>{att.name}</span>
-                        <ExternalLink size={10} />
-                      </a>
-                    ))}
+                    <ReceiptGallery
+                      claim={claim}
+                      theme="dark"
+                      onPreview={(att, list) => setReceiptPreview({ active: att, list })}
+                    />
                   </div>
                 )}
 
@@ -791,48 +789,71 @@ export const TaDaExpenseSection: React.FC<TaDaExpenseSectionProps> = ({
                     type="file"
                     multiple
                     accept="image/*,.pdf"
-                    className="w-full text-xs text-slate-300 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer bg-black/40 p-2 rounded-xl border border-[#232f45]"
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files || []);
-                      files.forEach((file: File) => {
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                          if (typeof reader.result === 'string') {
-                            setFormState((prev) => ({
-                              ...prev,
-                              billsList: [
-                                ...prev.billsList,
-                                { name: file.name, url: reader.result as string },
-                              ],
-                            }));
-                          }
-                        };
-                        reader.readAsDataURL(file);
-                      });
+                    disabled={isCompressingFiles}
+                    className="w-full text-xs text-slate-300 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer bg-black/40 p-2 rounded-xl border border-[#232f45] disabled:opacity-60"
+                    onChange={async (e) => {
+                      const files = Array.from(e.target.files || []) as File[];
+                      e.target.value = '';
+                      if (files.length === 0) return;
+
+                      setIsCompressingFiles(true);
+                      setFormError(null);
+                      try {
+                        const processed = await Promise.all(
+                          files.map((file) => compressReceiptFile(file))
+                        );
+                        setFormState((prev) => ({
+                          ...prev,
+                          billsList: [...prev.billsList, ...processed],
+                        }));
+                      } catch (err: any) {
+                        setFormError(err?.message || 'Could not process one or more receipt files.');
+                      } finally {
+                        setIsCompressingFiles(false);
+                      }
                     }}
                   />
 
+                  {isCompressingFiles && (
+                    <div className="flex items-center gap-2 text-[11px] text-emerald-400 font-medium">
+                      <Loader2 size={13} className="animate-spin" />
+                      <span>Optimizing receipt image for fast upload...</span>
+                    </div>
+                  )}
+
                   {formState.billsList.length > 0 && (
                     <div className="space-y-2 pt-1">
-                      <span className="text-[10px] text-slate-400 font-bold uppercase block">Uploaded Receipts ({formState.billsList.length}):</span>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase block">
+                        Uploaded Receipts ({formState.billsList.length}) — Click thumbnail to inspect:
+                      </span>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {formState.billsList.map((att, i) => (
                           <div
                             key={i}
-                            className="flex items-center justify-between p-2 rounded-xl bg-white/[0.04] border border-white/10 text-xs text-slate-200"
+                            className="flex items-center justify-between p-2 rounded-xl bg-white/[0.04] border border-white/10 text-xs text-slate-200 gap-2"
                           >
-                            <div className="flex items-center gap-2 truncate">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setReceiptPreview({ active: att, list: formState.billsList })
+                              }
+                              className="flex items-center gap-2 min-w-0 text-left hover:text-emerald-300 cursor-pointer"
+                            >
                               {att.url.startsWith('data:image') ? (
-                                <img src={att.url} alt={att.name} className="w-7 h-7 rounded object-cover shrink-0" />
+                                <img
+                                  src={att.url}
+                                  alt={att.name}
+                                  className="w-9 h-9 rounded-lg object-cover shrink-0 border border-white/15"
+                                />
                               ) : (
                                 <Paperclip size={14} className="text-emerald-400 shrink-0" />
                               )}
                               <span className="truncate font-medium">{att.name}</span>
-                            </div>
+                            </button>
                             <button
                               type="button"
                               onClick={() => handleRemoveBill(i)}
-                              className="text-slate-500 hover:text-rose-400 cursor-pointer p-1"
+                              className="text-slate-500 hover:text-rose-400 cursor-pointer p-1 shrink-0"
                               title="Remove receipt"
                             >
                               <X size={14} />
@@ -895,6 +916,16 @@ export const TaDaExpenseSection: React.FC<TaDaExpenseSectionProps> = ({
           </div>
         )}
       </AnimatePresence>
+
+      <ReceiptPreviewModal
+        receipt={receiptPreview?.active || null}
+        receipts={receiptPreview?.list || []}
+        theme="dark"
+        onClose={() => setReceiptPreview(null)}
+        onSelectReceipt={(att) =>
+          setReceiptPreview((prev) => (prev ? { ...prev, active: att } : null))
+        }
+      />
     </section>
   );
 };

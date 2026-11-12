@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   DollarSign,
   TrendingUp,
@@ -15,7 +15,12 @@ import {
   X,
   CreditCard,
   Building,
-  UserCheck,
+  Users,
+  Plus,
+  Clock,
+  Paperclip,
+  ArrowRight,
+  Wallet,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -32,63 +37,218 @@ import {
   AreaChart,
   Area,
 } from 'recharts';
-import { TaDaClaim, CompanyNote, ProductSaleRecord } from '../../../types';
+import { TaDaClaim, CompanyNote, ProductSaleRecord, ExpenseAttachment } from '../../../types';
 import { exportToExcel, exportToPDF } from '../../../utils/exportHelper';
+import { ReceiptGallery, ReceiptPreviewModal } from '../../../components/common/ReceiptPreviewModal';
 
 interface FinancialHishabSectionProps {
   tadaClaims: TaDaClaim[];
   companyNotes: CompanyNote[];
   salesRecords: ProductSaleRecord[];
   monthlyBudget: number;
-  onUpdateBudget: (newBudget: number) => Promise<void>;
+  monthlyBudgets?: Record<string, number>;
+  onUpdateBudget: (newBudget: number, monthKey?: string) => Promise<void>;
   currentMonthKey: string;
+  onReviewTaDa?: (claimId: string, status: 'approved' | 'rejected', remarks?: string) => Promise<void>;
+  onToggleTaDaPayment?: (claimId: string, currentStatus: 'unpaid' | 'paid') => Promise<void>;
+  onAddExpenseNote?: (note: { title: string; content: string; amount: number; date: string }) => Promise<void>;
 }
 
 const COLORS = ['#0284c7', '#0d9488', '#f59e0b', '#6366f1', '#ec4899', '#8b5cf6'];
+
+type ScopeMode = 'monthly' | 'all';
+type TaDaInclusionMode = 'active' | 'approved' | 'paid' | 'all';
+type LedgerSubTab = 'summary' | 'tada-items' | 'company-items' | 'staff-breakdown';
+
+function getClaimTotal(c: TaDaClaim): number {
+  const explicit = Number(c.total_amount);
+  if (!isNaN(explicit) && explicit > 0) return explicit;
+  return (
+    (Number(c.travel_allowance) || 0) +
+    (Number(c.daily_allowance) || 0) +
+    (Number(c.transportation_expense) || 0) +
+    (Number(c.accommodation_food_expense) || 0)
+  );
+}
+
+function getClaimMonthKey(c: TaDaClaim): string {
+  const candidate =
+    c.travel_start_date ||
+    c.travel_end_date ||
+    c.submitted_at ||
+    c.paid_at ||
+    c.created_at ||
+    '';
+  return candidate ? candidate.slice(0, 7) : '';
+}
+
+function getNoteMonthKey(n: CompanyNote): string {
+  const candidate = n.date || n.created_at || '';
+  return candidate ? candidate.slice(0, 7) : '';
+}
+
+function getSaleMonthKey(s: ProductSaleRecord): string {
+  const candidate = s.sale_date || s.created_at || '';
+  return candidate ? candidate.slice(0, 7) : '';
+}
 
 export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
   tadaClaims,
   companyNotes,
   salesRecords,
   monthlyBudget,
+  monthlyBudgets,
   onUpdateBudget,
   currentMonthKey,
+  onReviewTaDa,
+  onToggleTaDaPayment,
+  onAddExpenseNote,
 }) => {
-  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthKey || '2026-11');
+  const [scope, setScope] = useState<ScopeMode>('monthly');
+  const [selectedMonth, setSelectedMonth] = useState<string>(
+    currentMonthKey || new Date().toISOString().slice(0, 7)
+  );
+  const [tadaInclusion, setTadaInclusion] = useState<TaDaInclusionMode>('active');
+  const [ledgerTab, setLedgerTab] = useState<LedgerSubTab>('summary');
+  const [receiptPreview, setReceiptPreview] = useState<{
+    active: ExpenseAttachment;
+    list: ExpenseAttachment[];
+  } | null>(null);
+
+  const activeMonthBudget = useMemo(() => {
+    if (monthlyBudgets && monthlyBudgets[selectedMonth] !== undefined) {
+      return monthlyBudgets[selectedMonth];
+    }
+    return monthlyBudget;
+  }, [monthlyBudgets, selectedMonth, monthlyBudget]);
+
   const [isEditingBudget, setIsEditingBudget] = useState(false);
-  const [budgetInput, setBudgetInput] = useState(monthlyBudget.toString());
+  const [budgetInput, setBudgetInput] = useState(activeMonthBudget.toString());
   const [isSavingBudget, setIsSavingBudget] = useState(false);
 
-  // Filter datasets by selected month (YYYY-MM)
-  const filteredClaims = useMemo(() => {
-    return tadaClaims.filter((c) => {
-      const date = c.travel_start_date || c.created_at;
-      return date && date.startsWith(selectedMonth);
+  // Quick Add Company Expense Modal
+  const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
+  const [expenseForm, setExpenseForm] = useState({
+    title: '',
+    amount: '',
+    date: new Date().toISOString().split('T')[0],
+    content: '',
+  });
+  const [isSavingExpense, setIsSavingExpense] = useState(false);
+
+  useEffect(() => {
+    setBudgetInput(activeMonthBudget.toString());
+  }, [activeMonthBudget, selectedMonth]);
+
+  // Helper to check if a claim passes the TA/DA status filter
+  const matchesTaDaStatusFilter = (c: TaDaClaim, mode: TaDaInclusionMode) => {
+    if (mode === 'active') return c.status !== 'rejected' && c.status !== 'draft';
+    if (mode === 'approved') return c.status === 'approved';
+    if (mode === 'paid') return c.payment_status === 'paid' && c.status !== 'rejected';
+    return true;
+  };
+
+  // All valid active TA/DA claims across entire DB (used to detect other-month mismatches)
+  const allActiveClaims = useMemo(
+    () => tadaClaims.filter((c) => matchesTaDaStatusFilter(c, tadaInclusion)),
+    [tadaClaims, tadaInclusion]
+  );
+
+  // Available months containing TA/DA claims (sorted descending)
+  const claimMonthsSummary = useMemo(() => {
+    const map: Record<string, { count: number; total: number }> = {};
+    allActiveClaims.forEach((c) => {
+      const m = getClaimMonthKey(c);
+      if (!m) return;
+      if (!map[m]) map[m] = { count: 0, total: 0 };
+      map[m].count += 1;
+      map[m].total += getClaimTotal(c);
     });
-  }, [tadaClaims, selectedMonth]);
+    return Object.entries(map)
+      .map(([month, info]) => ({ month, ...info }))
+      .sort((a, b) => b.month.localeCompare(a.month));
+  }, [allActiveClaims]);
+
+  // Filter datasets by scope (monthly vs all) + TA/DA status filter
+  const filteredClaims = useMemo(() => {
+    return allActiveClaims.filter((c) => {
+      if (scope === 'all') return true;
+      const claimMonth = getClaimMonthKey(c);
+      const startM = (c.travel_start_date || '').slice(0, 7);
+      const endM = (c.travel_end_date || '').slice(0, 7);
+      const subM = (c.submitted_at || '').slice(0, 7);
+      return (
+        claimMonth === selectedMonth ||
+        startM === selectedMonth ||
+        endM === selectedMonth ||
+        subM === selectedMonth
+      );
+    });
+  }, [allActiveClaims, scope, selectedMonth]);
+
+  // Count excluded claims in current scope so nothing feels silently missing
+  const scopedExcludedCounts = useMemo(() => {
+    const inPeriod = tadaClaims.filter((c) => {
+      if (scope === 'all') return true;
+      const claimMonth = getClaimMonthKey(c);
+      const startM = (c.travel_start_date || '').slice(0, 7);
+      const endM = (c.travel_end_date || '').slice(0, 7);
+      const subM = (c.submitted_at || '').slice(0, 7);
+      return (
+        claimMonth === selectedMonth ||
+        startM === selectedMonth ||
+        endM === selectedMonth ||
+        subM === selectedMonth
+      );
+    });
+    return {
+      drafts: inPeriod.filter((c) => c.status === 'draft').length,
+      rejected: inPeriod.filter((c) => c.status === 'rejected').length,
+      submittedPending: inPeriod.filter((c) => c.status === 'submitted').length,
+    };
+  }, [tadaClaims, scope, selectedMonth]);
 
   const filteredNotes = useMemo(() => {
     return companyNotes.filter((n) => {
-      const date = n.date || n.created_at;
-      return n.category === 'expense' && date && date.startsWith(selectedMonth);
+      if (n.category !== 'expense') return false;
+      if (scope === 'all') return true;
+      return getNoteMonthKey(n) === selectedMonth;
     });
-  }, [companyNotes, selectedMonth]);
+  }, [companyNotes, scope, selectedMonth]);
 
   const filteredSales = useMemo(() => {
     return salesRecords.filter((s) => {
-      const date = s.sale_date || s.created_at;
-      return date && date.startsWith(selectedMonth);
+      if (scope === 'all') return true;
+      return getSaleMonthKey(s) === selectedMonth;
     });
-  }, [salesRecords, selectedMonth]);
+  }, [salesRecords, scope, selectedMonth]);
+
+  // Budget calculation (single month or cumulative across active months if All Time)
+  const effectiveBudget = useMemo(() => {
+    if (scope === 'monthly') return activeMonthBudget;
+    if (!monthlyBudgets || Object.keys(monthlyBudgets).length === 0) return monthlyBudget;
+    return Object.values(monthlyBudgets).reduce<number>((acc, v) => acc + (Number(v) || 0), 0);
+  }, [scope, activeMonthBudget, monthlyBudgets, monthlyBudget]);
 
   // Calculations for "All Total Hishab Koto Hoilo"
   const totals = useMemo(() => {
-    // 1. Personal / Staff Field Expenses
+    // 1. Personal / Staff Field Expenses (TA/DA)
     const personalTravel = filteredClaims.reduce((acc, c) => acc + (Number(c.travel_allowance) || 0), 0);
     const personalDaily = filteredClaims.reduce((acc, c) => acc + (Number(c.daily_allowance) || 0), 0);
     const personalTransport = filteredClaims.reduce((acc, c) => acc + (Number(c.transportation_expense) || 0), 0);
     const personalFoodHotel = filteredClaims.reduce((acc, c) => acc + (Number(c.accommodation_food_expense) || 0), 0);
-    const totalPersonalExpenses = filteredClaims.reduce((acc, c) => acc + (Number(c.total_amount) || 0), 0);
+    const totalPersonalExpenses = filteredClaims.reduce((acc, c) => acc + getClaimTotal(c), 0);
+
+    // Sub-breakdowns for TA/DA disbursement visibility
+    const tadaPaidAmount = filteredClaims
+      .filter((c) => c.payment_status === 'paid')
+      .reduce((acc, c) => acc + getClaimTotal(c), 0);
+    const tadaApprovedUnpaid = filteredClaims
+      .filter((c) => c.status === 'approved' && c.payment_status !== 'paid')
+      .reduce((acc, c) => acc + getClaimTotal(c), 0);
+    const tadaPendingApproval = filteredClaims
+      .filter((c) => c.status === 'submitted')
+      .reduce((acc, c) => acc + getClaimTotal(c), 0);
 
     // 2. Company Operational Expenses (from Notes)
     const totalCompanyExpenses = filteredNotes.reduce((acc, n) => acc + (Number(n.amount) || 0), 0);
@@ -102,10 +262,13 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
     const totalDueReceivables = filteredSales.reduce((acc, s) => acc + (Number(s.due_amount) || 0), 0);
 
     // 5. Budget Tracking & Net Margin
-    const budgetRemaining = monthlyBudget - allTotalExpenses;
-    const budgetPercentUsed = monthlyBudget > 0 ? Math.min(Math.round((allTotalExpenses / monthlyBudget) * 100), 100) : 0;
+    const budgetRemaining = effectiveBudget - allTotalExpenses;
+    const budgetPercentUsed =
+      effectiveBudget > 0 ? Math.min(Math.round((allTotalExpenses / effectiveBudget) * 100), 100) : 0;
     const netCashMargin = totalCollectedCash - allTotalExpenses;
     const netRevenueMargin = totalSalesRevenue - allTotalExpenses;
+    const collectionRate =
+      totalSalesRevenue > 0 ? Math.round((totalCollectedCash / totalSalesRevenue) * 100) : 0;
 
     return {
       personalTravel,
@@ -113,6 +276,9 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
       personalTransport,
       personalFoodHotel,
       totalPersonalExpenses,
+      tadaPaidAmount,
+      tadaApprovedUnpaid,
+      tadaPendingApproval,
       totalCompanyExpenses,
       allTotalExpenses,
       totalSalesRevenue,
@@ -122,15 +288,99 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
       budgetPercentUsed,
       netCashMargin,
       netRevenueMargin,
+      collectionRate,
     };
-  }, [filteredClaims, filteredNotes, filteredSales, monthlyBudget]);
+  }, [filteredClaims, filteredNotes, filteredSales, effectiveBudget]);
+
+  // Employee-wise TA/DA Aggregation
+  const staffExpenseBreakdown = useMemo(() => {
+    const map: Record<
+      string,
+      {
+        employee_id: string;
+        employee_name: string;
+        employee_code: string;
+        claimCount: number;
+        ta: number;
+        da: number;
+        transport: number;
+        foodHotel: number;
+        total: number;
+        paid: number;
+        unpaid: number;
+      }
+    > = {};
+
+    filteredClaims.forEach((c) => {
+      const key = c.employee_id || c.employee_name || 'unknown';
+      if (!map[key]) {
+        map[key] = {
+          employee_id: key,
+          employee_name: c.employee_name || 'Unknown Staff',
+          employee_code: c.employee_code || '—',
+          claimCount: 0,
+          ta: 0,
+          da: 0,
+          transport: 0,
+          foodHotel: 0,
+          total: 0,
+          paid: 0,
+          unpaid: 0,
+        };
+      }
+      const amt = getClaimTotal(c);
+      map[key].claimCount += 1;
+      map[key].ta += Number(c.travel_allowance) || 0;
+      map[key].da += Number(c.daily_allowance) || 0;
+      map[key].transport += Number(c.transportation_expense) || 0;
+      map[key].foodHotel += Number(c.accommodation_food_expense) || 0;
+      map[key].total += amt;
+      if (c.payment_status === 'paid') map[key].paid += amt;
+      else map[key].unpaid += amt;
+    });
+
+    return Object.values(map).sort((a, b) => b.total - a.total);
+  }, [filteredClaims]);
+
+  // 6-Month Cash Flow & Profit Trend Data
+  const monthlyTrendData = useMemo(() => {
+    const monthSet = new Set<string>();
+    const baseDate = new Date(`${selectedMonth}-01T00:00:00`);
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(baseDate.getFullYear(), baseDate.getMonth() - i, 1);
+      monthSet.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    // Also add any months present in claims/sales/notes up to recent
+    const months = Array.from(monthSet).sort();
+
+    return months.map((m) => {
+      const mSales = salesRecords.filter((s) => getSaleMonthKey(s) === m);
+      const mClaims = allActiveClaims.filter((c) => getClaimMonthKey(c) === m);
+      const mNotes = companyNotes.filter(
+        (n) => n.category === 'expense' && getNoteMonthKey(n) === m
+      );
+
+      const collected = mSales.reduce((acc, s) => acc + (Number(s.paid_amount) || 0), 0);
+      const tada = mClaims.reduce((acc, c) => acc + getClaimTotal(c), 0);
+      const ops = mNotes.reduce((acc, n) => acc + (Number(n.amount) || 0), 0);
+      const totalExpense = tada + ops;
+
+      return {
+        month: m,
+        Collected: collected,
+        'TA/DA Expense': tada,
+        'Company Ops': ops,
+        'Net Balance': collected - totalExpense,
+      };
+    });
+  }, [selectedMonth, salesRecords, allActiveClaims, companyNotes]);
 
   // Chart Data: Financial Comparison
   const comparisonChartData = useMemo(() => {
     return [
       {
-        name: 'This Month Budget',
-        amount: monthlyBudget,
+        name: scope === 'all' ? 'Budget Ref' : 'Month Budget',
+        amount: effectiveBudget,
         color: '#6366f1',
       },
       {
@@ -144,17 +394,22 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
         color: '#0284c7',
       },
       {
-        name: 'All Total Expenses',
-        amount: totals.allTotalExpenses,
+        name: 'Staff TA/DA',
+        amount: totals.totalPersonalExpenses,
+        color: '#f59e0b',
+      },
+      {
+        name: 'Company Ops',
+        amount: totals.totalCompanyExpenses,
         color: '#e11d48',
       },
       {
-        name: 'Net Cash Margin',
+        name: 'Net Cash',
         amount: Math.max(0, totals.netCashMargin),
         color: '#10b981',
       },
     ];
-  }, [monthlyBudget, totals]);
+  }, [effectiveBudget, totals, scope]);
 
   // Chart Data: Expense Category Breakdown
   const expensePieData = useMemo(() => {
@@ -174,35 +429,65 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
     if (isNaN(val) || val < 0) return;
     setIsSavingBudget(true);
     try {
-      await onUpdateBudget(val);
+      await onUpdateBudget(val, selectedMonth);
       setIsEditingBudget(false);
     } finally {
       setIsSavingBudget(false);
     }
   };
 
+  const handleAddQuickExpense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onAddExpenseNote || !expenseForm.title.trim()) return;
+    const amt = Number(expenseForm.amount) || 0;
+    if (amt <= 0) {
+      alert('Please enter a valid expense amount greater than 0.');
+      return;
+    }
+    setIsSavingExpense(true);
+    try {
+      await onAddExpenseNote({
+        title: expenseForm.title.trim(),
+        content: expenseForm.content.trim() || 'Recorded via Financial & Budget Hub',
+        amount: amt,
+        date: expenseForm.date || new Date().toISOString().split('T')[0],
+      });
+      setExpenseForm({
+        title: '',
+        amount: '',
+        date: new Date().toISOString().split('T')[0],
+        content: '',
+      });
+      setShowAddExpenseModal(false);
+    } finally {
+      setIsSavingExpense(false);
+    }
+  };
+
+  const periodLabel = scope === 'all' ? 'All_Time_Cumulative' : selectedMonth;
+
   // Export Hishab to Excel
   const handleExportHishabExcel = () => {
     const headers = ['Category / Item', 'Type', 'Amount (BDT)', 'Notes / Status'];
     const rows: (string | number)[][] = [
-      ['Monthly Budget Allocated', 'Target Budget', monthlyBudget, `Month: ${selectedMonth}`],
+      ['Budget Allocated Ceiling', 'Target Budget', effectiveBudget, `Scope: ${periodLabel}`],
       ['Total Equipment Sales Revenue', 'Inflow (Booked)', totals.totalSalesRevenue, `${filteredSales.length} Equipment Orders`],
-      ['Total Cash Collected', 'Inflow (Received)', totals.totalCollectedCash, 'Bank / Cash Clearance'],
+      ['Total Cash Collected', 'Inflow (Received)', totals.totalCollectedCash, `${totals.collectionRate}% Realization`],
       ['Total Due Receivables', 'Inflow (Pending)', totals.totalDueReceivables, 'Pending Doctor / Center Collection'],
-      ['Personal Field Expenses (TA/DA Claims)', 'Outflow (Staff)', totals.totalPersonalExpenses, `${filteredClaims.length} Claims Filed`],
+      ['Personal Field Expenses (TA/DA Claims)', 'Outflow (Staff)', totals.totalPersonalExpenses, `${filteredClaims.length} Claims (Paid: Tk ${totals.tadaPaidAmount.toLocaleString()}, Unpaid Approved: Tk ${totals.tadaApprovedUnpaid.toLocaleString()})`],
       ['  - Travel Allowance', 'Sub-Expense', totals.personalTravel, 'Bus, Train & Intercity'],
       ['  - Daily Allowance (DA)', 'Sub-Expense', totals.personalDaily, 'Per-diem field duty'],
       ['  - Transportation Expense', 'Sub-Expense', totals.personalTransport, 'Local Rickshaw, CNG, Taxi'],
       ['  - Food & Hotel Lodging', 'Sub-Expense', totals.personalFoodHotel, 'Outstation Accommodation'],
       ['Company Operational Expenses (Notes)', 'Outflow (Operations)', totals.totalCompanyExpenses, `${filteredNotes.length} Expense Notes`],
-      ['ALL TOTAL EXPENSES KOTO HOILO', 'Grand Total Outflow', totals.allTotalExpenses, `${totals.budgetPercentUsed}% of Monthly Budget Used`],
+      ['ALL TOTAL EXPENSES KOTO HOILO', 'Grand Total Outflow', totals.allTotalExpenses, `${totals.budgetPercentUsed}% of Budget Used`],
       ['BUDGET REMAINING BALANCE', 'Budget Surplus', totals.budgetRemaining, totals.budgetRemaining >= 0 ? 'Within Budget' : 'Over Budget'],
       ['NET CASH SURPLUS / PROFIT MARGIN', 'Net Profit Margin', totals.netCashMargin, totals.netCashMargin >= 0 ? 'Positive Operating Surplus' : 'Deficit'],
     ];
 
     exportToExcel({
-      filename: `Carelink_Executive_Hishab_${selectedMonth}`,
-      sheetName: 'Monthly Hishab',
+      filename: `Carelink_Executive_Hishab_${periodLabel}`,
+      sheetName: 'Financial Hishab',
       headers,
       rows,
     });
@@ -212,10 +497,10 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
   const handleExportHishabPDF = () => {
     const headers = ['Category / Item', 'Type', 'Amount (BDT)', 'Notes'];
     const rows: (string | number)[][] = [
-      ['Monthly Budget Allocated', 'Target', `Tk ${monthlyBudget.toLocaleString()}`, `Period: ${selectedMonth}`],
+      ['Budget Allocated', 'Target', `Tk ${effectiveBudget.toLocaleString()}`, `Scope: ${scope === 'all' ? 'All Time' : selectedMonth}`],
       ['Total Equipment Sales Revenue', 'Inflow', `Tk ${totals.totalSalesRevenue.toLocaleString()}`, `${filteredSales.length} Orders`],
-      ['Total Cash Collected', 'Cash In', `Tk ${totals.totalCollectedCash.toLocaleString()}`, 'Cleared'],
-      ['Total Due Receivables', 'Due In', `Tk ${totals.totalDueReceivables.toLocaleString()}`, 'Pending'],
+      ['Total Cash Collected', 'Cash In', `Tk ${totals.totalCollectedCash.toLocaleString()}`, `${totals.collectionRate}% Collected`],
+      ['Total Due Receivables', 'Due In', `Tk ${totals.totalDueReceivables.toLocaleString()}`, 'Pending Receivables'],
       ['Personal Field Expenses (TA/DA)', 'Staff Outflow', `Tk ${totals.totalPersonalExpenses.toLocaleString()}`, `${filteredClaims.length} Claims`],
       ['Company Operational Notes', 'Ops Outflow', `Tk ${totals.totalCompanyExpenses.toLocaleString()}`, `${filteredNotes.length} Items`],
       ['ALL TOTAL EXPENSES', 'Grand Outflow', `Tk ${totals.allTotalExpenses.toLocaleString()}`, `${totals.budgetPercentUsed}% Budget Used`],
@@ -223,46 +508,96 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
     ];
 
     exportToPDF({
-      filename: `Carelink_Executive_Hishab_${selectedMonth}`,
+      filename: `Carelink_Executive_Hishab_${periodLabel}`,
       title: 'Carelink Healthineers — Executive Financial Hishab',
-      subtitle: `Official Monthly Accounting Summary · Period: ${selectedMonth} · MD & Board of Directors`,
+      subtitle: `Official Accounting Summary · Period: ${scope === 'all' ? 'Cumulative All Months' : selectedMonth} · MD & Board of Directors`,
       headers,
       rows,
     });
   };
 
+  const latestOtherMonth = claimMonthsSummary.find((m) => m.month !== selectedMonth);
+
   return (
     <div className="space-y-6">
-      {/* Top Controls & Month Picker */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 lg:p-6 rounded-3xl border border-slate-200 shadow-xs">
+      {/* Top Controls, Scope Toggle, Month Picker & Quick Actions */}
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white p-4 lg:p-6 rounded-2xl border border-slate-200">
         <div>
-          <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <DollarSign className="text-emerald-600" size={22} />
-            <span>Executive Financial & Budget Hishab (সর্বমোট হিসাব)</span>
+          <h2 className="text-lg font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+            <DollarSign className="text-emerald-600 shrink-0" size={22} />
+            <span>Executive Financial &amp; Budget Hishab (সর্বমোট হিসাব)</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Real-time monthly accounting ledger: Budget targets, field TA/DA expenses, company overhead, and total balance.
+            Unified accounting hub combining Staff TA/DA Claims, Company Operational Expenses, Equipment Sales &amp; Cash Balance.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Month Selector */}
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-1.5 text-xs font-semibold">
-            <Calendar size={14} className="text-slate-500" />
-            <span className="text-slate-500 text-[11px]">Select Month:</span>
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="bg-transparent text-slate-900 font-bold focus:outline-hidden text-xs cursor-pointer"
-            />
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Scope Segmented Toggle: Monthly vs All Time */}
+          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs">
+            <button
+              onClick={() => setScope('monthly')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                scope === 'monthly'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Monthly View
+            </button>
+            <button
+              onClick={() => setScope('all')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                scope === 'all'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              All Time (সর্বমোট)
+            </button>
           </div>
 
-          {/* Export Buttons */}
+          {/* Month Selector */}
+          {scope === 'monthly' && (
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold">
+              <Calendar size={14} className="text-slate-500 shrink-0" />
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="bg-transparent text-slate-900 font-bold focus:outline-hidden text-xs cursor-pointer tabular-nums"
+              />
+            </div>
+          )}
+
+          {/* TA/DA Status Filter */}
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs">
+            <span className="text-slate-500 text-[11px] font-medium whitespace-nowrap">TA/DA Scope:</span>
+            <select
+              value={tadaInclusion}
+              onChange={(e) => setTadaInclusion(e.target.value as TaDaInclusionMode)}
+              className="bg-transparent text-slate-900 font-bold focus:outline-hidden cursor-pointer text-xs"
+            >
+              <option value="active">Active (Submitted + Approved)</option>
+              <option value="approved">Approved Only</option>
+              <option value="paid">Paid / Disbursed Only</option>
+              <option value="all">All (Incl. Draft/Rejected)</option>
+            </select>
+          </div>
+
+          {onAddExpenseNote && (
+            <button
+              onClick={() => setShowAddExpenseModal(true)}
+              className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+            >
+              <Plus size={14} />
+              <span>Log Expense</span>
+            </button>
+          )}
+
           <button
             onClick={handleExportHishabExcel}
-            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
-            title="Download formatted Excel sheet"
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
           >
             <FileSpreadsheet size={15} />
             <span>Excel (.xlsx)</span>
@@ -270,80 +605,117 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
 
           <button
             onClick={handleExportHishabPDF}
-            className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
-            title="Download PDF statement"
+            className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
           >
             <Download size={15} />
-            <span>PDF Statement</span>
+            <span>PDF</span>
           </button>
         </div>
       </div>
 
-      {/* KPI Hishab Cards Grid: All Total Hishab Koto Hoilo */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* 1. Monthly Budget */}
-        <div className="p-5 bg-gradient-to-br from-indigo-50 to-white rounded-3xl border border-indigo-100 shadow-xs relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-700">
-              This Month Budget
-            </span>
-            <button
-              onClick={() => {
-                setBudgetInput(monthlyBudget.toString());
-                setIsEditingBudget(!isEditingBudget);
-              }}
-              className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-100/70 transition-colors cursor-pointer"
-              title="Edit monthly budget"
-            >
-              <Edit3 size={14} />
-            </button>
+      {/* SMART ALERT BANNER: If selected month has 0 TA/DA claims while other months have TA/DA data */}
+      {scope === 'monthly' && filteredClaims.length === 0 && latestOtherMonth && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-start sm:items-center gap-3 text-amber-900">
+            <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
+            <div>
+              <div className="font-bold">
+                No active TA/DA claims found in {selectedMonth}, but {allActiveClaims.length} claim(s) totaling{' '}
+                <span className="font-mono tabular-nums">
+                  ৳{allActiveClaims.reduce((s, c) => s + getClaimTotal(c), 0).toLocaleString()}
+                </span>{' '}
+                exist in other months ({claimMonthsSummary.map((m) => m.month).slice(0, 3).join(', ')}).
+              </div>
+              <div className="text-[11px] text-amber-700 mt-0.5">
+                Switch to &quot;All Time&quot; to see total company TA/DA expenditure or jump directly to {latestOtherMonth.month}.
+              </div>
+            </div>
           </div>
 
-          {isEditingBudget ? (
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setSelectedMonth(latestOtherMonth.month)}
+              className="px-3 py-1.5 bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 rounded-lg font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              Jump to {latestOtherMonth.month}
+            </button>
+            <button
+              onClick={() => setScope('all')}
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              Show All Time
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* KPI Hishab Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* 1. Monthly / Period Budget */}
+        <div className="p-5 bg-white rounded-2xl border border-slate-200 relative">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">
+              {scope === 'all' ? 'Cumulative Budget Ref' : 'This Month Budget'}
+            </span>
+            {scope === 'monthly' && (
+              <button
+                onClick={() => {
+                  setBudgetInput(activeMonthBudget.toString());
+                  setIsEditingBudget(!isEditingBudget);
+                }}
+                className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
+                title="Edit budget for selected month"
+              >
+                <Edit3 size={14} />
+              </button>
+            )}
+          </div>
+
+          {isEditingBudget && scope === 'monthly' ? (
             <div className="mt-2 flex items-center gap-2">
               <input
                 type="number"
                 value={budgetInput}
                 onChange={(e) => setBudgetInput(e.target.value)}
-                className="w-full px-2.5 py-1 text-sm font-mono font-bold bg-white border border-indigo-300 rounded-lg focus:outline-hidden"
+                className="w-full px-2.5 py-1 text-sm font-mono tabular-nums font-bold bg-slate-50 border border-indigo-300 rounded-lg focus:outline-hidden"
               />
               <button
                 onClick={handleSaveBudget}
                 disabled={isSavingBudget}
-                className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 cursor-pointer"
               >
                 <Save size={14} />
               </button>
               <button
                 onClick={() => setIsEditingBudget(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600"
+                className="p-1.5 text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X size={14} />
               </button>
             </div>
           ) : (
             <div className="mt-2">
-              <div className="text-2xl font-black font-mono text-indigo-950">
-                ৳{monthlyBudget.toLocaleString()}
+              <div className="text-2xl font-black font-mono tabular-nums text-slate-900">
+                ৳{effectiveBudget.toLocaleString()}
               </div>
-              <div className="mt-1 text-[11px] text-indigo-600 font-medium flex items-center justify-between">
+              <div className="mt-1 text-[11px] text-slate-500 font-medium flex items-center justify-between">
                 <span>Budget Allocated</span>
-                <span>{selectedMonth}</span>
+                <span className="font-mono tabular-nums">{scope === 'all' ? 'All Months' : selectedMonth}</span>
               </div>
             </div>
           )}
 
           {/* Progress Bar */}
           <div className="mt-3">
-            <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1">
+            <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1 tabular-nums">
               <span>Utilized: {totals.budgetPercentUsed}%</span>
               <span>Rem: ৳{Math.max(0, totals.budgetRemaining).toLocaleString()}</span>
             </div>
-            <div className="w-full bg-indigo-100 rounded-full h-2 overflow-hidden">
+            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
               <div
-                className={`h-2 rounded-full transition-all duration-500 ${
+                className={`h-2 rounded-full transition-all duration-300 ${
                   totals.budgetPercentUsed > 90
-                    ? 'bg-rose-500'
+                    ? 'bg-rose-600'
                     : totals.budgetPercentUsed > 70
                     ? 'bg-amber-500'
                     : 'bg-indigo-600'
@@ -355,71 +727,85 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
         </div>
 
         {/* 2. Personal & Field Staff Expenses (TA/DA) */}
-        <div className="p-5 bg-gradient-to-br from-amber-50 to-white rounded-3xl border border-amber-100 shadow-xs">
+        <div
+          onClick={() => setLedgerTab('tada-items')}
+          className="p-5 bg-white rounded-2xl border border-slate-200 hover:border-amber-300 transition-colors cursor-pointer"
+          title="Click to view itemized TA/DA claims"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-800">
-              Personal / Field Expenses
+            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800">
+              Staff Field Expenses (TA/DA)
             </span>
-            <Receipt size={16} className="text-amber-600" />
+            <Receipt size={16} className="text-amber-600 shrink-0" />
           </div>
           <div className="mt-2">
-            <div className="text-2xl font-black font-mono text-amber-950">
+            <div className="text-2xl font-black font-mono tabular-nums text-slate-900">
               ৳{totals.totalPersonalExpenses.toLocaleString()}
             </div>
-            <div className="mt-1 text-[11px] text-amber-700 font-medium">
-              {filteredClaims.length} employee TA/DA claims filed
+            <div className="mt-1 text-[11px] text-amber-700 font-medium flex items-center justify-between">
+              <span>{filteredClaims.length} active claims</span>
+              <span className="font-mono tabular-nums">Paid: ৳{totals.tadaPaidAmount.toLocaleString()}</span>
             </div>
           </div>
-          <div className="mt-3 pt-2.5 border-t border-amber-100/70 text-[10px] text-slate-600 grid grid-cols-2 gap-1 font-mono">
+          <div className="mt-3 pt-2.5 border-t border-slate-100 text-[10px] text-slate-600 grid grid-cols-2 gap-1 font-mono tabular-nums">
             <span>Travel: ৳{totals.personalTravel.toLocaleString()}</span>
-            <span>Food: ৳{totals.personalFoodHotel.toLocaleString()}</span>
+            <span>Food/Htl: ৳{totals.personalFoodHotel.toLocaleString()}</span>
             <span>Local: ৳{totals.personalTransport.toLocaleString()}</span>
             <span>DA: ৳{totals.personalDaily.toLocaleString()}</span>
           </div>
         </div>
 
-        {/* 3. Company Overhead Expenses */}
-        <div className="p-5 bg-gradient-to-br from-rose-50 to-white rounded-3xl border border-rose-100 shadow-xs">
+        {/* 3. Company Operational Expenses */}
+        <div
+          onClick={() => setLedgerTab('company-items')}
+          className="p-5 bg-white rounded-2xl border border-slate-200 hover:border-rose-300 transition-colors cursor-pointer"
+          title="Click to view itemized company operational expenses"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-rose-800">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-rose-800">
               Company Operations Expenses
             </span>
-            <Building size={16} className="text-rose-600" />
+            <Building size={16} className="text-rose-600 shrink-0" />
           </div>
           <div className="mt-2">
-            <div className="text-2xl font-black font-mono text-rose-950">
+            <div className="text-2xl font-black font-mono tabular-nums text-slate-900">
               ৳{totals.totalCompanyExpenses.toLocaleString()}
             </div>
             <div className="mt-1 text-[11px] text-rose-700 font-medium">
-              {filteredNotes.length} office, utility & logistics notes
+              {filteredNotes.length} office, utility &amp; ops entries
             </div>
           </div>
-          <div className="mt-3 pt-2.5 border-t border-rose-100/70 text-[10px] text-slate-600 flex justify-between font-mono">
-            <span>Total Outflow:</span>
-            <span className="font-bold text-rose-700">৳{totals.totalCompanyExpenses.toLocaleString()}</span>
+          <div className="mt-3 pt-2.5 border-t border-slate-100 text-[10px] text-slate-600 flex justify-between font-mono tabular-nums">
+            <span>Share of Outflow:</span>
+            <span className="font-bold text-rose-700">
+              {totals.allTotalExpenses > 0
+                ? Math.round((totals.totalCompanyExpenses / totals.allTotalExpenses) * 100)
+                : 0}
+              %
+            </span>
           </div>
         </div>
 
-        {/* 4. ALL TOTAL HISHAB KOTO HOILO (Grand Total Balance) */}
-        <div className="p-5 bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-3xl border border-slate-700 shadow-md">
+        {/* 4. ALL TOTAL HISHAB KOTO HOILO */}
+        <div className="p-5 bg-slate-900 text-white rounded-2xl border border-slate-800">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400">
-              All Total Hishab (সর্বমোট হিসাব)
+            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
+              All Total Expenses (সর্বমোট)
             </span>
-            <TrendingUp size={16} className="text-emerald-400" />
+            <TrendingUp size={16} className="text-emerald-400 shrink-0" />
           </div>
           <div className="mt-2">
-            <div className="text-2xl font-black font-mono text-white">
+            <div className="text-2xl font-black font-mono tabular-nums text-white">
               ৳{totals.allTotalExpenses.toLocaleString()}
             </div>
             <div className="mt-1 text-[11px] text-slate-300 font-medium">
-              Total Expenses Spent This Month
+              TA/DA + Company Ops Combined
             </div>
           </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-700/80 text-[10px] flex items-center justify-between">
-            <span className="text-slate-400">Net Cash In Hand:</span>
+          <div className="mt-3 pt-2.5 border-t border-slate-800 text-[10px] flex items-center justify-between">
+            <span className="text-slate-400">Net Cash Balance:</span>
             <span
-              className={`font-mono font-bold ${
+              className={`font-mono tabular-nums font-bold ${
                 totals.netCashMargin >= 0 ? 'text-emerald-400' : 'text-rose-400'
               }`}
             >
@@ -429,55 +815,98 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
         </div>
       </div>
 
-      {/* Secondary Row: Revenue & Collections Quick Strip */}
-      <div className="p-4 bg-emerald-50/60 border border-emerald-200/80 rounded-2xl flex flex-wrap items-center justify-between gap-4 text-xs">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-emerald-600 text-white rounded-xl">
-            <CreditCard size={18} />
+      {/* Actionable Cash Flow, Payables & Receivables Strip */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs">
+        <div className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2.5 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-200 shrink-0">
+              <CreditCard size={18} />
+            </div>
+            <div className="min-w-0">
+              <div className="font-bold text-slate-900 truncate">
+                Sales Revenue: <span className="font-mono tabular-nums">৳{totals.totalSalesRevenue.toLocaleString()}</span>
+              </div>
+              <div className="text-[11px] text-slate-500 font-mono tabular-nums">
+                Collected: <strong className="text-emerald-700">৳{totals.totalCollectedCash.toLocaleString()}</strong> ({totals.collectionRate}%)
+              </div>
+            </div>
           </div>
-          <div>
-            <div className="font-extrabold text-slate-900">
-              This Month Product Sales Total: ৳{totals.totalSalesRevenue.toLocaleString()}
-            </div>
-            <div className="text-[11px] text-slate-500">
-              Cash Received: <span className="font-bold text-emerald-700 font-mono">৳{totals.totalCollectedCash.toLocaleString()}</span> ·
-              Due Receivables: <span className="font-bold text-amber-700 font-mono">৳{totals.totalDueReceivables.toLocaleString()}</span>
-            </div>
+          <div className="text-right shrink-0">
+            <span className="text-[10px] text-slate-400 block">Operating Margin</span>
+            <span className={`font-mono tabular-nums font-black ${totals.netRevenueMargin >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+              ৳{totals.netRevenueMargin.toLocaleString()}
+            </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-slate-600 font-medium">Operating Margin:</span>
-          <span className="px-3 py-1 bg-emerald-100 text-emerald-900 rounded-full font-bold font-mono">
-            ৳{totals.netRevenueMargin.toLocaleString()}
-          </span>
+        <div className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2.5 bg-amber-50 text-amber-700 rounded-xl border border-amber-200 shrink-0">
+              <Wallet size={18} />
+            </div>
+            <div className="min-w-0">
+              <div className="font-bold text-slate-900 truncate">
+                TA/DA Liabilities (Staff Payable)
+              </div>
+              <div className="text-[11px] text-slate-500 font-mono tabular-nums">
+                Approved Unpaid: <strong className="text-amber-700">৳{totals.tadaApprovedUnpaid.toLocaleString()}</strong> · Pending: <strong className="text-slate-800">৳{totals.tadaPendingApproval.toLocaleString()}</strong>
+              </div>
+            </div>
+          </div>
+          {scopedExcludedCounts.submittedPending > 0 && (
+            <button
+              onClick={() => setLedgerTab('tada-items')}
+              className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              Review ({scopedExcludedCounts.submittedPending})
+            </button>
+          )}
+        </div>
+
+        <div className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2.5 bg-blue-50 text-blue-700 rounded-xl border border-blue-200 shrink-0">
+              <Clock size={18} />
+            </div>
+            <div className="min-w-0">
+              <div className="font-bold text-slate-900 truncate">
+                Hospital / Doctor Due Receivables
+              </div>
+              <div className="text-[11px] text-slate-500 font-mono tabular-nums">
+                Outstanding Due: <strong className="text-rose-700">৳{totals.totalDueReceivables.toLocaleString()}</strong>
+              </div>
+            </div>
+          </div>
+          {(scopedExcludedCounts.drafts > 0 || scopedExcludedCounts.rejected > 0) && (
+            <span className="text-[10px] text-slate-400 font-mono shrink-0 text-right">
+              Excluded: {scopedExcludedCounts.rejected} rej / {scopedExcludedCounts.drafts} draft
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Interactive Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Chart 1: Budget vs Sales vs Total Expenses */}
-        <div className="p-6 bg-white rounded-3xl border border-slate-200 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-                <BarChart3 size={16} className="text-indigo-600" />
-                <span>Financial Comparison Chart ({selectedMonth})</span>
-              </h3>
-              <p className="text-[11px] text-slate-500">
-                Budget vs Sales Inflow vs All Total Expenses vs Net Cash
-              </p>
-            </div>
+      {/* Interactive Charts Grid: Comparison, Expense Breakdown & 6-Month Cash Flow Trend */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Chart 1: Financial Comparison */}
+        <div className="p-6 bg-white rounded-2xl border border-slate-200 space-y-4">
+          <div>
+            <h3 className="text-sm font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+              <BarChart3 size={16} className="text-indigo-600" />
+              <span>Financial Comparison ({scope === 'all' ? 'All Time' : selectedMonth})</span>
+            </h3>
+            <p className="text-[11px] text-slate-500">
+              Budget vs Sales vs Collected Cash vs Staff TA/DA vs Ops
+            </p>
           </div>
 
-          <div className="h-72 w-full pt-2">
+          <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={comparisonChartData} margin={{ top: 10, right: 10, left: 10, bottom: 25 }}>
+              <BarChart data={comparisonChartData} margin={{ top: 10, right: 10, left: 0, bottom: 25 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis
                   dataKey="name"
                   tick={{ fontSize: 10, fill: '#64748b' }}
-                  angle={-15}
+                  angle={-18}
                   textAnchor="end"
                   interval={0}
                 />
@@ -490,12 +919,12 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
                   contentStyle={{
                     backgroundColor: '#0f172a',
                     border: 'none',
-                    borderRadius: '12px',
+                    borderRadius: '10px',
                     color: '#fff',
                     fontSize: '11px',
                   }}
                 />
-                <Bar dataKey="amount" radius={[8, 8, 0, 0]}>
+                <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
                   {comparisonChartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
@@ -506,28 +935,26 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
         </div>
 
         {/* Chart 2: Expense Category Breakdown Pie */}
-        <div className="p-6 bg-white rounded-3xl border border-slate-200 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-                <PieIcon size={16} className="text-amber-600" />
-                <span>Expense Breakdown Hishab</span>
-              </h3>
-              <p className="text-[11px] text-slate-500">
-                Personal Field Allowances, Food, Transport & Company Operations
-              </p>
-            </div>
+        <div className="p-6 bg-white rounded-2xl border border-slate-200 space-y-4">
+          <div>
+            <h3 className="text-sm font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+              <PieIcon size={16} className="text-amber-600" />
+              <span>Expense Breakdown Hishab</span>
+            </h3>
+            <p className="text-[11px] text-slate-500">
+              Field TA/DA allowances, hotel/food &amp; company operations
+            </p>
           </div>
 
-          <div className="h-72 w-full flex items-center justify-center">
+          <div className="h-64 w-full flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={expensePieData}
                   cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={95}
+                  cy="45%"
+                  innerRadius={48}
+                  outerRadius={82}
                   paddingAngle={4}
                   dataKey="value"
                 >
@@ -540,165 +967,540 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
                   contentStyle={{
                     backgroundColor: '#0f172a',
                     border: 'none',
-                    borderRadius: '12px',
+                    borderRadius: '10px',
                     color: '#fff',
                     fontSize: '11px',
                   }}
                 />
-                <Legend
-                  verticalAlign="bottom"
-                  height={36}
-                  wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }}
-                />
+                <Legend verticalAlign="bottom" height={42} wrapperStyle={{ fontSize: '10px' }} />
               </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Chart 3: 6-Month Cash Flow & Expense Trend */}
+        <div className="p-6 bg-white rounded-2xl border border-slate-200 space-y-4">
+          <div>
+            <h3 className="text-sm font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+              <TrendingUp size={16} className="text-emerald-600" />
+              <span>6-Month Cash Flow &amp; Expense Trend</span>
+            </h3>
+            <p className="text-[11px] text-slate-500">
+              Monthly collected cash vs TA/DA &amp; operational outflows
+            </p>
+          </div>
+
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={monthlyTrendData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#64748b' }} />
+                <YAxis
+                  tick={{ fontSize: 10, fill: '#64748b' }}
+                  tickFormatter={(val) => `৳${(val / 1000).toFixed(0)}k`}
+                />
+                <Tooltip
+                  formatter={(val: any) => [`৳${Number(val).toLocaleString()}`, 'Amount']}
+                  contentStyle={{
+                    backgroundColor: '#0f172a',
+                    border: 'none',
+                    borderRadius: '10px',
+                    color: '#fff',
+                    fontSize: '11px',
+                  }}
+                />
+                <Legend verticalAlign="bottom" height={28} wrapperStyle={{ fontSize: '10px' }} />
+                <Area type="monotone" dataKey="Collected" stroke="#0284c7" fill="#0284c7" fillOpacity={0.15} strokeWidth={2} />
+                <Area type="monotone" dataKey="TA/DA Expense" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.18} strokeWidth={2} />
+                <Area type="monotone" dataKey="Company Ops" stroke="#e11d48" fill="#e11d48" fillOpacity={0.12} strokeWidth={2} />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      {/* Comprehensive Ledger Table: Hishab Summary (Like Excel) */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-extrabold text-slate-900">
-              Monthly Hishab Sheet: Detailed Breakdown ({selectedMonth})
-            </h3>
-            <p className="text-xs text-slate-500">
-              Interactive financial ledger showing every category, allocated budget, and total outflow.
-            </p>
+      {/* Sub-Navigation & Detailed Ledger Section */}
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="p-4 lg:p-5 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-100 rounded-xl text-xs">
+            <button
+              onClick={() => setLedgerTab('summary')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                ledgerTab === 'summary' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Monthly Hishab Summary
+            </button>
+            <button
+              onClick={() => setLedgerTab('tada-items')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                ledgerTab === 'tada-items' ? 'bg-white text-amber-800 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              TA/DA Claims ({filteredClaims.length})
+            </button>
+            <button
+              onClick={() => setLedgerTab('staff-breakdown')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                ledgerTab === 'staff-breakdown' ? 'bg-white text-indigo-800 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Staff-wise Expenses ({staffExpenseBreakdown.length})
+            </button>
+            <button
+              onClick={() => setLedgerTab('company-items')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                ledgerTab === 'company-items' ? 'bg-white text-rose-800 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Company Ops Expenses ({filteredNotes.length})
+            </button>
           </div>
-          <span className="font-mono text-xs font-bold px-3 py-1 bg-slate-100 text-slate-700 rounded-lg">
-            Status: {totals.budgetRemaining >= 0 ? 'Within Budget' : 'Over Budget'}
-          </span>
+
+          <div className="flex items-center gap-3 text-xs text-slate-600 font-mono tabular-nums">
+            <span>
+              Status:{' '}
+              <strong className={totals.budgetRemaining >= 0 ? 'text-emerald-700' : 'text-rose-600'}>
+                {totals.budgetRemaining >= 0 ? 'Within Budget' : 'Over Budget'}
+              </strong>
+            </span>
+          </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-extrabold uppercase text-[10px] tracking-wider">
-                <th className="py-3 px-4">Financial Metric / Item</th>
-                <th className="py-3 px-4">Classification</th>
-                <th className="py-3 px-4 text-right">Amount (BDT)</th>
-                <th className="py-3 px-4 text-right">% of Budget</th>
-                <th className="py-3 px-4">Operational Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-medium">
-              <tr className="hover:bg-indigo-50/40">
-                <td className="py-3 px-4 font-bold text-indigo-950 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-indigo-600" />
-                  Monthly Budget Allocation
-                </td>
-                <td className="py-3 px-4 text-indigo-600 font-semibold">Allocated Target</td>
-                <td className="py-3 px-4 text-right font-mono font-bold text-indigo-950">
-                  ৳{monthlyBudget.toLocaleString()}
-                </td>
-                <td className="py-3 px-4 text-right font-mono text-slate-500">100.0%</td>
-                <td className="py-3 px-4 text-indigo-700 text-[11px]">Approved Board Ceiling</td>
-              </tr>
+        {/* SUB-TAB 1: SUMMARY HISHAB SHEET */}
+        {ledgerTab === 'summary' && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-extrabold uppercase text-[10px] tracking-wider">
+                  <th className="py-3 px-4">Financial Metric / Item</th>
+                  <th className="py-3 px-4">Classification</th>
+                  <th className="py-3 px-4 text-right">Amount (BDT)</th>
+                  <th className="py-3 px-4 text-right">% of Budget</th>
+                  <th className="py-3 px-4">Operational Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium">
+                <tr className="hover:bg-slate-50">
+                  <td className="py-3 px-4 font-bold text-indigo-950">Budget Allocation Ceiling</td>
+                  <td className="py-3 px-4 text-indigo-700 font-semibold">Allocated Target</td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums font-bold text-indigo-950">
+                    ৳{effectiveBudget.toLocaleString()}
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-500">100.0%</td>
+                  <td className="py-3 px-4 text-indigo-700 text-[11px]">
+                    {scope === 'all' ? 'Cumulative Reference' : `Approved Ceiling (${selectedMonth})`}
+                  </td>
+                </tr>
 
-              <tr className="hover:bg-slate-50">
-                <td className="py-3 px-4 text-slate-800 pl-8">↳ Field Travel Allowance (Intercity)</td>
-                <td className="py-3 px-4 text-slate-500">Staff Expense</td>
-                <td className="py-3 px-4 text-right font-mono text-slate-800">
-                  ৳{totals.personalTravel.toLocaleString()}
-                </td>
-                <td className="py-3 px-4 text-right font-mono text-slate-500">
-                  {monthlyBudget > 0 ? ((totals.personalTravel / monthlyBudget) * 100).toFixed(1) : 0}%
-                </td>
-                <td className="py-3 px-4 text-slate-500 text-[11px]">Staff field visits & transit</td>
-              </tr>
+                <tr className="hover:bg-slate-50">
+                  <td className="py-3 px-4 text-slate-800 pl-8">Field Travel Allowance (Intercity)</td>
+                  <td className="py-3 px-4 text-slate-500">Staff TA/DA</td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-800">
+                    ৳{totals.personalTravel.toLocaleString()}
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-500">
+                    {effectiveBudget > 0 ? ((totals.personalTravel / effectiveBudget) * 100).toFixed(1) : 0}%
+                  </td>
+                  <td className="py-3 px-4 text-slate-500 text-[11px]">Bus, train &amp; intercity field transit</td>
+                </tr>
 
-              <tr className="hover:bg-slate-50">
-                <td className="py-3 px-4 text-slate-800 pl-8">↳ Field Daily Allowance (DA)</td>
-                <td className="py-3 px-4 text-slate-500">Staff Expense</td>
-                <td className="py-3 px-4 text-right font-mono text-slate-800">
-                  ৳{totals.personalDaily.toLocaleString()}
-                </td>
-                <td className="py-3 px-4 text-right font-mono text-slate-500">
-                  {monthlyBudget > 0 ? ((totals.personalDaily / monthlyBudget) * 100).toFixed(1) : 0}%
-                </td>
-                <td className="py-3 px-4 text-slate-500 text-[11px]">Per-diem duty compensation</td>
-              </tr>
+                <tr className="hover:bg-slate-50">
+                  <td className="py-3 px-4 text-slate-800 pl-8">Field Daily Allowance (DA)</td>
+                  <td className="py-3 px-4 text-slate-500">Staff TA/DA</td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-800">
+                    ৳{totals.personalDaily.toLocaleString()}
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-500">
+                    {effectiveBudget > 0 ? ((totals.personalDaily / effectiveBudget) * 100).toFixed(1) : 0}%
+                  </td>
+                  <td className="py-3 px-4 text-slate-500 text-[11px]">Per-diem duty compensation</td>
+                </tr>
 
-              <tr className="hover:bg-slate-50">
-                <td className="py-3 px-4 text-slate-800 pl-8">↳ Local Transportation (CNG/Taxi)</td>
-                <td className="py-3 px-4 text-slate-500">Staff Expense</td>
-                <td className="py-3 px-4 text-right font-mono text-slate-800">
-                  ৳{totals.personalTransport.toLocaleString()}
-                </td>
-                <td className="py-3 px-4 text-right font-mono text-slate-500">
-                  {monthlyBudget > 0 ? ((totals.personalTransport / monthlyBudget) * 100).toFixed(1) : 0}%
-                </td>
-                <td className="py-3 px-4 text-slate-500 text-[11px]">Hospital & clinic site runs</td>
-              </tr>
+                <tr className="hover:bg-slate-50">
+                  <td className="py-3 px-4 text-slate-800 pl-8">Local Transportation (CNG/Taxi)</td>
+                  <td className="py-3 px-4 text-slate-500">Staff TA/DA</td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-800">
+                    ৳{totals.personalTransport.toLocaleString()}
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-500">
+                    {effectiveBudget > 0 ? ((totals.personalTransport / effectiveBudget) * 100).toFixed(1) : 0}%
+                  </td>
+                  <td className="py-3 px-4 text-slate-500 text-[11px]">Hospital &amp; clinic local conveyance</td>
+                </tr>
 
-              <tr className="hover:bg-slate-50">
-                <td className="py-3 px-4 text-slate-800 pl-8">↳ Accommodation & Food Expense</td>
-                <td className="py-3 px-4 text-slate-500">Staff Expense</td>
-                <td className="py-3 px-4 text-right font-mono text-slate-800">
-                  ৳{totals.personalFoodHotel.toLocaleString()}
-                </td>
-                <td className="py-3 px-4 text-right font-mono text-slate-500">
-                  {monthlyBudget > 0 ? ((totals.personalFoodHotel / monthlyBudget) * 100).toFixed(1) : 0}%
-                </td>
-                <td className="py-3 px-4 text-slate-500 text-[11px]">Night stays & meal receipts</td>
-              </tr>
+                <tr className="hover:bg-slate-50">
+                  <td className="py-3 px-4 text-slate-800 pl-8">Accommodation &amp; Food Expense</td>
+                  <td className="py-3 px-4 text-slate-500">Staff TA/DA</td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-800">
+                    ৳{totals.personalFoodHotel.toLocaleString()}
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-500">
+                    {effectiveBudget > 0 ? ((totals.personalFoodHotel / effectiveBudget) * 100).toFixed(1) : 0}%
+                  </td>
+                  <td className="py-3 px-4 text-slate-500 text-[11px]">Outstation lodging &amp; meal bills</td>
+                </tr>
 
-              <tr className="hover:bg-amber-50/30 bg-amber-50/10 font-bold">
-                <td className="py-3 px-4 text-amber-900 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-amber-500" />
-                  Total Personal Field Expenses (TA/DA)
-                </td>
-                <td className="py-3 px-4 text-amber-800">Field Subtotal</td>
-                <td className="py-3 px-4 text-right font-mono font-bold text-amber-950">
-                  ৳{totals.totalPersonalExpenses.toLocaleString()}
-                </td>
-                <td className="py-3 px-4 text-right font-mono text-amber-800">
-                  {monthlyBudget > 0 ? ((totals.totalPersonalExpenses / monthlyBudget) * 100).toFixed(1) : 0}%
-                </td>
-                <td className="py-3 px-4 text-amber-800 text-[11px]">{filteredClaims.length} Claims Total</td>
-              </tr>
+                <tr className="bg-amber-50/40 font-bold">
+                  <td className="py-3 px-4 text-amber-950">Total Staff Field Expenses (TA/DA)</td>
+                  <td className="py-3 px-4 text-amber-800">Field Subtotal</td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums font-bold text-amber-950">
+                    ৳{totals.totalPersonalExpenses.toLocaleString()}
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums text-amber-800">
+                    {effectiveBudget > 0 ? ((totals.totalPersonalExpenses / effectiveBudget) * 100).toFixed(1) : 0}%
+                  </td>
+                  <td className="py-3 px-4 text-amber-800 text-[11px]">
+                    {filteredClaims.length} Claims · Paid: ৳{totals.tadaPaidAmount.toLocaleString()} · Payable: ৳{totals.tadaApprovedUnpaid.toLocaleString()}
+                  </td>
+                </tr>
 
-              <tr className="hover:bg-rose-50/30 bg-rose-50/10 font-bold">
-                <td className="py-3 px-4 text-rose-900 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-rose-500" />
-                  Company Operational Expenses (Directives)
-                </td>
-                <td className="py-3 px-4 text-rose-800">Overhead Subtotal</td>
-                <td className="py-3 px-4 text-right font-mono font-bold text-rose-950">
-                  ৳{totals.totalCompanyExpenses.toLocaleString()}
-                </td>
-                <td className="py-3 px-4 text-right font-mono text-rose-800">
-                  {monthlyBudget > 0 ? ((totals.totalCompanyExpenses / monthlyBudget) * 100).toFixed(1) : 0}%
-                </td>
-                <td className="py-3 px-4 text-rose-800 text-[11px]">{filteredNotes.length} Directives Logged</td>
-              </tr>
+                <tr className="bg-rose-50/40 font-bold">
+                  <td className="py-3 px-4 text-rose-950">Company Operational Expenses (Notes)</td>
+                  <td className="py-3 px-4 text-rose-800">Overhead Subtotal</td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums font-bold text-rose-950">
+                    ৳{totals.totalCompanyExpenses.toLocaleString()}
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums text-rose-800">
+                    {effectiveBudget > 0 ? ((totals.totalCompanyExpenses / effectiveBudget) * 100).toFixed(1) : 0}%
+                  </td>
+                  <td className="py-3 px-4 text-rose-800 text-[11px]">{filteredNotes.length} Expense Entries Logged</td>
+                </tr>
 
-              {/* GRAND TOTAL ROW */}
-              <tr className="bg-slate-900 text-white font-extrabold text-sm">
-                <td className="py-4 px-4 tracking-wide">
-                  ALL TOTAL EXPENSES (সর্বমোট খরচ)
-                </td>
-                <td className="py-4 px-4 text-emerald-400 font-semibold uppercase text-xs">
-                  Grand Total
-                </td>
-                <td className="py-4 px-4 text-right font-mono text-lg text-white">
-                  ৳{totals.allTotalExpenses.toLocaleString()}
-                </td>
-                <td className="py-4 px-4 text-right font-mono text-emerald-400">
-                  {totals.budgetPercentUsed}%
-                </td>
-                <td className="py-4 px-4 text-slate-300 text-xs">
-                  {totals.budgetRemaining >= 0
-                    ? `Remaining: ৳${totals.budgetRemaining.toLocaleString()}`
-                    : `Over Limit: -৳${Math.abs(totals.budgetRemaining).toLocaleString()}`}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+                <tr className="bg-slate-900 text-white font-extrabold text-sm">
+                  <td className="py-4 px-4 tracking-wide">ALL TOTAL EXPENSES (সর্বমোট খরচ)</td>
+                  <td className="py-4 px-4 text-emerald-400 font-semibold uppercase text-xs">Grand Total</td>
+                  <td className="py-4 px-4 text-right font-mono tabular-nums text-lg text-white">
+                    ৳{totals.allTotalExpenses.toLocaleString()}
+                  </td>
+                  <td className="py-4 px-4 text-right font-mono tabular-nums text-emerald-400">
+                    {totals.budgetPercentUsed}%
+                  </td>
+                  <td className="py-4 px-4 text-slate-300 text-xs font-mono tabular-nums">
+                    {totals.budgetRemaining >= 0
+                      ? `Remaining: ৳${totals.budgetRemaining.toLocaleString()}`
+                      : `Over Limit: -৳${Math.abs(totals.budgetRemaining).toLocaleString()}`}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* SUB-TAB 2: ITEMIZED TA/DA CLAIMS DIRECTLY IN FINANCIAL HUB */}
+        {ledgerTab === 'tada-items' && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-extrabold uppercase text-[10px] tracking-wider">
+                  <th className="py-3 px-4">Employee</th>
+                  <th className="py-3 px-4">Duty / Route &amp; Dates</th>
+                  <th className="py-3 px-4">Breakdown (TA / DA / Local / Food)</th>
+                  <th className="py-3 px-4 text-right">Total (BDT)</th>
+                  <th className="py-3 px-4">Status &amp; Disbursement</th>
+                  <th className="py-3 px-4 text-right">Executive Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredClaims.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-10 text-center text-slate-400">
+                      No TA/DA expense claims matched the current filter ({scope === 'all' ? 'All Time' : selectedMonth}, {tadaInclusion}).
+                    </td>
+                  </tr>
+                ) : (
+                  filteredClaims.map((claim) => {
+                    const totalVal = getClaimTotal(claim);
+                    return (
+                      <tr key={claim.id} className="hover:bg-slate-50">
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-slate-900">{claim.employee_name}</div>
+                          <div className="text-[11px] text-slate-500 font-mono">{claim.employee_code}</div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-semibold text-slate-900">{claim.title || claim.destination}</div>
+                          <div className="text-[11px] text-slate-500">
+                            {claim.origin || 'HQ'} <ArrowRight size={10} className="inline" /> {claim.destination} ·{' '}
+                            <span className="font-mono tabular-nums">
+                              {claim.travel_start_date} to {claim.travel_end_date}
+                            </span>
+                          </div>
+                          {(claim.bills_receipts || []).length > 0 && (
+                            <div className="mt-1.5">
+                              <ReceiptGallery
+                                claim={claim}
+                                theme="light"
+                                compact
+                                onPreview={(att, list) => setReceiptPreview({ active: att, list })}
+                              />
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 font-mono tabular-nums text-[11px] text-slate-600">
+                          TA: ৳{(Number(claim.travel_allowance) || 0).toLocaleString()} · DA: ৳
+                          {(Number(claim.daily_allowance) || 0).toLocaleString()}
+                          <br />
+                          Local: ৳{(Number(claim.transportation_expense) || 0).toLocaleString()} · Food/Htl: ৳
+                          {(Number(claim.accommodation_food_expense) || 0).toLocaleString()}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono tabular-nums font-black text-slate-900 text-sm">
+                          ৳{totalVal.toLocaleString()}
+                        </td>
+                        <td className="py-3 px-4 space-y-1">
+                          <div
+                            className={`text-[10px] font-bold uppercase ${
+                              claim.status === 'approved'
+                                ? 'text-emerald-700'
+                                : claim.status === 'rejected'
+                                ? 'text-rose-700'
+                                : 'text-amber-700'
+                            }`}
+                          >
+                            {claim.status}
+                          </div>
+                          <div
+                            className={`text-[10px] font-bold uppercase font-mono ${
+                              claim.payment_status === 'paid' ? 'text-sky-700' : 'text-slate-500'
+                            }`}
+                          >
+                            {claim.payment_status === 'paid' ? 'PAID' : 'UNPAID'}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex flex-wrap items-center justify-end gap-1.5">
+                            {onReviewTaDa && claim.status !== 'approved' && (
+                              <button
+                                onClick={() => onReviewTaDa(claim.id, 'approved', 'Approved from Financial Hub')}
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px] cursor-pointer"
+                              >
+                                Approve
+                              </button>
+                            )}
+                            {onReviewTaDa && claim.status !== 'rejected' && (
+                              <button
+                                onClick={() => onReviewTaDa(claim.id, 'rejected', 'Rejected from Financial Hub')}
+                                className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg font-bold text-[11px] cursor-pointer"
+                              >
+                                Reject
+                              </button>
+                            )}
+                            {onToggleTaDaPayment && claim.status === 'approved' && (
+                              <button
+                                onClick={() => onToggleTaDaPayment(claim.id, claim.payment_status)}
+                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg font-bold text-[11px] cursor-pointer"
+                              >
+                                {claim.payment_status === 'paid' ? 'Mark Unpaid' : 'Mark Paid'}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* SUB-TAB 3: STAFF-WISE EXPENSE LEADERBOARD */}
+        {ledgerTab === 'staff-breakdown' && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-extrabold uppercase text-[10px] tracking-wider">
+                  <th className="py-3 px-4">Staff / Engineer</th>
+                  <th className="py-3 px-4 text-center">Claims</th>
+                  <th className="py-3 px-4 text-right">Travel (TA)</th>
+                  <th className="py-3 px-4 text-right">Daily (DA)</th>
+                  <th className="py-3 px-4 text-right">Transport</th>
+                  <th className="py-3 px-4 text-right">Hotel &amp; Food</th>
+                  <th className="py-3 px-4 text-right">Total Claimed</th>
+                  <th className="py-3 px-4 text-right">Paid / Unpaid</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {staffExpenseBreakdown.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-10 text-center text-slate-400">
+                      No staff TA/DA breakdown available for the selected scope.
+                    </td>
+                  </tr>
+                ) : (
+                  staffExpenseBreakdown.map((emp) => (
+                    <tr key={emp.employee_id} className="hover:bg-slate-50">
+                      <td className="py-3 px-4">
+                        <div className="font-bold text-slate-900 flex items-center gap-2">
+                          <Users size={13} className="text-slate-400" />
+                          <span>{emp.employee_name}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 font-mono pl-5">{emp.employee_code}</div>
+                      </td>
+                      <td className="py-3 px-4 text-center font-mono tabular-nums font-bold">{emp.claimCount}</td>
+                      <td className="py-3 px-4 text-right font-mono tabular-nums">৳{emp.ta.toLocaleString()}</td>
+                      <td className="py-3 px-4 text-right font-mono tabular-nums">৳{emp.da.toLocaleString()}</td>
+                      <td className="py-3 px-4 text-right font-mono tabular-nums">৳{emp.transport.toLocaleString()}</td>
+                      <td className="py-3 px-4 text-right font-mono tabular-nums">৳{emp.foodHotel.toLocaleString()}</td>
+                      <td className="py-3 px-4 text-right font-mono tabular-nums font-black text-slate-900">
+                        ৳{emp.total.toLocaleString()}
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono tabular-nums text-[11px]">
+                        <span className="text-emerald-700 font-bold">৳{emp.paid.toLocaleString()}</span> /{' '}
+                        <span className="text-amber-700 font-bold">৳{emp.unpaid.toLocaleString()}</span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* SUB-TAB 4: COMPANY OPERATIONAL EXPENSE NOTES */}
+        {ledgerTab === 'company-items' && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-extrabold uppercase text-[10px] tracking-wider">
+                  <th className="py-3 px-4">Date</th>
+                  <th className="py-3 px-4">Title / Expense Head</th>
+                  <th className="py-3 px-4">Details</th>
+                  <th className="py-3 px-4">Logged By</th>
+                  <th className="py-3 px-4 text-right">Amount (BDT)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredNotes.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-10 text-center text-slate-400 space-y-2">
+                      <div>No company operational expense entries found for this period.</div>
+                      {onAddExpenseNote && (
+                        <button
+                          onClick={() => setShowAddExpenseModal(true)}
+                          className="px-3.5 py-1.5 bg-rose-600 text-white rounded-lg font-bold text-xs cursor-pointer inline-flex items-center gap-1"
+                        >
+                          <Plus size={13} />
+                          <span>Log First Company Expense</span>
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ) : (
+                  filteredNotes.map((note) => (
+                    <tr key={note.id} className="hover:bg-slate-50">
+                      <td className="py-3 px-4 font-mono tabular-nums text-slate-600 whitespace-nowrap">{note.date}</td>
+                      <td className="py-3 px-4 font-bold text-slate-900">{note.title}</td>
+                      <td className="py-3 px-4 text-slate-600 max-w-md">{note.content}</td>
+                      <td className="py-3 px-4 text-slate-500">
+                        {note.author_name} ({note.author_role})
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono tabular-nums font-black text-rose-700">
+                        ৳{(Number(note.amount) || 0).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
+
+      {/* QUICK LOG COMPANY EXPENSE MODAL */}
+      {showAddExpenseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                <Building size={18} className="text-rose-600" />
+                <span>Log Company Expense</span>
+              </h3>
+              <button
+                onClick={() => setShowAddExpenseModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddQuickExpense} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Expense Title / Purpose *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Dhaka Office Rent, Courier Dispatch, Generator Fuel"
+                  value={expenseForm.title}
+                  onChange={(e) => setExpenseForm({ ...expenseForm, title: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Amount (BDT) *</label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    placeholder="e.g. 25000"
+                    value={expenseForm.amount}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold focus:bg-white focus:outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Expense Date *</label>
+                  <input
+                    type="date"
+                    required
+                    value={expenseForm.date}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, date: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono focus:bg-white focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Voucher / Remarks</label>
+                <textarea
+                  rows={3}
+                  placeholder="Optional invoice no., vendor name, or payment details..."
+                  value={expenseForm.content}
+                  onChange={(e) => setExpenseForm({ ...expenseForm, content: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowAddExpenseModal(false)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingExpense}
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl cursor-pointer disabled:opacity-50"
+                >
+                  {isSavingExpense ? 'Saving...' : 'Save Expense'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      <ReceiptPreviewModal
+        receipt={receiptPreview?.active || null}
+        receipts={receiptPreview?.list || []}
+        theme="light"
+        onClose={() => setReceiptPreview(null)}
+        onSelectReceipt={(att) =>
+          setReceiptPreview((prev) => (prev ? { ...prev, active: att } : null))
+        }
+      />
     </div>
   );
 };

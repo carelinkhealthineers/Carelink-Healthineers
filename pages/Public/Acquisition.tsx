@@ -11,6 +11,7 @@ import { useSearchParams } from 'react-router-dom';
 import { SEO } from '../../components/SEO';
 import { supabase } from '../../supabaseClient';
 import { recordAnalyticsEvent } from '../../utils/analyticsTracker';
+import { emitNotification } from '../../services/notificationService';
 
 export const Acquisition: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -79,6 +80,15 @@ export const Acquisition: React.FC = () => {
       recordAnalyticsEvent('quote_form_submit', {
         productName: productName || formData.interest,
         routePath: '/acquisition',
+      });
+      await emitNotification({
+        title: 'New Client Procurement Inquiry',
+        message: `${formData.name} (${formData.organization || 'Client'}) requested a quote for ${productName || formData.interest}.`,
+        category: 'inquiry',
+        priority: 'high',
+        audiences: ['admin', 'executive'],
+        actor_name: formData.name,
+        link_tab: 'inquiries',
       });
       setSubmitted(true);
     } catch (err) {

@@ -42,6 +42,7 @@ interface CustomExcelPortalSectionProps {
   presets: CustomExcelPreset[];
   onSavePreset: (preset: Omit<CustomExcelPreset, 'id' | 'created_at'>) => Promise<void>;
   onDeletePreset: (id: string) => Promise<void>;
+  onUpdateSale?: (id: string, updates: Partial<ProductSaleRecord>) => Promise<void>;
 }
 
 type DatasetKey = 'sales' | 'tada' | 'notes' | 'hishab' | 'blank';
@@ -113,6 +114,7 @@ export const CustomExcelPortalSection: React.FC<CustomExcelPortalSectionProps> =
   presets,
   onSavePreset,
   onDeletePreset,
+  onUpdateSale,
 }) => {
   const [activeViewTab, setActiveViewTab] = useState<ViewTab>('sheet');
   const [selectedDataset, setSelectedDataset] = useState<DatasetKey>('sales');
@@ -162,6 +164,8 @@ export const CustomExcelPortalSection: React.FC<CustomExcelPortalSectionProps> =
   });
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const pushedUndoForCellRef = useRef<string | null>(null);
+  const [isSavingDbEdits, setIsSavingDbEdits] = useState(false);
 
   // Push state to Undo History Stack
   const pushToUndoHistory = () => {
@@ -341,31 +345,80 @@ export const CustomExcelPortalSection: React.FC<CustomExcelPortalSectionProps> =
   const handleCellSelect = (rowIdx: number, colKey: string, currentVal: any) => {
     setSelectedCell({ rowIdx, colKey });
     setEditingCellVal(currentVal !== undefined && currentVal !== null ? String(currentVal) : '');
+    pushedUndoForCellRef.current = null;
   };
 
   // Save inline cell edit with auto-calculated due_amount
   const handleCellEditChange = (newVal: string) => {
     if (!selectedCell) return;
-    pushToUndoHistory();
+    const cellToken = `${selectedCell.rowIdx}:${selectedCell.colKey}`;
+    if (pushedUndoForCellRef.current !== cellToken) {
+      pushToUndoHistory();
+      pushedUndoForCellRef.current = cellToken;
+    }
 
     setEditingCellVal(newVal);
     const row = tableData[selectedCell.rowIdx];
     if (!row) return;
 
     const rowId = row.id || `row-idx-${selectedCell.rowIdx}`;
-    const updatedRow = { ...row, [selectedCell.colKey]: newVal };
+    const colDef = (DATASET_COLUMNS[selectedDataset] || MASTER_COLUMNS).find((c) => c.key === selectedCell.colKey);
+    const parsedVal = colDef?.isNumeric ? (newVal === '' ? 0 : Number(newVal) || 0) : newVal;
+    const updatedRow = { ...row, [selectedCell.colKey]: parsedVal };
 
     // Auto calculate due amount if sale_value or paid_amount is edited inline
     if (selectedCell.colKey === 'sale_value' || selectedCell.colKey === 'paid_amount') {
-      const saleValNum = Number(selectedCell.colKey === 'sale_value' ? newVal : updatedRow.sale_value) || 0;
-      const paidNum = Number(selectedCell.colKey === 'paid_amount' ? newVal : updatedRow.paid_amount) || 0;
+      const saleValNum = Number(selectedCell.colKey === 'sale_value' ? parsedVal : updatedRow.sale_value) || 0;
+      const paidNum = Number(selectedCell.colKey === 'paid_amount' ? parsedVal : updatedRow.paid_amount) || 0;
       updatedRow.due_amount = Math.max(0, saleValNum - paidNum);
+      if (saleValNum > 0 && paidNum >= saleValNum) updatedRow.payment_status = 'full_paid';
+      else if (paidNum <= 0) updatedRow.payment_status = 'due';
+      else updatedRow.payment_status = 'partial';
     }
 
     setEditedRowsMap((prev) => ({
       ...prev,
       [rowId]: updatedRow,
     }));
+  };
+
+  const dirtySalesIds = useMemo(() => {
+    if (!onUpdateSale || selectedDataset !== 'sales') return [];
+    const salesIdSet = new Set(salesRecords.map((s) => s.id));
+    return Object.keys(editedRowsMap).filter((id) => salesIdSet.has(id));
+  }, [editedRowsMap, salesRecords, selectedDataset, onUpdateSale]);
+
+  const handlePersistSalesEdits = async () => {
+    if (!onUpdateSale || dirtySalesIds.length === 0) return;
+    setIsSavingDbEdits(true);
+    try {
+      for (const id of dirtySalesIds) {
+        const edited = editedRowsMap[id];
+        if (!edited) continue;
+        await onUpdateSale(id, {
+          sale_date: edited.sale_date,
+          product_name: edited.product_name,
+          product_model: edited.product_model,
+          doctor_name: edited.doctor_name,
+          hospital_center_name: edited.hospital_center_name,
+          location_district: edited.location_district,
+          quantity: Number(edited.quantity) || 1,
+          sale_value: Number(edited.sale_value) || 0,
+          paid_amount: Number(edited.paid_amount) || 0,
+          due_amount: Number(edited.due_amount) || 0,
+          payment_status: edited.payment_status,
+          delivery_status: edited.delivery_status,
+          notes: edited.notes,
+        });
+      }
+      setEditedRowsMap((prev) => {
+        const next = { ...prev };
+        dirtySalesIds.forEach((id) => delete next[id]);
+        return next;
+      });
+    } finally {
+      setIsSavingDbEdits(false);
+    }
   };
 
   // Import CSV File
@@ -437,23 +490,45 @@ export const CustomExcelPortalSection: React.FC<CustomExcelPortalSectionProps> =
     } else if (selectedDataset === 'notes') {
       raw = companyNotes;
     } else if (selectedDataset === 'hishab') {
+      const activeClaims = tadaClaims.filter((c) => c.status !== 'rejected' && c.status !== 'draft');
+      const getClaimTotal = (c: TaDaClaim) =>
+        Number(c.total_amount) ||
+        (Number(c.travel_allowance) || 0) +
+          (Number(c.daily_allowance) || 0) +
+          (Number(c.transportation_expense) || 0) +
+          (Number(c.accommodation_food_expense) || 0);
+
       const salesTotal = salesRecords.reduce((acc, s) => acc + (Number(s.sale_value) || 0), 0);
       const paidTotal = salesRecords.reduce((acc, s) => acc + (Number(s.paid_amount) || 0), 0);
-      const tadaTotal = tadaClaims.reduce((acc, c) => acc + (Number(c.total_amount) || 0), 0);
-      const notesExpenseTotal = companyNotes
-        .filter((n) => n.category === 'expense')
-        .reduce((acc, n) => acc + (Number(n.amount) || 0), 0);
+      const dueTotal = salesRecords.reduce((acc, s) => acc + (Number(s.due_amount) || 0), 0);
+
+      const tadaTravel = activeClaims.reduce((acc, c) => acc + (Number(c.travel_allowance) || 0), 0);
+      const tadaDaily = activeClaims.reduce((acc, c) => acc + (Number(c.daily_allowance) || 0), 0);
+      const tadaTransport = activeClaims.reduce((acc, c) => acc + (Number(c.transportation_expense) || 0), 0);
+      const tadaFoodHotel = activeClaims.reduce((acc, c) => acc + (Number(c.accommodation_food_expense) || 0), 0);
+      const tadaTotal = activeClaims.reduce((acc, c) => acc + getClaimTotal(c), 0);
+      const tadaDisbursed = activeClaims
+        .filter((c) => c.payment_status === 'paid')
+        .reduce((acc, c) => acc + getClaimTotal(c), 0);
+
+      const expenseNotes = companyNotes.filter((n) => n.category === 'expense');
+      const notesExpenseTotal = expenseNotes.reduce((acc, n) => acc + (Number(n.amount) || 0), 0);
       const allExpenses = tadaTotal + notesExpenseTotal;
       const netMargin = paidTotal - allExpenses;
 
       raw = [
-        { metric: 'Monthly Budget Allocated', category: 'Target', amount_bdt: monthlyBudget, status_notes: 'Board Approved' },
-        { metric: 'Total Equipment Sales Revenue', category: 'Inflow', amount_bdt: salesTotal, status_notes: `${salesRecords.length} Orders` },
-        { metric: 'Cash Collections Received', category: 'Inflow', amount_bdt: paidTotal, status_notes: 'Bank Cleared' },
-        { metric: 'Personal Field Staff TA/DA Claims', category: 'Outflow', amount_bdt: tadaTotal, status_notes: `${tadaClaims.length} Claims` },
-        { metric: 'Company Operational Notes Expenses', category: 'Outflow', amount_bdt: notesExpenseTotal, status_notes: 'Office / Logistics' },
-        { metric: 'ALL TOTAL EXPENSES', category: 'Grand Outflow', amount_bdt: allExpenses, status_notes: `${monthlyBudget > 0 ? Math.round((allExpenses / monthlyBudget) * 100) : 0}% of Budget` },
-        { metric: 'NET CASH BALANCE (HISHAB)', category: 'Surplus', amount_bdt: netMargin, status_notes: netMargin >= 0 ? 'Positive Operating Cash' : 'Deficit' },
+        { id: 'h-budget', metric: 'Monthly Budget Allocated', category: 'Target', amount_bdt: monthlyBudget, status_notes: 'Board Approved' },
+        { id: 'h-sales', metric: 'Total Equipment Sales Revenue', category: 'Inflow', amount_bdt: salesTotal, status_notes: `${salesRecords.length} Orders` },
+        { id: 'h-paid', metric: 'Cash Collections Received', category: 'Inflow', amount_bdt: paidTotal, status_notes: 'Bank Cleared' },
+        { id: 'h-due', metric: 'Hospital / Doctor Due Receivables', category: 'Receivable', amount_bdt: dueTotal, status_notes: 'Pending Collection' },
+        { id: 'h-tada', metric: 'Staff Field TA/DA Claims (Active Total)', category: 'Outflow (TA/DA)', amount_bdt: tadaTotal, status_notes: `${activeClaims.length} Active Claims (Paid: Tk ${tadaDisbursed.toLocaleString()})` },
+        { id: 'h-tada-ta', metric: '  - Travel Allowance (TA)', category: 'Sub-Expense', amount_bdt: tadaTravel, status_notes: 'Intercity Transit' },
+        { id: 'h-tada-da', metric: '  - Daily Allowance (DA)', category: 'Sub-Expense', amount_bdt: tadaDaily, status_notes: 'Field Per-diem' },
+        { id: 'h-tada-tr', metric: '  - Local Transportation', category: 'Sub-Expense', amount_bdt: tadaTransport, status_notes: 'Rickshaw / CNG / Taxi' },
+        { id: 'h-tada-fh', metric: '  - Hotel & Fooding Expense', category: 'Sub-Expense', amount_bdt: tadaFoodHotel, status_notes: 'Accommodation & Meals' },
+        { id: 'h-ops', metric: 'Company Operational Notes Expenses', category: 'Outflow (Ops)', amount_bdt: notesExpenseTotal, status_notes: `${expenseNotes.length} Office / Logistics Items` },
+        { id: 'h-total', metric: 'ALL TOTAL EXPENSES', category: 'Grand Outflow', amount_bdt: allExpenses, status_notes: `${monthlyBudget > 0 ? Math.round((allExpenses / monthlyBudget) * 100) : 0}% of Budget` },
+        { id: 'h-net', metric: 'NET CASH BALANCE (HISHAB)', category: 'Surplus', amount_bdt: netMargin, status_notes: netMargin >= 0 ? 'Positive Operating Cash' : 'Deficit' },
       ];
     }
 
@@ -682,9 +757,39 @@ export const CustomExcelPortalSection: React.FC<CustomExcelPortalSectionProps> =
                   <div className="flex items-center gap-2 pt-2 border-t border-slate-100 text-xs">
                     <button
                       onClick={() => handleApplyPreset(preset)}
-                      className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-center transition-colors cursor-pointer"
+                      className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-center transition-colors cursor-pointer"
                     >
                       Open Sheet
+                    </button>
+                    <button
+                      onClick={() => {
+                        const dsKey = (preset.dataset as DatasetKey) || 'sales';
+                        const allCols = DATASET_COLUMNS[dsKey] || MASTER_COLUMNS;
+                        const cols = allCols.filter((c) => preset.columns.includes(c.key));
+                        const source =
+                          dsKey === 'sales'
+                            ? salesRecords
+                            : dsKey === 'tada'
+                            ? tadaClaims
+                            : dsKey === 'notes'
+                            ? companyNotes
+                            : [];
+                        const headers = cols.map((c) => c.label);
+                        const rows = source.map((r: any) =>
+                          cols.map((c) => (r[c.key] !== undefined && r[c.key] !== null ? r[c.key] : '—'))
+                        );
+                        exportToExcel({
+                          filename: `${preset.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}`,
+                          sheetName: preset.name.slice(0, 28),
+                          headers,
+                          rows,
+                        });
+                      }}
+                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+                      title="Export saved sheet directly to Excel"
+                    >
+                      <Download size={13} />
+                      <span>.xlsx</span>
                     </button>
                   </div>
                 </div>
@@ -746,6 +851,17 @@ export const CustomExcelPortalSection: React.FC<CustomExcelPortalSectionProps> =
                   <Bookmark size={14} />
                   <span>Save Sheet</span>
                 </button>
+
+                {dirtySalesIds.length > 0 && onUpdateSale && (
+                  <button
+                    onClick={handlePersistSalesEdits}
+                    disabled={isSavingDbEdits}
+                    className="px-3.5 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl font-black flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer disabled:opacity-60"
+                  >
+                    <Save size={14} />
+                    <span>{isSavingDbEdits ? 'Saving...' : `Save ${dirtySalesIds.length} DB Edit(s)`}</span>
+                  </button>
+                )}
 
                 <button
                   onClick={handleDownloadCustomExcel}
@@ -855,6 +971,17 @@ export const CustomExcelPortalSection: React.FC<CustomExcelPortalSectionProps> =
                 </button>
 
                 <button
+                  onClick={() => handleSelectDataset('notes')}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                    selectedDataset === 'notes'
+                      ? 'bg-rose-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  Company Notes &amp; Expenses
+                </button>
+
+                <button
                   onClick={() => handleSelectDataset('hishab')}
                   className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                     selectedDataset === 'hishab'
@@ -873,7 +1000,7 @@ export const CustomExcelPortalSection: React.FC<CustomExcelPortalSectionProps> =
                       : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
                   }`}
                 >
-                  ✨ Custom Blank Sheet
+                  Custom Blank Sheet
                 </button>
               </div>
 
@@ -957,8 +1084,8 @@ export const CustomExcelPortalSection: React.FC<CustomExcelPortalSectionProps> =
                 </span>
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => setSelectedColumns(MASTER_COLUMNS.map((c) => c.key))}
-                    className="text-[11px] font-bold text-blue-600 hover:underline"
+                    onClick={() => setSelectedColumns((DATASET_COLUMNS[selectedDataset] || MASTER_COLUMNS).map((c) => c.key))}
+                    className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer"
                   >
                     Select All
                   </button>

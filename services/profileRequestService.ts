@@ -1,6 +1,7 @@
 import { supabase } from '../supabaseClient';
 import { ProfileUpdateRequest, Employee } from '../types';
 import { fetchEmployees, updateEmployeeAccount } from './employeeService';
+import { emitNotification } from './notificationService';
 
 /**
  * Standard list of employee fields and their official/admin-controlled status.
@@ -112,6 +113,17 @@ export const submitProfileUpdateRequest = async (input: {
 
   const updatedRequests = [newRequest, ...existingRequests];
   await saveProfileUpdateRequests(updatedRequests);
+
+  await emitNotification({
+    title: 'Profile Update Request Submitted',
+    message: `${input.employee.full_name} requested to change "${input.field_label}" to "${input.requested_value}".`,
+    category: 'profile',
+    priority: 'normal',
+    audiences: ['admin'],
+    actor_name: input.employee.full_name,
+    link_tab: 'requests',
+  });
+
   return newRequest;
 };
 
@@ -149,6 +161,17 @@ export const approveProfileUpdateRequest = async (
   requests[reqIndex] = updatedReq;
   await saveProfileUpdateRequests(requests);
 
+  await emitNotification({
+    title: 'Profile Update Approved',
+    message: `Your request to update ${targetReq.field_label} to "${targetReq.requested_value}" was approved.`,
+    category: 'profile',
+    priority: 'high',
+    audiences: ['employee', 'admin'],
+    target_employee_id: targetReq.employee_id,
+    actor_name: 'Administrator',
+    link_tab: 'profile',
+  });
+
   return { request: updatedReq, updatedEmployee };
 };
 
@@ -173,6 +196,18 @@ export const rejectProfileUpdateRequest = async (
 
   requests[reqIndex] = updatedReq;
   await saveProfileUpdateRequests(requests);
+
+  await emitNotification({
+    title: 'Profile Update Rejected',
+    message: `Your request to update ${targetReq.field_label} was declined${reviewNotes ? `: "${reviewNotes}"` : '.'}`,
+    category: 'profile',
+    priority: 'high',
+    audiences: ['employee', 'admin'],
+    target_employee_id: targetReq.employee_id,
+    actor_name: 'Administrator',
+    link_tab: 'profile',
+  });
+
   return updatedReq;
 };
 

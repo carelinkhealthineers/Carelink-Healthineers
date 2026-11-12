@@ -56,6 +56,8 @@ import { AssignedDutiesSection } from './AssignedDutiesSection';
 import { EmployeeProfileSection } from './EmployeeProfileSection';
 import { DailyWorkReportSection } from './DailyWorkReportSection';
 import { TaDaExpenseSection } from './TaDaExpenseSection';
+import { NotificationCenter } from '../../components/common/NotificationCenter';
+import { PWAInstallButton } from '../../components/common/PWAInstallButton';
 
 export const EmployeePortal: React.FC = () => {
   const navigate = useNavigate();
@@ -335,14 +337,30 @@ export const EmployeePortal: React.FC = () => {
           </div>
         </div>
 
-        {/* Profile Menu & Sign Out Zone */}
-        <div className="flex items-center gap-3 relative" ref={profileMenuRef}>
+        {/* Profile Menu & Notifications Zone */}
+        <div className="flex items-center gap-2.5 sm:gap-3 relative" ref={profileMenuRef}>
           {actionSuccess && (
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 rounded-lg text-xs font-medium">
               <Check size={12} />
               <span>{actionSuccess}</span>
             </div>
           )}
+
+          <PWAInstallButton theme="dark" />
+
+          <NotificationCenter
+            viewerRole="employee"
+            viewerId={`emp_${employee.id}`}
+            employeeId={employee.id}
+            actorName={employee.full_name}
+            theme="dark"
+            onNavigate={(linkTab) => {
+              if (linkTab === 'tada') setPortalView('tada');
+              else if (linkTab === 'reports') setPortalView('reports');
+              else if (linkTab === 'profile') setPortalView('profile');
+              else setPortalView('workspace');
+            }}
+          />
 
           {/* Profile Trigger Button */}
           <button

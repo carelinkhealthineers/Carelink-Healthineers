@@ -1,5 +1,6 @@
 import { supabase } from '../supabaseClient';
 import { TaDaClaim, TaDaClaimStatus, PaymentStatus, Employee, ExpenseAttachment } from '../types';
+import { emitNotification } from './notificationService';
 
 export interface TaDaClaimInput {
   id?: string;
@@ -167,6 +168,20 @@ export const saveOrSubmitTaDaClaim = async (
   }
 
   await saveTaDaClaims(existingClaims);
+
+  if (isSubmit) {
+    await emitNotification({
+      title: 'TA/DA Claim Submitted',
+      message: `${employee.full_name} submitted "${updatedClaim.title}" (${updatedClaim.origin} to ${updatedClaim.destination}) for Tk ${updatedClaim.total_amount.toLocaleString()}.`,
+      category: 'tada',
+      priority: 'high',
+      audiences: ['admin', 'executive'],
+      actor_name: employee.full_name,
+      actor_role: employee.designation || employee.role,
+      link_tab: 'tada',
+    });
+  }
+
   return updatedClaim;
 };
 
@@ -193,6 +208,24 @@ export const adminReviewTaDaClaim = async (
 
   claims[index] = updated;
   await saveTaDaClaims(claims);
+
+  const isApproved = newStatus === 'approved';
+  const isRejected = newStatus === 'rejected';
+  await emitNotification({
+    title: isApproved
+      ? 'TA/DA Claim Approved'
+      : isRejected
+      ? 'TA/DA Claim Rejected'
+      : `TA/DA Claim Status: ${newStatus}`,
+    message: `${updated.employee_name}'s TA/DA claim "${updated.title}" (Tk ${Number(updated.total_amount || 0).toLocaleString()}) was ${newStatus}${adminRemarks.trim() ? `: "${adminRemarks.trim()}"` : '.'}`,
+    category: 'tada',
+    priority: isRejected ? 'urgent' : 'high',
+    audiences: ['employee', 'admin', 'executive'],
+    target_employee_id: updated.employee_id,
+    actor_name: adminRemarks.toLowerCase().includes('executive') ? 'Executive Management' : 'Management / Admin',
+    link_tab: 'tada',
+  });
+
   return updated;
 };
 
@@ -217,6 +250,21 @@ export const adminTogglePaymentStatus = async (
 
   claims[index] = updated;
   await saveTaDaClaims(claims);
+
+  await emitNotification({
+    title: paymentStatus === 'paid' ? 'TA/DA Payment Disbursed (PAID)' : 'TA/DA Payment Reset to Unpaid',
+    message:
+      paymentStatus === 'paid'
+        ? `Tk ${Number(updated.total_amount || 0).toLocaleString()} has been paid to ${updated.employee_name} for "${updated.title}".`
+        : `Payment status for "${updated.title}" (${updated.employee_name}) was marked unpaid.`,
+    category: 'tada',
+    priority: paymentStatus === 'paid' ? 'high' : 'normal',
+    audiences: ['employee', 'admin', 'executive'],
+    target_employee_id: updated.employee_id,
+    actor_name: 'Finance / Accounts',
+    link_tab: 'tada',
+  });
+
   return updated;
 };
 
@@ -225,6 +273,20 @@ export const adminTogglePaymentStatus = async (
  */
 export const deleteTaDaClaim = async (claimId: string): Promise<void> => {
   const claims = await fetchTaDaClaims();
+  const target = claims.find((c) => c.id === claimId);
   const filtered = claims.filter((c) => c.id !== claimId);
   await saveTaDaClaims(filtered);
+
+  if (target && target.status !== 'draft') {
+    await emitNotification({
+      title: 'TA/DA Claim Removed',
+      message: `Claim "${target.title}" by ${target.employee_name} (Tk ${Number(target.total_amount || 0).toLocaleString()}) was deleted.`,
+      category: 'tada',
+      priority: 'normal',
+      audiences: ['employee', 'admin', 'executive'],
+      target_employee_id: target.employee_id,
+      actor_name: 'Management',
+      link_tab: 'tada',
+    });
+  }
 };

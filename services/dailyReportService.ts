@@ -1,5 +1,6 @@
 import { supabase } from '../supabaseClient';
 import { DailyWorkReport, DailyReportStatus, Employee, DailyWorkReportAttachment } from '../types';
+import { emitNotification } from './notificationService';
 
 export interface DailyReportInput {
   id?: string;
@@ -199,6 +200,20 @@ export const saveOrSubmitDailyWorkReport = async (
   }
 
   await saveDailyWorkReports(existingReports);
+
+  if (isSubmit) {
+    await emitNotification({
+      title: 'Daily Work Report Submitted',
+      message: `${employee.full_name} submitted field activity report for ${updatedReport.report_date}${updatedReport.client_hospital ? ` (${updatedReport.client_hospital})` : ''}.`,
+      category: 'report',
+      priority: 'normal',
+      audiences: ['admin', 'executive'],
+      actor_name: employee.full_name,
+      actor_role: employee.designation || employee.role,
+      link_tab: 'reports',
+    });
+  }
+
   return updatedReport;
 };
 
@@ -237,6 +252,21 @@ export const adminReviewDailyReport = async (
 
   reports[index] = updated;
   await saveDailyWorkReports(reports);
+
+  const isCorrection = newStatus === 'correction_requested';
+  await emitNotification({
+    title: isCorrection
+      ? 'Daily Report Correction Requested'
+      : `Daily Report ${newStatus.toUpperCase()}`,
+    message: `Your daily work report (${updated.report_date}) status was updated to ${newStatus.replace('_', ' ')}${adminRemarks.trim() ? `: "${adminRemarks.trim()}"` : '.'}`,
+    category: 'report',
+    priority: isCorrection ? 'urgent' : 'high',
+    audiences: ['employee', 'admin', 'executive'],
+    target_employee_id: updated.employee_id,
+    actor_name: adminRemarks.toLowerCase().includes('executive') ? 'Executive Management' : 'Administrator',
+    link_tab: 'reports',
+  });
+
   return updated;
 };
 

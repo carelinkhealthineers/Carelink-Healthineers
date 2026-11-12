@@ -56,6 +56,7 @@ import {
   NoteCategory,
   ProductSaleRecord,
   CustomExcelPreset,
+  ExpenseAttachment,
 } from '../../types';
 import {
   getCurrentExecutiveSession,
@@ -73,8 +74,9 @@ import {
   togglePinCompanyNote,
   fetchSalesRecords,
   createSalesRecord,
+  updateSalesRecord,
   deleteSalesRecord,
-  fetchMonthlyBudget,
+  fetchAllMonthlyBudgets,
   saveMonthlyBudget,
   fetchCustomExcelPresets,
   saveCustomExcelPreset,
@@ -83,7 +85,12 @@ import {
 import { fetchEmployees, DEPARTMENTS } from '../../services/employeeService';
 import { fetchDailyWorkReports, adminReviewDailyReport } from '../../services/dailyReportService';
 import { fetchAssignedDuties } from '../../services/dutyService';
-import { fetchTaDaClaims, adminReviewTaDaClaim, adminTogglePaymentStatus } from '../../services/tadaService';
+import {
+  fetchTaDaClaims,
+  adminReviewTaDaClaim,
+  adminTogglePaymentStatus,
+  deleteTaDaClaim,
+} from '../../services/tadaService';
 import { performSignOut } from '../../supabaseClient';
 import { exportToExcel, exportToPDF } from '../../utils/exportHelper';
 import { FinancialHishabSection } from './components/FinancialHishabSection';
@@ -91,6 +98,15 @@ import { DoctorSalesLedgerSection } from './components/DoctorSalesLedgerSection'
 import { CustomExcelPortalSection } from './components/CustomExcelPortalSection';
 import { ExecutiveUserManualBangla } from './components/ExecutiveUserManualBangla';
 import { ManagementDecisionsSection } from './components/ManagementDecisionsSection';
+import { ReceiptGallery, ReceiptPreviewModal } from '../../components/common/ReceiptPreviewModal';
+import { NotificationCenter } from '../../components/common/NotificationCenter';
+import { PWAInstallButton } from '../../components/common/PWAInstallButton';
+import {
+  fetchNotificationsForViewer,
+  markNotificationRead,
+  subscribeToNotifications,
+} from '../../services/notificationService';
+import { AppNotification } from '../../types';
 
 type TabView =
   | 'overview'
@@ -124,6 +140,7 @@ export const ExecutivePortal: React.FC = () => {
   const [companyNotes, setCompanyNotes] = useState<CompanyNote[]>([]);
   const [salesRecords, setSalesRecords] = useState<ProductSaleRecord[]>([]);
   const [monthlyBudget, setMonthlyBudget] = useState<number>(500000);
+  const [monthlyBudgets, setMonthlyBudgets] = useState<Record<string, number>>({});
   const [customExcelPresets, setCustomExcelPresets] = useState<CustomExcelPreset[]>([]);
 
   // Filter & Search states
@@ -131,6 +148,9 @@ export const ExecutivePortal: React.FC = () => {
   const [deptFilter, setDeptFilter] = useState<string>('All');
   const [dateFilter, setDateFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [tadaStatusFilter, setTadaStatusFilter] = useState<string>('All');
+  const [tadaPaymentFilter, setTadaPaymentFilter] = useState<string>('All');
+  const [tadaSearchTerm, setTadaSearchTerm] = useState<string>('');
   const [execMonth, setExecMonth] = useState<string>('All');
   const [execYear, setExecYear] = useState<string>('All');
   const [timeFrame, setTimeFrame] = useState<'all' | 'today' | 'week' | 'month'>('all');
@@ -143,6 +163,11 @@ export const ExecutivePortal: React.FC = () => {
   const [targetReportForRemark, setTargetReportForRemark] = useState<DailyWorkReport | null>(null);
   const [remarkInput, setRemarkInput] = useState('');
   const [isFlagUrgent, setIsFlagUrgent] = useState(false);
+  const [tadaReceiptPreview, setTadaReceiptPreview] = useState<{
+    active: ExpenseAttachment;
+    list: ExpenseAttachment[];
+  } | null>(null);
+  const [execNotifications, setExecNotifications] = useState<AppNotification[]>([]);
 
   // Note Form
   const [newNote, setNewNote] = useState<{
@@ -212,6 +237,7 @@ export const ExecutivePortal: React.FC = () => {
       }
 
       // 2. Fetch all real enterprise data in parallel
+      const activeMonthKey = new Date().toISOString().slice(0, 7);
       const [
         empList,
         reportList,
@@ -221,7 +247,7 @@ export const ExecutivePortal: React.FC = () => {
         remarkList,
         notesList,
         salesList,
-        budgetAmount,
+        allBudgetsMap,
         presetList,
       ] = await Promise.all([
         fetchEmployees().catch(() => []),
@@ -232,7 +258,7 @@ export const ExecutivePortal: React.FC = () => {
         fetchExecutiveRemarks().catch(() => []),
         fetchCompanyNotes().catch(() => []),
         fetchSalesRecords().catch(() => []),
-        fetchMonthlyBudget('2026-11').catch(() => 500000),
+        fetchAllMonthlyBudgets().catch(() => ({} as Record<string, number>)),
         fetchCustomExcelPresets().catch(() => []),
       ]);
 
@@ -244,7 +270,8 @@ export const ExecutivePortal: React.FC = () => {
       setRemarks(remarkList);
       setCompanyNotes(notesList);
       setSalesRecords(salesList);
-      setMonthlyBudget(budgetAmount);
+      setMonthlyBudgets(allBudgetsMap);
+      setMonthlyBudget(allBudgetsMap[activeMonthKey] ?? 500000);
       setCustomExcelPresets(presetList);
     } catch (err: any) {
       setErrorMsg(err?.message || 'Failed to initialize Executive Management Dashboard.');
@@ -256,6 +283,18 @@ export const ExecutivePortal: React.FC = () => {
   useEffect(() => {
     loadExecutiveData();
   }, []);
+
+  useEffect(() => {
+    const viewerKey = `exec_${execAccount?.id || 'default'}`;
+    const loadAlerts = () => {
+      fetchNotificationsForViewer('executive', undefined, viewerKey)
+        .then(setExecNotifications)
+        .catch(() => {});
+    };
+    loadAlerts();
+    const unsub = subscribeToNotifications(loadAlerts);
+    return unsub;
+  }, [execAccount?.id]);
 
   const triggerToast = (msg: string) => {
     setToastMsg(msg);
@@ -429,12 +468,52 @@ export const ExecutivePortal: React.FC = () => {
     }
   };
 
-  // Budget Handlers
-  const handleUpdateBudget = async (newBudget: number) => {
+  const handleDeleteTaDaClaim = async (claimId: string) => {
+    if (!window.confirm('Delete this TA/DA expense claim permanently?')) return;
     try {
-      await saveMonthlyBudget('2026-11', newBudget);
-      setMonthlyBudget(newBudget);
-      triggerToast(`Monthly budget updated to ৳${newBudget.toLocaleString()}`);
+      await deleteTaDaClaim(claimId);
+      setTadaClaims(tadaClaims.filter((c) => c.id !== claimId));
+      triggerToast('TA/DA expense claim deleted.');
+    } catch (err: any) {
+      alert(`Delete failed: ${err?.message}`);
+    }
+  };
+
+  const handleAddQuickExpenseNote = async (expense: {
+    title: string;
+    content: string;
+    amount: number;
+    date: string;
+  }) => {
+    if (!execAccount) return;
+    try {
+      const created = await createCompanyNote({
+        author_id: execAccount.id,
+        author_name: execAccount.full_name,
+        author_role: execAccount.role,
+        title: expense.title,
+        content: expense.content,
+        category: 'expense',
+        amount: expense.amount,
+        date: expense.date,
+      });
+      setCompanyNotes([created, ...companyNotes]);
+      triggerToast(`Company expense "৳${expense.amount.toLocaleString()}" logged to Financial Hub.`);
+    } catch (err: any) {
+      alert(`Failed to log company expense: ${err?.message}`);
+    }
+  };
+
+  // Budget Handlers
+  const handleUpdateBudget = async (newBudget: number, targetMonthKey?: string) => {
+    const key = targetMonthKey || currentMonthKey;
+    try {
+      const updatedMap = await saveMonthlyBudget(key, newBudget);
+      setMonthlyBudgets(updatedMap);
+      if (key === currentMonthKey) {
+        setMonthlyBudget(newBudget);
+      }
+      triggerToast(`Monthly budget for ${key} updated to ৳${newBudget.toLocaleString()}`);
     } catch (err: any) {
       alert(`Budget update failed: ${err?.message}`);
     }
@@ -448,6 +527,16 @@ export const ExecutivePortal: React.FC = () => {
       triggerToast(`Sale recorded for ${created.doctor_name} (${created.product_name})`);
     } catch (err: any) {
       alert(`Failed to record sale: ${err?.message}`);
+    }
+  };
+
+  const handleUpdateSale = async (id: string, updates: Partial<ProductSaleRecord>) => {
+    try {
+      const updated = await updateSalesRecord(id, updates);
+      setSalesRecords(salesRecords.map((s) => (s.id === id ? updated : s)));
+      triggerToast(`Sale record updated (${updated.doctor_name})`);
+    } catch (err: any) {
+      alert(`Failed to update sale: ${err?.message}`);
     }
   };
 
@@ -484,6 +573,7 @@ export const ExecutivePortal: React.FC = () => {
 
   // Helper for Date & Week range filtering
   const todayStr = new Date().toISOString().split('T')[0];
+  const currentMonthKey = todayStr.slice(0, 7);
   const now = new Date();
   const startOfWeek = new Date(now);
   startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
@@ -492,6 +582,13 @@ export const ExecutivePortal: React.FC = () => {
 
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
+
+  const getTaDaTotal = (c: TaDaClaim) =>
+    Number(c.total_amount) ||
+    (Number(c.travel_allowance) || 0) +
+      (Number(c.daily_allowance) || 0) +
+      (Number(c.transportation_expense) || 0) +
+      (Number(c.accommodation_food_expense) || 0);
 
   const matchesTimeFrame = (dateStr: string) => {
     if (!dateStr) return true;
@@ -560,18 +657,35 @@ export const ExecutivePortal: React.FC = () => {
   };
 
   const handleExportTaDaExcel = () => {
-    const headers = ['Employee Name', 'Employee Code', 'Destination', 'Start Date', 'End Date', 'TA (BDT)', 'DA (BDT)', 'Transport (BDT)', 'Hotel/Food (BDT)', 'Total (BDT)', 'Status', 'Payment'];
+    const headers = [
+      'Employee Name',
+      'Employee Code',
+      'Claim Title',
+      'Origin',
+      'Destination',
+      'Start Date',
+      'End Date',
+      'TA (BDT)',
+      'DA (BDT)',
+      'Transport (BDT)',
+      'Hotel/Food (BDT)',
+      'Total (BDT)',
+      'Status',
+      'Payment',
+    ];
     const rows = tadaClaims.map((c) => [
       c.employee_name || '',
       c.employee_code || '',
+      c.title || '',
+      c.origin || '',
       c.destination || '',
-      c.start_date || '',
-      c.end_date || '',
-      c.travel_allowance || 0,
-      c.daily_allowance || 0,
-      c.transport_expense || 0,
-      c.accommodation_expense || 0,
-      c.total_amount || 0,
+      c.travel_start_date || '',
+      c.travel_end_date || '',
+      Number(c.travel_allowance) || 0,
+      Number(c.daily_allowance) || 0,
+      Number(c.transportation_expense) || 0,
+      Number(c.accommodation_food_expense) || 0,
+      getTaDaTotal(c),
       c.status?.toUpperCase() || '',
       c.payment_status?.toUpperCase() || '',
     ]);
@@ -585,23 +699,26 @@ export const ExecutivePortal: React.FC = () => {
   };
 
   const handleExportTaDaPDF = () => {
-    const headers = ['Employee', 'Destination', 'Dates', 'TA', 'DA', 'Transport', 'Hotel', 'Total (BDT)', 'Claim Status', 'Payment'];
+    const headers = ['Employee', 'Duty / Route', 'Dates', 'TA', 'DA', 'Transport', 'Hotel/Food', 'Total (BDT)', 'Status', 'Payment'];
     const rows = tadaClaims.map((c) => [
       c.employee_name || '',
-      c.destination || '',
-      `${c.start_date || ''} - ${c.end_date || ''}`,
-      `৳${c.travel_allowance || 0}`,
-      `৳${c.daily_allowance || 0}`,
-      `৳${c.transport_expense || 0}`,
-      `৳${c.accommodation_expense || 0}`,
-      `৳${(c.total_amount || 0).toLocaleString()}`,
+      `${c.title ? `${c.title} · ` : ''}${c.origin || 'HQ'} -> ${c.destination || ''}`,
+      `${c.travel_start_date || ''} - ${c.travel_end_date || ''}`,
+      `Tk ${(Number(c.travel_allowance) || 0).toLocaleString()}`,
+      `Tk ${(Number(c.daily_allowance) || 0).toLocaleString()}`,
+      `Tk ${(Number(c.transportation_expense) || 0).toLocaleString()}`,
+      `Tk ${(Number(c.accommodation_food_expense) || 0).toLocaleString()}`,
+      `Tk ${getTaDaTotal(c).toLocaleString()}`,
       c.status?.toUpperCase() || '',
       c.payment_status?.toUpperCase() || '',
     ]);
+    const activeTotal = tadaClaims
+      .filter((c) => c.status !== 'rejected' && c.status !== 'draft')
+      .reduce((acc, c) => acc + getTaDaTotal(c), 0);
     exportToPDF({
       filename: `carelink_tada_claims_${todayStr}`,
       title: 'Carelink Healthineers — Official TA/DA & Expense Claims Log',
-      subtitle: `Total Claim Value: ৳${tadaClaims.reduce((acc, c) => acc + (c.total_amount || 0), 0).toLocaleString()} · Generated on ${todayStr}`,
+      subtitle: `Active TA/DA Expense Total: Tk ${activeTotal.toLocaleString()} · Generated on ${todayStr}`,
       headers,
       rows,
     });
@@ -709,10 +826,10 @@ export const ExecutivePortal: React.FC = () => {
           {execAccount && (
             <div className="p-4 mx-3 my-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
                   {execAccount.role} Access
                 </span>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[10px] font-mono text-emerald-400 font-semibold">Active</span>
               </div>
               <div>
                 <div className="text-xs font-bold text-white truncate">{execAccount.full_name}</div>
@@ -822,9 +939,9 @@ export const ExecutivePortal: React.FC = () => {
                 <Receipt size={16} />
                 <span>Employee TA/DA Claims</span>
               </div>
-              {tadaClaims.filter((c) => c.status === 'pending').length > 0 && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-300 font-extrabold">
-                  {tadaClaims.filter((c) => c.status === 'pending').length}
+              {tadaClaims.filter((c) => c.status === 'submitted').length > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-300 font-extrabold tabular-nums">
+                  {tadaClaims.filter((c) => c.status === 'submitted').length}
                 </span>
               )}
             </button>
@@ -891,9 +1008,16 @@ export const ExecutivePortal: React.FC = () => {
                 <Bell size={16} />
                 <span>Alert Center</span>
               </div>
-              {missingReportEmployees.length > 0 && (
+              {(missingReportEmployees.length > 0 ||
+                execNotifications.some(
+                  (n) => !n.read_by.includes(`exec_${execAccount?.id || 'default'}`)
+                )) && (
                 <span className="px-2 py-0.5 rounded-full text-[10px] bg-rose-500/20 text-rose-300 font-extrabold">
-                  {missingReportEmployees.length} Alert
+                  {missingReportEmployees.length +
+                    execNotifications.filter(
+                      (n) => !n.read_by.includes(`exec_${execAccount?.id || 'default'}`)
+                    ).length}{' '}
+                  Alert
                 </span>
               )}
             </button>
@@ -941,12 +1065,42 @@ export const ExecutivePortal: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 flex-wrap">
             {toastMsg && (
               <div className="px-3.5 py-2 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs">
                 <CheckCircle2 size={14} className="text-emerald-600" />
                 <span>{toastMsg}</span>
               </div>
+            )}
+
+            <PWAInstallButton theme="light" />
+
+            {execAccount && (
+              <NotificationCenter
+                viewerRole="executive"
+                viewerId={`exec_${execAccount.id}`}
+                actorName={execAccount.full_name}
+                theme="light"
+                employees={employees}
+                onNavigate={(linkTab) => {
+                  const validTabs: TabView[] = [
+                    'overview',
+                    'hishab',
+                    'sales',
+                    'custom-excel',
+                    'manual',
+                    'reports',
+                    'tada',
+                    'notes',
+                    'decisions',
+                    'analytics',
+                    'alerts',
+                  ];
+                  if (validTabs.includes(linkTab as TabView)) {
+                    setActiveTab(linkTab as TabView);
+                  }
+                }}
+              />
             )}
 
             <button
@@ -1030,6 +1184,92 @@ export const ExecutivePortal: React.FC = () => {
                   </div>
                   <div className="text-2xl font-black text-amber-600">{pendingDecisions.length}</div>
                   <div className="text-[11px] text-slate-500 font-medium">Management Actions</div>
+                </div>
+              </div>
+
+              {/* LIVE FINANCIAL & EXPENSE PULSE STRIP IN BRIEFING */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div
+                  onClick={() => setActiveTab('sales')}
+                  className="p-5 bg-white rounded-2xl border border-slate-200 hover:border-blue-300 transition-colors cursor-pointer space-y-1.5"
+                >
+                  <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    <span>Equipment Sales (All)</span>
+                    <Stethoscope size={16} className="text-blue-600" />
+                  </div>
+                  <div className="text-2xl font-black font-mono tabular-nums text-slate-900">
+                    ৳{salesRecords.reduce((s, r) => s + (Number(r.sale_value) || 0), 0).toLocaleString()}
+                  </div>
+                  <div className="text-[11px] text-slate-500 font-mono tabular-nums">
+                    Collected: <strong className="text-emerald-700">৳{salesRecords.reduce((s, r) => s + (Number(r.paid_amount) || 0), 0).toLocaleString()}</strong> · Due:{' '}
+                    <strong className="text-amber-700">৳{salesRecords.reduce((s, r) => s + (Number(r.due_amount) || 0), 0).toLocaleString()}</strong>
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => setActiveTab('tada')}
+                  className="p-5 bg-white rounded-2xl border border-slate-200 hover:border-amber-300 transition-colors cursor-pointer space-y-1.5"
+                >
+                  <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-amber-700">
+                    <span>Staff TA/DA Expenses</span>
+                    <Receipt size={16} className="text-amber-600" />
+                  </div>
+                  <div className="text-2xl font-black font-mono tabular-nums text-slate-900">
+                    ৳
+                    {tadaClaims
+                      .filter((c) => c.status !== 'rejected' && c.status !== 'draft')
+                      .reduce((acc, c) => acc + getTaDaTotal(c), 0)
+                      .toLocaleString()}
+                  </div>
+                  <div className="text-[11px] text-amber-700 font-semibold font-mono tabular-nums">
+                    {tadaClaims.filter((c) => c.status === 'submitted').length} Pending Approval ·{' '}
+                    {tadaClaims.filter((c) => c.status === 'approved' && c.payment_status !== 'paid').length} Approved Unpaid
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => setActiveTab('notes')}
+                  className="p-5 bg-white rounded-2xl border border-slate-200 hover:border-rose-300 transition-colors cursor-pointer space-y-1.5"
+                >
+                  <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-rose-700">
+                    <span>Company Ops Expenses</span>
+                    <StickyNote size={16} className="text-rose-600" />
+                  </div>
+                  <div className="text-2xl font-black font-mono tabular-nums text-slate-900">
+                    ৳
+                    {companyNotes
+                      .filter((n) => n.category === 'expense')
+                      .reduce((acc, n) => acc + (Number(n.amount) || 0), 0)
+                      .toLocaleString()}
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    {companyNotes.filter((n) => n.category === 'expense').length} Operational Expense Directives
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => setActiveTab('hishab')}
+                  className="p-5 bg-slate-900 text-white rounded-2xl border border-slate-800 hover:bg-slate-800 transition-colors cursor-pointer space-y-1.5"
+                >
+                  <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-emerald-400">
+                    <span>Open Financial Hub</span>
+                    <DollarSign size={16} className="text-emerald-400" />
+                  </div>
+                  <div className="text-2xl font-black font-mono tabular-nums text-white">
+                    ৳
+                    {(
+                      tadaClaims
+                        .filter((c) => c.status !== 'rejected' && c.status !== 'draft')
+                        .reduce((acc, c) => acc + getTaDaTotal(c), 0) +
+                      companyNotes
+                        .filter((n) => n.category === 'expense')
+                        .reduce((acc, n) => acc + (Number(n.amount) || 0), 0)
+                    ).toLocaleString()}
+                  </div>
+                  <div className="text-[11px] text-emerald-300 flex items-center justify-between">
+                    <span>Total Company Outflow</span>
+                    <span className="font-bold">Inspect Hishab →</span>
+                  </div>
                 </div>
               </div>
 
@@ -1193,8 +1433,12 @@ export const ExecutivePortal: React.FC = () => {
               companyNotes={companyNotes}
               salesRecords={salesRecords}
               monthlyBudget={monthlyBudget}
+              monthlyBudgets={monthlyBudgets}
               onUpdateBudget={handleUpdateBudget}
-              currentMonthKey="2026-11"
+              currentMonthKey={currentMonthKey}
+              onReviewTaDa={handleReviewTaDaClaim}
+              onToggleTaDaPayment={handleToggleClaimPayment}
+              onAddExpenseNote={handleAddQuickExpenseNote}
             />
           )}
 
@@ -1218,6 +1462,7 @@ export const ExecutivePortal: React.FC = () => {
               presets={customExcelPresets}
               onSavePreset={handleSaveCustomPreset}
               onDeletePreset={handleDeleteCustomPreset}
+              onUpdateSale={handleUpdateSale}
             />
           )}
 
@@ -1528,156 +1773,242 @@ export const ExecutivePortal: React.FC = () => {
               </div>
 
               {/* Claims summary stats */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Claims Value</span>
-                  <div className="text-2xl font-black font-mono text-slate-900">
-                    ৳{tadaClaims.reduce((acc, c) => acc + (c.total_amount || 0), 0).toLocaleString()}
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Active Claims Total</span>
+                  <div className="text-2xl font-black font-mono tabular-nums text-slate-900">
+                    ৳
+                    {tadaClaims
+                      .filter((c) => c.status !== 'rejected' && c.status !== 'draft')
+                      .reduce((acc, c) => acc + getTaDaTotal(c), 0)
+                      .toLocaleString()}
                   </div>
                 </div>
 
                 <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1">
-                  <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Pending Claims</span>
-                  <div className="text-2xl font-black font-mono text-amber-600">
-                    {tadaClaims.filter((c) => c.status === 'pending').length} Claims
+                  <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Pending Approval (Submitted)</span>
+                  <div className="text-2xl font-black font-mono tabular-nums text-amber-600">
+                    {tadaClaims.filter((c) => c.status === 'submitted').length} Claims
                   </div>
                 </div>
 
                 <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1">
                   <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Disbursed (Paid)</span>
-                  <div className="text-2xl font-black font-mono text-emerald-600">
-                    ৳{tadaClaims.filter((c) => c.payment_status === 'paid').reduce((acc, c) => acc + (c.total_amount || 0), 0).toLocaleString()}
+                  <div className="text-2xl font-black font-mono tabular-nums text-emerald-600">
+                    ৳
+                    {tadaClaims
+                      .filter((c) => c.payment_status === 'paid' && c.status !== 'rejected')
+                      .reduce((acc, c) => acc + getTaDaTotal(c), 0)
+                      .toLocaleString()}
+                  </div>
+                </div>
+
+                <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                  <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Approved Payable (Unpaid)</span>
+                  <div className="text-2xl font-black font-mono tabular-nums text-rose-600">
+                    ৳
+                    {tadaClaims
+                      .filter((c) => c.status === 'approved' && c.payment_status !== 'paid')
+                      .reduce((acc, c) => acc + getTaDaTotal(c), 0)
+                      .toLocaleString()}
                   </div>
                 </div>
               </div>
 
+              {/* Filter & Search Bar for TA/DA */}
+              <div className="p-4 bg-white rounded-2xl border border-slate-200 flex flex-col md:flex-row gap-3 items-center justify-between text-xs">
+                <div className="relative flex-1 w-full">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                  <input
+                    type="text"
+                    placeholder="Search by employee name, title, origin, destination..."
+                    value={tadaSearchTerm}
+                    onChange={(e) => setTadaSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:border-blue-600"
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                  <select
+                    value={tadaStatusFilter}
+                    onChange={(e) => setTadaStatusFilter(e.target.value)}
+                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 cursor-pointer"
+                  >
+                    <option value="All">All Claim Status</option>
+                    <option value="submitted">Submitted (Pending)</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="draft">Draft</option>
+                  </select>
+                  <select
+                    value={tadaPaymentFilter}
+                    onChange={(e) => setTadaPaymentFilter(e.target.value)}
+                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 cursor-pointer"
+                  >
+                    <option value="All">All Payment Status</option>
+                    <option value="paid">Paid</option>
+                    <option value="unpaid">Unpaid</option>
+                  </select>
+                </div>
+              </div>
+
               {/* Claims table */}
-              <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead className="bg-slate-100 text-slate-600 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
                       <tr>
-                        <th className="px-6 py-4">Employee</th>
-                        <th className="px-6 py-4">Travel Dates &amp; Destination</th>
-                        <th className="px-6 py-4">Expense Breakdown</th>
-                        <th className="px-6 py-4">Total Amount</th>
-                        <th className="px-6 py-4">Receipts / Bills</th>
-                        <th className="px-6 py-4">Status &amp; Payment</th>
-                        <th className="px-6 py-4 text-right">Actions</th>
+                        <th className="px-5 py-4">Employee</th>
+                        <th className="px-5 py-4">Duty Title &amp; Travel Dates</th>
+                        <th className="px-5 py-4">Expense Breakdown</th>
+                        <th className="px-5 py-4">Total Amount</th>
+                        <th className="px-5 py-4">Receipts / Bills</th>
+                        <th className="px-5 py-4">Status &amp; Payment</th>
+                        <th className="px-5 py-4 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
-                      {tadaClaims.length === 0 ? (
-                        <tr>
-                          <td colSpan={7} className="py-12 text-center text-slate-400">
-                            No employee TA/DA claims submitted yet.
-                          </td>
-                        </tr>
-                      ) : (
-                        tadaClaims.map((claim) => (
-                          <tr key={claim.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-6 py-4">
-                              <div className="font-bold text-slate-900">{claim.employee_name}</div>
-                              <div className="text-[11px] text-slate-500 font-mono">{claim.employee_code}</div>
-                            </td>
+                      {(() => {
+                        const visibleClaims = tadaClaims.filter((claim) => {
+                          const q = tadaSearchTerm.toLowerCase();
+                          const matchesSearch =
+                            !q ||
+                            (claim.employee_name || '').toLowerCase().includes(q) ||
+                            (claim.employee_code || '').toLowerCase().includes(q) ||
+                            (claim.title || '').toLowerCase().includes(q) ||
+                            (claim.origin || '').toLowerCase().includes(q) ||
+                            (claim.destination || '').toLowerCase().includes(q);
+                          const matchesStatus = tadaStatusFilter === 'All' || claim.status === tadaStatusFilter;
+                          const matchesPayment =
+                            tadaPaymentFilter === 'All' || claim.payment_status === tadaPaymentFilter;
+                          return matchesSearch && matchesStatus && matchesPayment;
+                        });
 
-                            <td className="px-6 py-4">
-                              <div className="font-semibold text-slate-800">{claim.destination}</div>
-                              <div className="text-[11px] text-slate-500 font-mono">
-                                {claim.start_date} to {claim.end_date}
-                              </div>
-                            </td>
+                        if (visibleClaims.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={7} className="py-12 text-center text-slate-400">
+                                No employee TA/DA claims matched your filters.
+                              </td>
+                            </tr>
+                          );
+                        }
 
-                            <td className="px-6 py-4 text-slate-700">
-                              <div className="space-y-0.5 text-[11px]">
-                                {claim.travel_allowance > 0 && <div>TA: ৳{claim.travel_allowance}</div>}
-                                {claim.daily_allowance > 0 && <div>DA: ৳{claim.daily_allowance}</div>}
-                                {claim.transport_expense > 0 && <div>Transport: ৳{claim.transport_expense}</div>}
-                                {claim.accommodation_expense > 0 && <div>Hotel/Food: ৳{claim.accommodation_expense}</div>}
-                              </div>
-                            </td>
+                        return visibleClaims.map((claim) => {
+                          const totalVal = getTaDaTotal(claim);
+                          return (
+                            <tr key={claim.id} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-5 py-4">
+                                <div className="font-bold text-slate-900">{claim.employee_name}</div>
+                                <div className="text-[11px] text-slate-500 font-mono">{claim.employee_code}</div>
+                              </td>
 
-                            <td className="px-6 py-4 font-mono font-black text-slate-900 text-sm">
-                              ৳{claim.total_amount?.toLocaleString()}
-                            </td>
-
-                            <td className="px-6 py-4">
-                              {claim.receipt_urls && claim.receipt_urls.length > 0 ? (
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  {claim.receipt_urls.map((url, idx) => (
-                                    url.startsWith('data:image') || url.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
-                                      <a key={idx} href={url} target="_blank" rel="noreferrer">
-                                        <img src={url} alt={`Receipt ${idx + 1}`} className="w-9 h-9 object-cover rounded-lg border border-slate-200 hover:opacity-80 transition-opacity" />
-                                      </a>
-                                    ) : (
-                                      <a key={idx} href={url} target="_blank" rel="noreferrer" className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold flex items-center gap-1">
-                                        <Paperclip size={12} />
-                                        <span>Receipt #{idx + 1}</span>
-                                      </a>
-                                    )
-                                  ))}
+                              <td className="px-5 py-4">
+                                <div className="font-bold text-slate-900">{claim.title || claim.destination}</div>
+                                <div className="text-[11px] text-slate-600">
+                                  {claim.origin || 'HQ'} → {claim.destination}
                                 </div>
-                              ) : (
-                                <span className="text-slate-400 italic text-[11px]">No receipts attached</span>
-                              )}
-                            </td>
+                                <div className="text-[11px] text-slate-500 font-mono tabular-nums mt-0.5">
+                                  {claim.travel_start_date} to {claim.travel_end_date}
+                                </div>
+                                {claim.remarks && (
+                                  <div className="text-[10px] text-slate-500 italic mt-0.5 max-w-xs truncate">
+                                    &quot;{claim.remarks}&quot;
+                                  </div>
+                                )}
+                              </td>
 
-                            <td className="px-6 py-4 space-y-1">
-                              <span
-                                className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
-                                  claim.status === 'approved'
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : claim.status === 'rejected'
-                                    ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                    : 'bg-amber-50 text-amber-700 border-amber-200'
-                                }`}
-                              >
-                                {claim.status}
-                              </span>
-                              <div>
-                                <span
-                                  className={`inline-block px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
-                                    claim.payment_status === 'paid'
-                                      ? 'bg-emerald-100 text-emerald-800'
-                                      : 'bg-slate-100 text-slate-600'
+                              <td className="px-5 py-4 text-slate-700 font-mono tabular-nums">
+                                <div className="space-y-0.5 text-[11px]">
+                                  {(Number(claim.travel_allowance) || 0) > 0 && (
+                                    <div>TA: ৳{Number(claim.travel_allowance).toLocaleString()}</div>
+                                  )}
+                                  {(Number(claim.daily_allowance) || 0) > 0 && (
+                                    <div>DA: ৳{Number(claim.daily_allowance).toLocaleString()}</div>
+                                  )}
+                                  {(Number(claim.transportation_expense) || 0) > 0 && (
+                                    <div>Transport: ৳{Number(claim.transportation_expense).toLocaleString()}</div>
+                                  )}
+                                  {(Number(claim.accommodation_food_expense) || 0) > 0 && (
+                                    <div>Hotel/Food: ৳{Number(claim.accommodation_food_expense).toLocaleString()}</div>
+                                  )}
+                                </div>
+                              </td>
+
+                              <td className="px-5 py-4 font-mono tabular-nums font-black text-slate-900 text-sm">
+                                ৳{totalVal.toLocaleString()}
+                              </td>
+
+                              <td className="px-5 py-4">
+                                <ReceiptGallery
+                                  claim={claim}
+                                  theme="light"
+                                  compact
+                                  onPreview={(att, list) => setTadaReceiptPreview({ active: att, list })}
+                                />
+                              </td>
+
+                              <td className="px-5 py-4 space-y-1">
+                                <div
+                                  className={`text-[10px] font-bold uppercase tracking-wider ${
+                                    claim.status === 'approved'
+                                      ? 'text-emerald-700'
+                                      : claim.status === 'rejected'
+                                      ? 'text-rose-700'
+                                      : claim.status === 'submitted'
+                                      ? 'text-amber-700'
+                                      : 'text-slate-500'
+                                  }`}
+                                >
+                                  {claim.status}
+                                </div>
+                                <div
+                                  className={`text-[10px] font-extrabold uppercase font-mono ${
+                                    claim.payment_status === 'paid' ? 'text-sky-700' : 'text-slate-500'
                                   }`}
                                 >
                                   {claim.payment_status === 'paid' ? 'DISBURSED (PAID)' : 'UNPAID'}
-                                </span>
-                              </div>
-                            </td>
-
-                            <td className="px-6 py-4 text-right">
-                              <div className="flex flex-col items-end gap-1.5">
-                                <div className="flex items-center gap-1.5">
-                                  {claim.status !== 'approved' && (
-                                    <button
-                                      onClick={() => handleReviewTaDaClaim(claim.id, 'approved', 'Approved by Executive')}
-                                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs cursor-pointer shadow-xs"
-                                    >
-                                      Approve
-                                    </button>
-                                  )}
-                                  {claim.status !== 'rejected' && (
-                                    <button
-                                      onClick={() => handleReviewTaDaClaim(claim.id, 'rejected', 'Rejected by Executive')}
-                                      className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs cursor-pointer shadow-xs"
-                                    >
-                                      Reject
-                                    </button>
-                                  )}
                                 </div>
-                                <button
-                                  onClick={() => handleToggleClaimPayment(claim.id, claim.payment_status)}
-                                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-lg text-[11px] cursor-pointer"
-                                >
-                                  {claim.payment_status === 'paid' ? 'Mark Unpaid' : 'Mark Disbursed (Paid)'}
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
+                              </td>
+
+                              <td className="px-5 py-4 text-right">
+                                <div className="flex flex-col items-end gap-1.5">
+                                  <div className="flex items-center gap-1.5">
+                                    {claim.status !== 'approved' && (
+                                      <button
+                                        onClick={() => handleReviewTaDaClaim(claim.id, 'approved', 'Approved by Executive')}
+                                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs cursor-pointer"
+                                      >
+                                        Approve
+                                      </button>
+                                    )}
+                                    {claim.status !== 'rejected' && (
+                                      <button
+                                        onClick={() => handleReviewTaDaClaim(claim.id, 'rejected', 'Rejected by Executive')}
+                                        className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs cursor-pointer"
+                                      >
+                                        Reject
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => handleDeleteTaDaClaim(claim.id)}
+                                      className="p-1 text-slate-400 hover:text-rose-600 rounded cursor-pointer"
+                                      title="Delete TA/DA Claim"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                  <button
+                                    onClick={() => handleToggleClaimPayment(claim.id, claim.payment_status)}
+                                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-lg text-[11px] cursor-pointer"
+                                  >
+                                    {claim.payment_status === 'paid' ? 'Mark Unpaid' : 'Mark Disbursed (Paid)'}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
                     </tbody>
                   </table>
                 </div>
@@ -1863,85 +2194,336 @@ export const ExecutivePortal: React.FC = () => {
           )}
 
           {/* TAB 5: REPORTS & ANALYTICS */}
-          {activeTab === 'analytics' && (
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-extrabold text-slate-900">Executive Corporate Analytics</h2>
-                  <p className="text-xs text-slate-500">
-                    High-level financial and operational summary reports for board review.
-                  </p>
-                </div>
+          {activeTab === 'analytics' && (() => {
+            const totalSalesVal = salesRecords.reduce((s, r) => s + (Number(r.sale_value) || 0), 0);
+            const totalCollected = salesRecords.reduce((s, r) => s + (Number(r.paid_amount) || 0), 0);
+            const totalDue = salesRecords.reduce((s, r) => s + (Number(r.due_amount) || 0), 0);
+            const realizationPct = totalSalesVal > 0 ? Math.round((totalCollected / totalSalesVal) * 100) : 0;
 
-                <button
-                  onClick={() => window.print()}
-                  className="px-4 py-2 bg-slate-900 text-white hover:bg-slate-800 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md"
-                >
-                  <Printer size={15} />
-                  <span>Print Board Report</span>
-                </button>
-              </div>
+            const activeTaDa = tadaClaims.filter((c) => c.status !== 'rejected' && c.status !== 'draft');
+            const totalTaDaVal = activeTaDa.reduce((acc, c) => acc + getTaDaTotal(c), 0);
+            const totalTaDaPaid = activeTaDa
+              .filter((c) => c.payment_status === 'paid')
+              .reduce((acc, c) => acc + getTaDaTotal(c), 0);
+            const totalOpsExpenses = companyNotes
+              .filter((n) => n.category === 'expense')
+              .reduce((acc, n) => acc + (Number(n.amount) || 0), 0);
+            const grandOutflow = totalTaDaVal + totalOpsExpenses;
+            const netCashSurplus = totalCollected - grandOutflow;
+            const expenseRatioPct = totalSalesVal > 0 ? ((grandOutflow / totalSalesVal) * 100).toFixed(1) : '0.0';
+            const reportCompliancePct =
+              activeEmployees.length > 0 ? Math.round((reportsToday.length / activeEmployees.length) * 100) : 0;
+            const dutyCompletionPct =
+              assignedDuties.length > 0 ? Math.round((completedDutiesCount / assignedDuties.length) * 100) : 0;
 
-              {/* Analytics Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="p-6 bg-white rounded-3xl border border-slate-200 shadow-xs space-y-4">
-                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <DollarSign className="text-emerald-600" size={18} />
-                    <span>TA/DA Financial Expense Summary</span>
-                  </h3>
-                  <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100 text-emerald-900">
-                    <span className="text-[10px] font-bold uppercase tracking-wider block text-emerald-700">
-                      Total TA/DA Expense Claims
-                    </span>
-                    <span className="text-3xl font-black font-mono">
-                      ৳{tadaClaims.reduce((acc, c) => acc + (c.total_amount || 0), 0).toLocaleString()}
-                    </span>
+            // Top hospitals / doctors by sales revenue
+            const centerTotals: Record<string, { hospital: string; doctor: string; revenue: number; due: number; orders: number }> = {};
+            salesRecords.forEach((r) => {
+              const key = r.hospital_center_name || r.doctor_name;
+              if (!centerTotals[key]) {
+                centerTotals[key] = {
+                  hospital: r.hospital_center_name,
+                  doctor: r.doctor_name,
+                  revenue: 0,
+                  due: 0,
+                  orders: 0,
+                };
+              }
+              centerTotals[key].revenue += Number(r.sale_value) || 0;
+              centerTotals[key].due += Number(r.due_amount) || 0;
+              centerTotals[key].orders += 1;
+            });
+            const topClients = Object.values(centerTotals).sort((a, b) => b.revenue - a.revenue).slice(0, 6);
+
+            // Top Staff by TA/DA Expenditure
+            const staffTotals: Record<string, { name: string; code: string; claims: number; total: number; paid: number }> = {};
+            activeTaDa.forEach((c) => {
+              const key = c.employee_id || c.employee_name;
+              if (!staffTotals[key]) {
+                staffTotals[key] = { name: c.employee_name, code: c.employee_code, claims: 0, total: 0, paid: 0 };
+              }
+              const amt = getTaDaTotal(c);
+              staffTotals[key].claims += 1;
+              staffTotals[key].total += amt;
+              if (c.payment_status === 'paid') staffTotals[key].paid += amt;
+            });
+            const topStaffExpenses = Object.values(staffTotals).sort((a, b) => b.total - a.total);
+
+            return (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-extrabold text-slate-900">Executive Corporate Analytics &amp; Board Report</h2>
+                    <p className="text-xs text-slate-500">
+                      Consolidated financial health, cash realization, expense ratios, top clients, and operational KPIs.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() =>
+                        exportToExcel({
+                          filename: `Carelink_Executive_Board_Analytics_${todayStr}`,
+                          sheetName: 'Board Analytics',
+                          headers: ['Metric', 'Value', 'Benchmark / Notes'],
+                          rows: [
+                            ['Total Equipment Sales', totalSalesVal, `${salesRecords.length} Orders`],
+                            ['Cash Collected', totalCollected, `${realizationPct}% Realization`],
+                            ['Outstanding Receivables Due', totalDue, 'From Hospitals/Doctors'],
+                            ['Active Staff TA/DA Expenses', totalTaDaVal, `${activeTaDa.length} Claims (Paid: Tk ${totalTaDaPaid.toLocaleString()})`],
+                            ['Company Operational Expenses', totalOpsExpenses, 'Notes & Overhead'],
+                            ['Total Combined Expenses', grandOutflow, `${expenseRatioPct}% of Revenue`],
+                            ['Net Cash Operating Balance', netCashSurplus, netCashSurplus >= 0 ? 'Surplus' : 'Deficit'],
+                            ['Duty Completion Rate', `${dutyCompletionPct}%`, `${completedDutiesCount} / ${assignedDuties.length} Duties`],
+                            ['Today Daily Report Compliance', `${reportCompliancePct}%`, `${reportsToday.length} / ${activeEmployees.length} Active Staff`],
+                          ],
+                        })
+                      }
+                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <FileSpreadsheet size={14} />
+                      <span>Export Excel</span>
+                    </button>
+
+                    <button
+                      onClick={() => window.print()}
+                      className="px-4 py-2 bg-slate-900 text-white hover:bg-slate-800 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer"
+                    >
+                      <Printer size={15} />
+                      <span>Print Board Report</span>
+                    </button>
                   </div>
                 </div>
 
-                <div className="p-6 bg-white rounded-3xl border border-slate-200 shadow-xs space-y-4">
-                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <Briefcase className="text-blue-600" size={18} />
-                    <span>Duty Completion Analytics</span>
-                  </h3>
-                  <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 text-blue-900">
-                    <span className="text-[10px] font-bold uppercase tracking-wider block text-blue-700">
-                      Total Technical Duties Assigned
+                {/* Top Executive Ratio KPIs */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="p-5 bg-white rounded-2xl border border-slate-200 space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                      Sales Realization Rate
                     </span>
-                    <span className="text-3xl font-black font-mono">{assignedDuties.length}</span>
+                    <div className="text-2xl font-black font-mono tabular-nums text-emerald-700">
+                      {realizationPct}%
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-mono tabular-nums">
+                      ৳{totalCollected.toLocaleString()} / ৳{totalSalesVal.toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div className="p-5 bg-white rounded-2xl border border-slate-200 space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                      Total Company Outflow (TA/DA + Ops)
+                    </span>
+                    <div className="text-2xl font-black font-mono tabular-nums text-rose-700">
+                      ৳{grandOutflow.toLocaleString()}
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-mono tabular-nums">
+                      Expense-to-Sales Ratio: {expenseRatioPct}%
+                    </div>
+                  </div>
+
+                  <div className="p-5 bg-white rounded-2xl border border-slate-200 space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                      Net Cash Surplus / Balance
+                    </span>
+                    <div className={`text-2xl font-black font-mono tabular-nums ${netCashSurplus >= 0 ? 'text-slate-900' : 'text-rose-600'}`}>
+                      {netCashSurplus >= 0 ? '+' : ''}৳{netCashSurplus.toLocaleString()}
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-mono tabular-nums">
+                      Due Receivables Pending: ৳{totalDue.toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div className="p-5 bg-white rounded-2xl border border-slate-200 space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                      Field Compliance &amp; Duties
+                    </span>
+                    <div className="text-2xl font-black font-mono tabular-nums text-blue-700">
+                      {dutyCompletionPct}% Duties
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-mono tabular-nums">
+                      Daily Report Rate Today: {reportCompliancePct}% ({reportsToday.length}/{activeEmployees.length})
+                    </div>
+                  </div>
+                </div>
+
+                {/* Two-Column Breakdown Tables: Top Clients & Staff TA/DA Summary */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+                      <h3 className="text-sm font-extrabold text-slate-900">Top Purchasing Centers &amp; Doctors</h3>
+                      <span className="text-[11px] text-slate-500 font-mono">{topClients.length} Listed</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[10px] font-bold">
+                          <tr>
+                            <th className="py-2.5 px-4">Hospital / Doctor</th>
+                            <th className="py-2.5 px-3 text-center">Orders</th>
+                            <th className="py-2.5 px-4 text-right">Total Sales</th>
+                            <th className="py-2.5 px-4 text-right">Due</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {topClients.length === 0 ? (
+                            <tr>
+                              <td colSpan={4} className="py-8 text-center text-slate-400">
+                                No sales records logged yet.
+                              </td>
+                            </tr>
+                          ) : (
+                            topClients.map((c, idx) => (
+                              <tr key={idx} className="hover:bg-slate-50">
+                                <td className="py-2.5 px-4">
+                                  <div className="font-bold text-slate-900">{c.hospital}</div>
+                                  <div className="text-[11px] text-slate-500">{c.doctor}</div>
+                                </td>
+                                <td className="py-2.5 px-3 text-center font-mono tabular-nums">{c.orders}</td>
+                                <td className="py-2.5 px-4 text-right font-mono tabular-nums font-bold text-slate-900">
+                                  ৳{c.revenue.toLocaleString()}
+                                </td>
+                                <td className="py-2.5 px-4 text-right font-mono tabular-nums text-amber-700">
+                                  ৳{c.due.toLocaleString()}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+                      <h3 className="text-sm font-extrabold text-slate-900">Staff TA/DA Expenditure Summary</h3>
+                      <span className="text-[11px] text-slate-500 font-mono">Active Claims: {activeTaDa.length}</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[10px] font-bold">
+                          <tr>
+                            <th className="py-2.5 px-4">Staff Name</th>
+                            <th className="py-2.5 px-3 text-center">Claims</th>
+                            <th className="py-2.5 px-4 text-right">Total Expense</th>
+                            <th className="py-2.5 px-4 text-right">Paid Out</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {topStaffExpenses.length === 0 ? (
+                            <tr>
+                              <td colSpan={4} className="py-8 text-center text-slate-400">
+                                No active TA/DA claims recorded yet.
+                              </td>
+                            </tr>
+                          ) : (
+                            topStaffExpenses.map((s, idx) => (
+                              <tr key={idx} className="hover:bg-slate-50">
+                                <td className="py-2.5 px-4">
+                                  <div className="font-bold text-slate-900">{s.name}</div>
+                                  <div className="text-[11px] text-slate-500 font-mono">{s.code}</div>
+                                </td>
+                                <td className="py-2.5 px-3 text-center font-mono tabular-nums">{s.claims}</td>
+                                <td className="py-2.5 px-4 text-right font-mono tabular-nums font-bold text-slate-900">
+                                  ৳{s.total.toLocaleString()}
+                                </td>
+                                <td className="py-2.5 px-4 text-right font-mono tabular-nums text-emerald-700">
+                                  ৳{s.paid.toLocaleString()}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* TAB 6: ALERT CENTER */}
           {activeTab === 'alerts' && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-lg font-extrabold text-slate-900">Executive Alert Center</h2>
+                <h2 className="text-lg font-extrabold text-slate-900">Executive Alert &amp; Notification Center</h2>
                 <p className="text-xs text-slate-500">
-                  Real-time alerts for unsubmitted daily reports, urgent technical issues, and delayed duties.
+                  Live corporate alerts covering TA/DA approvals &amp; submissions, sales records, completed duties, daily reports, and unsubmitted staff updates.
                 </p>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {missingReportEmployees.map((emp) => (
                   <div key={emp.id} className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-center justify-between text-xs">
                     <div className="flex items-center gap-3">
-                      <Clock className="text-amber-600" size={18} />
+                      <Clock className="text-amber-600 shrink-0" size={18} />
                       <div>
                         <div className="font-bold">{emp.full_name} ({emp.employee_id})</div>
                         <div className="text-[11px] text-amber-700">Missing daily activity report for {todayStr}.</div>
                       </div>
                     </div>
-                    <span className="font-mono text-[10px] bg-amber-200/60 px-2.5 py-1 rounded font-bold uppercase">
+                    <span className="font-mono text-[10px] bg-amber-200/60 px-2.5 py-1 rounded font-bold uppercase whitespace-nowrap">
                       Report Pending
                     </span>
                   </div>
                 ))}
 
-                {missingReportEmployees.length === 0 && (
+                {execNotifications.map((notif) => {
+                  const viewerKey = `exec_${execAccount?.id || 'default'}`;
+                  const isUnread = !notif.read_by.includes(viewerKey);
+                  return (
+                    <div
+                      key={notif.id}
+                      onClick={async () => {
+                        await markNotificationRead(notif.id, viewerKey);
+                        setExecNotifications((prev) =>
+                          prev.map((n) =>
+                            n.id === notif.id && !n.read_by.includes(viewerKey)
+                              ? { ...n, read_by: [...n.read_by, viewerKey] }
+                              : n
+                          )
+                        );
+                        if (notif.link_tab) {
+                          setActiveTab(notif.link_tab as TabView);
+                        }
+                      }}
+                      className={`p-4 rounded-2xl border flex items-start justify-between gap-4 text-xs cursor-pointer transition-colors ${
+                        isUnread
+                          ? 'bg-blue-50/70 border-blue-200 hover:bg-blue-50'
+                          : 'bg-white border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3 min-w-0">
+                        <Bell
+                          size={17}
+                          className={`mt-0.5 shrink-0 ${
+                            notif.priority === 'urgent'
+                              ? 'text-rose-600'
+                              : isUnread
+                              ? 'text-blue-600'
+                              : 'text-slate-400'
+                          }`}
+                        />
+                        <div className="min-w-0 space-y-0.5">
+                          <div className="font-bold text-slate-900">{notif.title}</div>
+                          <div className="text-[11px] text-slate-600 leading-relaxed">{notif.message}</div>
+                          <div className="text-[10px] text-slate-500 font-mono tabular-nums pt-0.5">
+                            {notif.category.toUpperCase()} · {notif.actor_name} · {notif.created_at.slice(0, 16).replace('T', ' ')}
+                          </div>
+                        </div>
+                      </div>
+                      <span
+                        className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded whitespace-nowrap shrink-0 ${
+                          isUnread
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-slate-100 text-slate-500'
+                        }`}
+                      >
+                        {isUnread ? 'Unread' : 'Read'}
+                      </span>
+                    </div>
+                  );
+                })}
+
+                {missingReportEmployees.length === 0 && execNotifications.length === 0 && (
                   <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 text-slate-500 text-xs">
                     No active executive alerts at this time. All reports and duties are operating smoothly.
                   </div>
@@ -2280,6 +2862,16 @@ export const ExecutivePortal: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
+
+      <ReceiptPreviewModal
+        receipt={tadaReceiptPreview?.active || null}
+        receipts={tadaReceiptPreview?.list || []}
+        theme="light"
+        onClose={() => setTadaReceiptPreview(null)}
+        onSelectReceipt={(att) =>
+          setTadaReceiptPreview((prev) => (prev ? { ...prev, active: att } : null))
+        }
+      />
     </div>
   );
 };

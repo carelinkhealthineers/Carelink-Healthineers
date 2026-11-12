@@ -1,16 +1,19 @@
 
 import React, { useEffect, useState } from 'react';
-import { Routes, Route, useLocation, Link, Navigate } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigate, Link, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LayoutGrid, Package, FolderTree, Mail, Settings, LogOut, Handshake, BookOpen, Users, Terminal, Globe, Menu, X, Home, ExternalLink, UserCheck } from 'lucide-react';
 import { supabase, performSignOut, getSafeSession, clearStaleAuthStorage } from './supabaseClient';
 import { recordPageView, recordAnalyticsEvent, recordSessionEngagement } from './utils/analyticsTracker';
+import { Employee } from './types';
 
 // Layout Components
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { GlobalLoader } from './components/GlobalLoader';
 import { FloatingContactWidget } from './components/FloatingContactWidget';
+import { NotificationCenter } from './components/common/NotificationCenter';
+import { PWAInstallButton } from './components/common/PWAInstallButton';
 
 // Public Pages
 import { Origin } from './pages/Public/Origin';
@@ -40,7 +43,7 @@ import { SEOControl } from './pages/Admin/SEOControl';
 import { HomepageControl } from './pages/Admin/HomepageControl';
 import { EmployeePortal } from './pages/Employee/EmployeePortal';
 import { ExecutivePortal } from './pages/Executive/ExecutivePortal';
-import { findEmployeeByIdentifier } from './services/employeeService';
+import { findEmployeeByIdentifier, fetchEmployees } from './services/employeeService';
 
 // Protected Route Component — verifies real Supabase Auth session and public.profiles role
 const ProtectedRoute: React.FC<{
@@ -191,11 +194,30 @@ const NAV_ADMIN_ITEMS = [
 
 const App: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const isAdmin = location.pathname.startsWith('/command-nexus');
   const isEmployeePortal = location.pathname.startsWith('/employee-portal');
   const isExecutivePortal = location.pathname.startsWith('/executive');
   const [adminMobileOpen, setAdminMobileOpen] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
+  const [adminEmployeesList, setAdminEmployeesList] = useState<Employee[]>([]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetchEmployees().then(setAdminEmployeesList).catch(() => {});
+  }, [isAdmin]);
+
+  const handleAdminNotificationNavigate = (linkTab: string) => {
+    if (linkTab === 'tada' || linkTab === 'reports' || linkTab === 'duties' || linkTab === 'requests') {
+      navigate(`/command-nexus/employees?tab=${linkTab}`);
+    } else if (linkTab === 'inquiries') {
+      navigate('/command-nexus/inquiries');
+    } else if (linkTab === 'sales' || linkTab === 'decisions' || linkTab === 'hishab' || linkTab === 'notes') {
+      navigate('/executive');
+    } else {
+      navigate('/command-nexus');
+    }
+  };
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -354,6 +376,15 @@ const App: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-2">
+                    <PWAInstallButton theme="dark" />
+                    <NotificationCenter
+                      viewerRole="admin"
+                      viewerId="admin_global"
+                      actorName="Administrator"
+                      theme="dark"
+                      employees={adminEmployeesList}
+                      onNavigate={handleAdminNotificationNavigate}
+                    />
                     <Link 
                       to="/" 
                       className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all"
@@ -491,15 +522,24 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-3">
+                       <PWAInstallButton theme="dark" />
+                       <NotificationCenter
+                         viewerRole="admin"
+                         viewerId="admin_global"
+                         actorName="Administrator"
+                         theme="dark"
+                         employees={adminEmployeesList}
+                         onNavigate={handleAdminNotificationNavigate}
+                       />
                        <Link 
                          to="/" 
-                         className="px-4 py-2 bg-white/[0.04] hover:bg-white/[0.08] border border-[#1e2536] rounded-xl text-xs font-bold text-slate-200 hover:text-white transition-all flex items-center gap-2 shadow-xs"
+                         className="px-4 py-2 bg-white/[0.04] hover:bg-white/[0.08] border border-[#1e2536] rounded-xl text-xs font-bold text-slate-200 hover:text-white transition-all flex items-center gap-2 shadow-xs whitespace-nowrap shrink-0"
                        >
                          <Home size={13} className="text-blue-400" /> View Website
                        </Link>
                        <button 
                          onClick={handleLogout}
-                         className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl text-xs font-bold text-rose-300 hover:text-rose-200 transition-all flex items-center gap-2 shadow-xs cursor-pointer"
+                         className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl text-xs font-bold text-rose-300 hover:text-rose-200 transition-all flex items-center gap-2 shadow-xs cursor-pointer whitespace-nowrap shrink-0"
                        >
                          <LogOut size={13} /> Sign Out
                        </button>

@@ -13,6 +13,7 @@ import {
   MonthlyBudgetRecord,
   CustomExcelPreset,
 } from '../types';
+import { emitNotification } from './notificationService';
 
 const EXECUTIVE_ACCOUNTS_KEY = 'executive_accounts';
 const MANAGEMENT_DECISIONS_KEY = 'management_decisions';
@@ -50,22 +51,19 @@ async function getStoredItem<T>(key: string, fallback: T): Promise<T> {
 
 // Helper to save to Supabase settings
 async function setStoredItem<T>(key: string, value: T): Promise<void> {
-  try {
-    const serialized = JSON.stringify(value);
-    const { error } = await supabase.from('settings').upsert(
-      {
-        key,
-        value: serialized,
-        category: 'executive_data',
-        description: `Executive management stored data for ${key}`,
-      },
-      { onConflict: 'key' }
-    );
-    if (error) {
-      console.warn(`Error persisting ${key} to Supabase settings:`, error);
-    }
-  } catch (err) {
-    console.warn(`Failed to setStoredItem for ${key}:`, err);
+  const serialized = JSON.stringify(value);
+  const { error } = await supabase.from('settings').upsert(
+    {
+      key,
+      value: serialized,
+      category: 'executive_data',
+      description: `Executive management stored data for ${key}`,
+    },
+    { onConflict: 'key' }
+  );
+  if (error) {
+    console.warn(`Error persisting ${key} to Supabase settings:`, error);
+    throw new Error(`Failed to save ${key}: ${error.message}`);
   }
 }
 
@@ -251,6 +249,18 @@ export async function createManagementDecision(input: CreateDecisionInput): Prom
 
   const updatedList = [newDecision, ...decisions];
   await setStoredItem(MANAGEMENT_DECISIONS_KEY, updatedList);
+
+  await emitNotification({
+    title: 'New Management Decision',
+    message: `${newDecision.executive_name} issued "${newDecision.title}" for ${newDecision.target_department} (${newDecision.priority.toUpperCase()}).`,
+    category: 'decision',
+    priority: newDecision.priority === 'urgent' ? 'urgent' : newDecision.priority === 'high' ? 'high' : 'normal',
+    audiences: ['admin', 'executive'],
+    actor_name: newDecision.executive_name,
+    actor_role: newDecision.executive_role,
+    link_tab: 'decisions',
+  });
+
   return newDecision;
 }
 
@@ -275,6 +285,17 @@ export async function updateDecisionStatus(
 
   decisions[idx] = updated;
   await setStoredItem(MANAGEMENT_DECISIONS_KEY, decisions);
+
+  await emitNotification({
+    title: `Decision Status: ${status.replace('_', ' ').toUpperCase()}`,
+    message: `Decision "${updated.title}" (${updated.target_department}) updated to ${status.replace('_', ' ')}.`,
+    category: 'decision',
+    priority: status === 'completed' ? 'high' : 'normal',
+    audiences: ['admin', 'executive'],
+    actor_name: 'Executive Desk',
+    link_tab: 'decisions',
+  });
+
   return updated;
 }
 
@@ -312,6 +333,18 @@ export async function addExecutiveRemark(
 
   const updatedList = [newRemark, ...remarks];
   await setStoredItem(EXECUTIVE_REMARKS_KEY, updatedList);
+
+  await emitNotification({
+    title: flaggedUrgent ? 'URGENT Executive Remark Added' : 'New Executive Remark on Report',
+    message: `${exec.full_name} commented on report #${reportId}: "${remarkText.trim().slice(0, 120)}"`,
+    category: 'report',
+    priority: flaggedUrgent ? 'urgent' : 'high',
+    audiences: ['admin', 'executive'],
+    actor_name: exec.full_name,
+    actor_role: exec.role,
+    link_tab: 'reports',
+  });
+
   return newRemark;
 }
 
@@ -354,6 +387,21 @@ export async function createCompanyNote(input: CreateCompanyNoteInput): Promise<
 
   const updated = [newNote, ...notes];
   await setStoredItem(COMPANY_NOTES_KEY, updated);
+
+  const isExpense = newNote.category === 'expense' || (newNote.amount && newNote.amount > 0);
+  await emitNotification({
+    title: isExpense
+      ? `Company Expense Logged (Tk ${Number(newNote.amount || 0).toLocaleString()})`
+      : `Company Note: ${newNote.title}`,
+    message: `${newNote.author_name}: ${newNote.title} — ${newNote.content.slice(0, 110)}`,
+    category: 'note',
+    priority: newNote.category === 'urgent' ? 'urgent' : 'normal',
+    audiences: ['admin', 'executive'],
+    actor_name: newNote.author_name,
+    actor_role: newNote.author_role,
+    link_tab: isExpense ? 'hishab' : 'notes',
+  });
+
   return newNote;
 }
 
@@ -439,7 +487,69 @@ export async function createSalesRecord(input: CreateSaleInput): Promise<Product
 
   const updated = [newRecord, ...existing];
   await setStoredItem(PRODUCT_SALES_KEY, updated);
+
+  await emitNotification({
+    title: 'New Equipment Sale Recorded',
+    message: `${newRecord.product_name} sold to ${newRecord.doctor_name} (${newRecord.hospital_center_name}) · Value: Tk ${newRecord.sale_value.toLocaleString()} · Due: Tk ${newRecord.due_amount.toLocaleString()}`,
+    category: 'sales',
+    priority: 'high',
+    audiences: ['executive', 'admin'],
+    actor_name: newRecord.recorded_by || 'Executive Desk',
+    link_tab: 'sales',
+  });
+
   return newRecord;
+}
+
+export async function updateSalesRecord(
+  id: string,
+  updates: Partial<ProductSaleRecord>
+): Promise<ProductSaleRecord> {
+  const existing = await fetchSalesRecords();
+  const idx = existing.findIndex((s) => s.id === id);
+  if (idx === -1) {
+    throw new Error('Sale record not found.');
+  }
+
+  const current = existing[idx];
+  const nextSaleVal = updates.sale_value !== undefined ? Number(updates.sale_value) || 0 : current.sale_value;
+  const nextPaid = updates.paid_amount !== undefined ? Number(updates.paid_amount) || 0 : current.paid_amount;
+  const nextDue =
+    updates.due_amount !== undefined && updates.sale_value === undefined && updates.paid_amount === undefined
+      ? Number(updates.due_amount) || 0
+      : Math.max(0, nextSaleVal - nextPaid);
+
+  let nextPaymentStatus = updates.payment_status || current.payment_status;
+  if (updates.sale_value !== undefined || updates.paid_amount !== undefined) {
+    if (nextSaleVal > 0 && nextPaid >= nextSaleVal) nextPaymentStatus = 'full_paid';
+    else if (nextPaid <= 0) nextPaymentStatus = 'due';
+    else nextPaymentStatus = 'partial';
+  }
+
+  const updated: ProductSaleRecord = {
+    ...current,
+    ...updates,
+    sale_value: nextSaleVal,
+    paid_amount: nextPaid,
+    due_amount: nextDue,
+    payment_status: nextPaymentStatus,
+    updated_at: new Date().toISOString(),
+  };
+
+  existing[idx] = updated;
+  await setStoredItem(PRODUCT_SALES_KEY, existing);
+
+  await emitNotification({
+    title: 'Sales Ledger Record Updated',
+    message: `${updated.product_name} (${updated.doctor_name}) updated · Paid: Tk ${updated.paid_amount.toLocaleString()} · Due: Tk ${updated.due_amount.toLocaleString()}`,
+    category: 'sales',
+    priority: 'normal',
+    audiences: ['executive', 'admin'],
+    actor_name: 'Sales Ledger',
+    link_tab: 'sales',
+  });
+
+  return updated;
 }
 
 export async function deleteSalesRecord(id: string): Promise<void> {
@@ -448,16 +558,32 @@ export async function deleteSalesRecord(id: string): Promise<void> {
   await setStoredItem(PRODUCT_SALES_KEY, filtered);
 }
 
+export async function fetchAllMonthlyBudgets(): Promise<Record<string, number>> {
+  return await getStoredItem<Record<string, number>>(MONTHLY_BUDGETS_KEY, {});
+}
+
 export async function fetchMonthlyBudget(monthKey: string): Promise<number> {
   const budgets = await getStoredItem<Record<string, number>>(MONTHLY_BUDGETS_KEY, {});
   // Default budget ৳ 500,000 if not explicitly saved
   return budgets[monthKey] ?? 500000;
 }
 
-export async function saveMonthlyBudget(monthKey: string, amount: number): Promise<void> {
+export async function saveMonthlyBudget(monthKey: string, amount: number): Promise<Record<string, number>> {
   const budgets = await getStoredItem<Record<string, number>>(MONTHLY_BUDGETS_KEY, {});
   budgets[monthKey] = amount;
   await setStoredItem(MONTHLY_BUDGETS_KEY, budgets);
+
+  await emitNotification({
+    title: `Monthly Budget Updated (${monthKey})`,
+    message: `Allocated budget for ${monthKey} set to Tk ${amount.toLocaleString()}.`,
+    category: 'budget',
+    priority: 'normal',
+    audiences: ['executive', 'admin'],
+    actor_name: 'Executive Financial Hub',
+    link_tab: 'hishab',
+  });
+
+  return budgets;
 }
 
 export async function fetchCustomExcelPresets(): Promise<CustomExcelPreset[]> {

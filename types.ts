@@ -413,6 +413,34 @@ export interface CustomExcelPreset {
   created_at: string;
 }
 
+export type NotificationCategory =
+  | 'tada'
+  | 'duty'
+  | 'report'
+  | 'sales'
+  | 'decision'
+  | 'profile'
+  | 'note'
+  | 'inquiry'
+  | 'budget'
+  | 'system';
 
+export type NotificationPriority = 'normal' | 'high' | 'urgent';
 
+export type NotificationAudience = 'all' | 'admin' | 'executive' | 'employee';
 
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  category: NotificationCategory;
+  priority: NotificationPriority;
+  audiences: NotificationAudience[];
+  target_employee_id?: string;
+  actor_name: string;
+  actor_role?: string;
+  link_tab?: string;
+  read_by: string[];
+  dismissed_by?: string[];
+  created_at: string;
+}

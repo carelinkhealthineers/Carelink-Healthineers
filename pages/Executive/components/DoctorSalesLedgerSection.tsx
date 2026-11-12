@@ -292,25 +292,41 @@ export const DoctorSalesLedgerSection: React.FC<DoctorSalesLedgerSectionProps> =
       'Hospital / Center',
       'Qty',
       'Value (BDT)',
-      'Paid',
+      'Paid (BDT)',
+      'Due (BDT)',
       'Status',
     ];
 
     const rows: (string | number)[][] = filteredRecords.map((r) => [
       r.sale_date,
-      r.product_name,
+      r.product_model ? `${r.product_name} (${r.product_model})` : r.product_name,
       r.doctor_name,
       r.hospital_center_name,
       r.quantity || 1,
-      `Tk ${r.sale_value.toLocaleString()}`,
-      `Tk ${(r.paid_amount || 0).toLocaleString()}`,
-      r.delivery_status,
+      `Tk ${(Number(r.sale_value) || 0).toLocaleString()}`,
+      `Tk ${(Number(r.paid_amount) || 0).toLocaleString()}`,
+      `Tk ${(Number(r.due_amount) || 0).toLocaleString()}`,
+      r.delivery_status.replace('_', ' '),
     ]);
+
+    if (filteredRecords.length > 0) {
+      rows.push([
+        'TOTAL SUMMARY',
+        `${aggregates.count} Orders`,
+        '-',
+        '-',
+        aggregates.totalUnits,
+        `Tk ${aggregates.totalRevenue.toLocaleString()}`,
+        `Tk ${aggregates.totalPaid.toLocaleString()}`,
+        `Tk ${aggregates.totalDue.toLocaleString()}`,
+        '-',
+      ]);
+    }
 
     exportToPDF({
       filename: `Carelink_Doctor_Equipment_Sales_Ledger_${new Date().toISOString().split('T')[0]}`,
       title: 'Carelink Healthineers — Medical Equipment Sales Ledger',
-      subtitle: `Doctor & Hospital Distribution Register · Total Booked: Tk ${aggregates.totalRevenue.toLocaleString()} · MD / Board Review`,
+      subtitle: `Doctor & Hospital Distribution Register · Total Booked: Tk ${aggregates.totalRevenue.toLocaleString()} · Paid: Tk ${aggregates.totalPaid.toLocaleString()} · Due: Tk ${aggregates.totalDue.toLocaleString()}`,
       headers,
       rows,
     });

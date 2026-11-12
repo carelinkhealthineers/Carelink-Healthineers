@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   UserPlus,
@@ -63,7 +64,22 @@ import { TaDaManagementTab } from './TaDaManagementTab';
 import { ExecutiveManagementTab } from './ExecutiveManagementTab';
 
 export const EmployeeManagement: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'employees' | 'duties' | 'requests' | 'reports' | 'tada' | 'executives'>('employees');
+
+  useEffect(() => {
+    const requestedTab = searchParams.get('tab');
+    if (
+      requestedTab === 'employees' ||
+      requestedTab === 'duties' ||
+      requestedTab === 'requests' ||
+      requestedTab === 'reports' ||
+      requestedTab === 'tada' ||
+      requestedTab === 'executives'
+    ) {
+      setActiveTab(requestedTab);
+    }
+  }, [searchParams]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');

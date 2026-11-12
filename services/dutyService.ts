@@ -1,5 +1,6 @@
 import { supabase } from '../supabaseClient';
 import { AssignedDuty, DutyPriority, DutyStatus, WorkNote, DutyAttachment, CompletionDetails, Employee } from '../types';
+import { emitNotification } from './notificationService';
 
 export interface CreateDutyInput {
   employee_id: string;
@@ -104,6 +105,18 @@ export const createAssignedDuty = async (input: CreateDutyInput): Promise<Assign
 
   const updatedDuties = [newDuty, ...existingDuties];
   await saveAssignedDuties(updatedDuties);
+
+  await emitNotification({
+    title: 'New Duty Assigned',
+    message: `"${newDuty.title}" assigned to ${newDuty.employee_name} at ${newDuty.location} (Deadline: ${newDuty.deadline}).`,
+    category: 'duty',
+    priority: newDuty.priority === 'urgent' ? 'urgent' : newDuty.priority === 'high' ? 'high' : 'normal',
+    audiences: ['employee', 'executive'],
+    target_employee_id: newDuty.employee_id,
+    actor_name: newDuty.created_by || 'Administrator',
+    link_tab: 'duties',
+  });
+
   return newDuty;
 };
 
@@ -132,6 +145,17 @@ export const acknowledgeDuty = async (
 
   duties[index] = updated;
   await saveAssignedDuties(duties);
+
+  await emitNotification({
+    title: 'Duty Acknowledged',
+    message: `${updated.employee_name} acknowledged and started "${updated.title}".`,
+    category: 'duty',
+    priority: 'normal',
+    audiences: ['admin', 'executive'],
+    actor_name: updated.employee_name,
+    link_tab: 'duties',
+  });
+
   return updated;
 };
 
@@ -159,6 +183,17 @@ export const updateDutyStatus = async (
 
   duties[index] = updated;
   await saveAssignedDuties(duties);
+
+  await emitNotification({
+    title: `Duty Status: ${status.replace('_', ' ').toUpperCase()}`,
+    message: `${updated.employee_name} updated "${updated.title}" to ${status.replace('_', ' ')}.`,
+    category: 'duty',
+    priority: status === 'completed' ? 'high' : 'normal',
+    audiences: ['admin', 'executive'],
+    actor_name: updated.employee_name,
+    link_tab: 'duties',
+  });
+
   return updated;
 };
 
@@ -196,6 +231,17 @@ export const addDutyWorkNote = async (
 
   duties[index] = updated;
   await saveAssignedDuties(duties);
+
+  await emitNotification({
+    title: 'New Duty Progress Note',
+    message: `${authorName} added a note on "${updated.title}": "${noteText.trim().slice(0, 100)}"`,
+    category: 'duty',
+    priority: 'normal',
+    audiences: ['admin', 'executive'],
+    actor_name: authorName,
+    link_tab: 'duties',
+  });
+
   return updated;
 };
 
@@ -233,6 +279,17 @@ export const submitDutyCompletion = async (
 
   duties[index] = updated;
   await saveAssignedDuties(duties);
+
+  await emitNotification({
+    title: 'Assigned Duty Completed',
+    message: `${updated.employee_name} completed "${updated.title}" at ${updated.location}.`,
+    category: 'duty',
+    priority: 'high',
+    audiences: ['admin', 'executive'],
+    actor_name: updated.employee_name,
+    link_tab: 'duties',
+  });
+
   return updated;
 };
 

@@ -21,13 +21,14 @@ import {
   FileCheck,
   Filter,
 } from 'lucide-react';
-import { TaDaClaim, TaDaClaimStatus, PaymentStatus, Employee } from '../../types';
+import { TaDaClaim, TaDaClaimStatus, PaymentStatus, Employee, ExpenseAttachment } from '../../types';
 import {
   fetchTaDaClaims,
   adminReviewTaDaClaim,
   adminTogglePaymentStatus,
   deleteTaDaClaim,
 } from '../../services/tadaService';
+import { ReceiptGallery, ReceiptPreviewModal } from '../../components/common/ReceiptPreviewModal';
 
 interface TaDaManagementTabProps {
   employees: Employee[];
@@ -54,6 +55,10 @@ export const TaDaManagementTab: React.FC<TaDaManagementTabProps> = ({
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<{
+    active: ExpenseAttachment;
+    list: ExpenseAttachment[];
+  } | null>(null);
 
   const loadClaims = async () => {
     setLoading(true);
@@ -481,25 +486,16 @@ export const TaDaManagementTab: React.FC<TaDaManagementTabProps> = ({
                     </div>
                   </div>
 
-                  {/* Bills & Receipts Attachments */}
                   {(claim.bills_receipts || []).length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="text-[10px] font-semibold text-slate-500 uppercase">
-                        Uploaded Bills &amp; Receipts:
+                    <div className="space-y-1.5 text-xs">
+                      <span className="text-[10px] font-semibold text-slate-500 uppercase block">
+                        Uploaded Bills &amp; Receipts (Click to Preview):
                       </span>
-                      {claim.bills_receipts?.map((att, i) => (
-                        <a
-                          key={i}
-                          href={att.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-2.5 py-1 bg-white/[0.03] hover:bg-white/[0.07] border border-white/10 rounded-lg text-xs text-blue-400 hover:text-blue-300 transition-colors inline-flex items-center gap-1.5 font-medium"
-                        >
-                          <Paperclip size={12} />
-                          <span>{att.name}</span>
-                          <ExternalLink size={10} />
-                        </a>
-                      ))}
+                      <ReceiptGallery
+                        claim={claim}
+                        theme="dark"
+                        onPreview={(att, list) => setReceiptPreview({ active: att, list })}
+                      />
                     </div>
                   )}
 
@@ -611,6 +607,16 @@ export const TaDaManagementTab: React.FC<TaDaManagementTabProps> = ({
           </div>
         )}
       </AnimatePresence>
+
+      <ReceiptPreviewModal
+        receipt={receiptPreview?.active || null}
+        receipts={receiptPreview?.list || []}
+        theme="dark"
+        onClose={() => setReceiptPreview(null)}
+        onSelectReceipt={(att) =>
+          setReceiptPreview((prev) => (prev ? { ...prev, active: att } : null))
+        }
+      />
     </div>
   );
 };

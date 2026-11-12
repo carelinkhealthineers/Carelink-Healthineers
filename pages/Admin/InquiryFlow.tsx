@@ -22,6 +22,7 @@ import {
 import { Inquiry } from '../../types';
 import { supabase } from '../../supabaseClient';
 import { exportToExcel, exportToPDF } from '../../utils/exportHelper';
+import { emitNotification } from '../../services/notificationService';
 import JSZip from 'jszip';
 import * as XLSX from 'xlsx';
 
@@ -69,6 +70,17 @@ export const InquiryFlow: React.FC = () => {
       setInquiries(prev =>
         prev.map(inq => (inq.id === id ? { ...inq, status } : inq))
       );
+
+      const target = inquiries.find(inq => inq.id === id);
+      await emitNotification({
+        title: `Client Inquiry Marked ${status.toUpperCase()}`,
+        message: `${target?.name || 'Client'} (${target?.company || 'Hospital'}) inquiry was updated to ${status}.`,
+        category: 'inquiry',
+        priority: 'normal',
+        audiences: ['admin', 'executive'],
+        actor_name: 'Administrator',
+        link_tab: 'inquiries',
+      });
     } catch (err: any) {
       console.error('Update Error:', err);
       alert(`Failed to update inquiry status: ${err?.message || 'Database error'}`);
