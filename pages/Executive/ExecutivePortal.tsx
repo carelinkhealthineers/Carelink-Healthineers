@@ -100,7 +100,6 @@ import { ExecutiveUserManualBangla } from './components/ExecutiveUserManualBangl
 import { ManagementDecisionsSection } from './components/ManagementDecisionsSection';
 import { ReceiptGallery, ReceiptPreviewModal } from '../../components/common/ReceiptPreviewModal';
 import { NotificationCenter } from '../../components/common/NotificationCenter';
-import { PWAInstallButton } from '../../components/common/PWAInstallButton';
 import {
   fetchNotificationsForViewer,
   markNotificationRead,
@@ -1072,8 +1071,6 @@ export const ExecutivePortal: React.FC = () => {
                 <span>{toastMsg}</span>
               </div>
             )}
-
-            <PWAInstallButton theme="light" />
 
             {execAccount && (
               <NotificationCenter
