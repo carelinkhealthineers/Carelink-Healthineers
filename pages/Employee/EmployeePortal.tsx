@@ -57,6 +57,7 @@ import { EmployeeProfileSection } from './EmployeeProfileSection';
 import { DailyWorkReportSection } from './DailyWorkReportSection';
 import { TaDaExpenseSection } from './TaDaExpenseSection';
 import { NotificationCenter } from '../../components/common/NotificationCenter';
+import { PWAInstallButton } from '../../components/common/PWAInstallButton';
 
 export const EmployeePortal: React.FC = () => {
   const navigate = useNavigate();
@@ -344,6 +345,8 @@ export const EmployeePortal: React.FC = () => {
               <span>{actionSuccess}</span>
             </div>
           )}
+
+          <PWAInstallButton theme="dark" />
 
           <NotificationCenter
             viewerRole="employee"

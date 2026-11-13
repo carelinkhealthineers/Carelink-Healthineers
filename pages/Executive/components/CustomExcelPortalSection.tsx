@@ -33,6 +33,11 @@ import {
   CustomExcelPreset,
 } from '../../../types';
 import { exportToExcel, exportToPDF } from '../../../utils/exportHelper';
+import {
+  isCompanyOpsNote,
+  getCompanyNoteAmount,
+  getTaDaClaimTotal,
+} from '../../../utils/financialHelper';
 
 interface CustomExcelPortalSectionProps {
   salesRecords: ProductSaleRecord[];
@@ -491,12 +496,6 @@ export const CustomExcelPortalSection: React.FC<CustomExcelPortalSectionProps> =
       raw = companyNotes;
     } else if (selectedDataset === 'hishab') {
       const activeClaims = tadaClaims.filter((c) => c.status !== 'rejected' && c.status !== 'draft');
-      const getClaimTotal = (c: TaDaClaim) =>
-        Number(c.total_amount) ||
-        (Number(c.travel_allowance) || 0) +
-          (Number(c.daily_allowance) || 0) +
-          (Number(c.transportation_expense) || 0) +
-          (Number(c.accommodation_food_expense) || 0);
 
       const salesTotal = salesRecords.reduce((acc, s) => acc + (Number(s.sale_value) || 0), 0);
       const paidTotal = salesRecords.reduce((acc, s) => acc + (Number(s.paid_amount) || 0), 0);
@@ -506,13 +505,13 @@ export const CustomExcelPortalSection: React.FC<CustomExcelPortalSectionProps> =
       const tadaDaily = activeClaims.reduce((acc, c) => acc + (Number(c.daily_allowance) || 0), 0);
       const tadaTransport = activeClaims.reduce((acc, c) => acc + (Number(c.transportation_expense) || 0), 0);
       const tadaFoodHotel = activeClaims.reduce((acc, c) => acc + (Number(c.accommodation_food_expense) || 0), 0);
-      const tadaTotal = activeClaims.reduce((acc, c) => acc + getClaimTotal(c), 0);
+      const tadaTotal = activeClaims.reduce((acc, c) => acc + getTaDaClaimTotal(c), 0);
       const tadaDisbursed = activeClaims
         .filter((c) => c.payment_status === 'paid')
-        .reduce((acc, c) => acc + getClaimTotal(c), 0);
+        .reduce((acc, c) => acc + getTaDaClaimTotal(c), 0);
 
-      const expenseNotes = companyNotes.filter((n) => n.category === 'expense');
-      const notesExpenseTotal = expenseNotes.reduce((acc, n) => acc + (Number(n.amount) || 0), 0);
+      const expenseNotes = companyNotes.filter(isCompanyOpsNote);
+      const notesExpenseTotal = expenseNotes.reduce((acc, n) => acc + getCompanyNoteAmount(n), 0);
       const allExpenses = tadaTotal + notesExpenseTotal;
       const netMargin = paidTotal - allExpenses;
 

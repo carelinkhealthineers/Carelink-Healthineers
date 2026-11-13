@@ -21,6 +21,7 @@ import {
   Paperclip,
   ArrowRight,
   Wallet,
+  Trash2,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -40,6 +41,15 @@ import {
 import { TaDaClaim, CompanyNote, ProductSaleRecord, ExpenseAttachment } from '../../../types';
 import { exportToExcel, exportToPDF } from '../../../utils/exportHelper';
 import { ReceiptGallery, ReceiptPreviewModal } from '../../../components/common/ReceiptPreviewModal';
+import {
+  isCompanyOpsNote,
+  getCompanyNoteAmount,
+  getCompanyNoteMonthKey,
+  getTaDaClaimTotal,
+  getTaDaClaimMonthKey,
+  getSaleMonthKey,
+  extractMonthKey,
+} from '../../../utils/financialHelper';
 
 interface FinancialHishabSectionProps {
   tadaClaims: TaDaClaim[];
@@ -52,6 +62,7 @@ interface FinancialHishabSectionProps {
   onReviewTaDa?: (claimId: string, status: 'approved' | 'rejected', remarks?: string) => Promise<void>;
   onToggleTaDaPayment?: (claimId: string, currentStatus: 'unpaid' | 'paid') => Promise<void>;
   onAddExpenseNote?: (note: { title: string; content: string; amount: number; date: string }) => Promise<void>;
+  onDeleteExpenseNote?: (noteId: string) => Promise<void>;
 }
 
 const COLORS = ['#0284c7', '#0d9488', '#f59e0b', '#6366f1', '#ec4899', '#8b5cf6'];
@@ -59,38 +70,6 @@ const COLORS = ['#0284c7', '#0d9488', '#f59e0b', '#6366f1', '#ec4899', '#8b5cf6'
 type ScopeMode = 'monthly' | 'all';
 type TaDaInclusionMode = 'active' | 'approved' | 'paid' | 'all';
 type LedgerSubTab = 'summary' | 'tada-items' | 'company-items' | 'staff-breakdown';
-
-function getClaimTotal(c: TaDaClaim): number {
-  const explicit = Number(c.total_amount);
-  if (!isNaN(explicit) && explicit > 0) return explicit;
-  return (
-    (Number(c.travel_allowance) || 0) +
-    (Number(c.daily_allowance) || 0) +
-    (Number(c.transportation_expense) || 0) +
-    (Number(c.accommodation_food_expense) || 0)
-  );
-}
-
-function getClaimMonthKey(c: TaDaClaim): string {
-  const candidate =
-    c.travel_start_date ||
-    c.travel_end_date ||
-    c.submitted_at ||
-    c.paid_at ||
-    c.created_at ||
-    '';
-  return candidate ? candidate.slice(0, 7) : '';
-}
-
-function getNoteMonthKey(n: CompanyNote): string {
-  const candidate = n.date || n.created_at || '';
-  return candidate ? candidate.slice(0, 7) : '';
-}
-
-function getSaleMonthKey(s: ProductSaleRecord): string {
-  const candidate = s.sale_date || s.created_at || '';
-  return candidate ? candidate.slice(0, 7) : '';
-}
 
 export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
   tadaClaims,
@@ -103,6 +82,7 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
   onReviewTaDa,
   onToggleTaDaPayment,
   onAddExpenseNote,
+  onDeleteExpenseNote,
 }) => {
   const [scope, setScope] = useState<ScopeMode>('monthly');
   const [selectedMonth, setSelectedMonth] = useState<string>(
@@ -134,6 +114,7 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
     date: new Date().toISOString().split('T')[0],
     content: '',
   });
+  const [expenseError, setExpenseError] = useState<string | null>(null);
   const [isSavingExpense, setIsSavingExpense] = useState(false);
 
   useEffect(() => {
@@ -154,29 +135,55 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
     [tadaClaims, tadaInclusion]
   );
 
+  // All Company Operational Expense entries across entire DB (any 'expense' note OR note with amount > 0)
+  const allOpsNotes = useMemo(
+    () => companyNotes.filter(isCompanyOpsNote),
+    [companyNotes]
+  );
+
+  const allOpsTotal = useMemo(
+    () => allOpsNotes.reduce((acc, n) => acc + getCompanyNoteAmount(n), 0),
+    [allOpsNotes]
+  );
+
   // Available months containing TA/DA claims (sorted descending)
   const claimMonthsSummary = useMemo(() => {
     const map: Record<string, { count: number; total: number }> = {};
     allActiveClaims.forEach((c) => {
-      const m = getClaimMonthKey(c);
+      const m = getTaDaClaimMonthKey(c);
       if (!m) return;
       if (!map[m]) map[m] = { count: 0, total: 0 };
       map[m].count += 1;
-      map[m].total += getClaimTotal(c);
+      map[m].total += getTaDaClaimTotal(c);
     });
     return Object.entries(map)
       .map(([month, info]) => ({ month, ...info }))
       .sort((a, b) => b.month.localeCompare(a.month));
   }, [allActiveClaims]);
 
+  // Available months containing Company Ops expenses (sorted descending)
+  const opsMonthsSummary = useMemo(() => {
+    const map: Record<string, { count: number; total: number }> = {};
+    allOpsNotes.forEach((n) => {
+      const m = getCompanyNoteMonthKey(n);
+      if (!m) return;
+      if (!map[m]) map[m] = { count: 0, total: 0 };
+      map[m].count += 1;
+      map[m].total += getCompanyNoteAmount(n);
+    });
+    return Object.entries(map)
+      .map(([month, info]) => ({ month, ...info }))
+      .sort((a, b) => b.month.localeCompare(a.month));
+  }, [allOpsNotes]);
+
   // Filter datasets by scope (monthly vs all) + TA/DA status filter
   const filteredClaims = useMemo(() => {
     return allActiveClaims.filter((c) => {
       if (scope === 'all') return true;
-      const claimMonth = getClaimMonthKey(c);
-      const startM = (c.travel_start_date || '').slice(0, 7);
-      const endM = (c.travel_end_date || '').slice(0, 7);
-      const subM = (c.submitted_at || '').slice(0, 7);
+      const claimMonth = getTaDaClaimMonthKey(c);
+      const startM = extractMonthKey(c.travel_start_date);
+      const endM = extractMonthKey(c.travel_end_date);
+      const subM = extractMonthKey(c.submitted_at);
       return (
         claimMonth === selectedMonth ||
         startM === selectedMonth ||
@@ -190,10 +197,10 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
   const scopedExcludedCounts = useMemo(() => {
     const inPeriod = tadaClaims.filter((c) => {
       if (scope === 'all') return true;
-      const claimMonth = getClaimMonthKey(c);
-      const startM = (c.travel_start_date || '').slice(0, 7);
-      const endM = (c.travel_end_date || '').slice(0, 7);
-      const subM = (c.submitted_at || '').slice(0, 7);
+      const claimMonth = getTaDaClaimMonthKey(c);
+      const startM = extractMonthKey(c.travel_start_date);
+      const endM = extractMonthKey(c.travel_end_date);
+      const subM = extractMonthKey(c.submitted_at);
       return (
         claimMonth === selectedMonth ||
         startM === selectedMonth ||
@@ -209,12 +216,11 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
   }, [tadaClaims, scope, selectedMonth]);
 
   const filteredNotes = useMemo(() => {
-    return companyNotes.filter((n) => {
-      if (n.category !== 'expense') return false;
+    return allOpsNotes.filter((n) => {
       if (scope === 'all') return true;
-      return getNoteMonthKey(n) === selectedMonth;
+      return getCompanyNoteMonthKey(n) === selectedMonth;
     });
-  }, [companyNotes, scope, selectedMonth]);
+  }, [allOpsNotes, scope, selectedMonth]);
 
   const filteredSales = useMemo(() => {
     return salesRecords.filter((s) => {
@@ -237,21 +243,21 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
     const personalDaily = filteredClaims.reduce((acc, c) => acc + (Number(c.daily_allowance) || 0), 0);
     const personalTransport = filteredClaims.reduce((acc, c) => acc + (Number(c.transportation_expense) || 0), 0);
     const personalFoodHotel = filteredClaims.reduce((acc, c) => acc + (Number(c.accommodation_food_expense) || 0), 0);
-    const totalPersonalExpenses = filteredClaims.reduce((acc, c) => acc + getClaimTotal(c), 0);
+    const totalPersonalExpenses = filteredClaims.reduce((acc, c) => acc + getTaDaClaimTotal(c), 0);
 
     // Sub-breakdowns for TA/DA disbursement visibility
     const tadaPaidAmount = filteredClaims
       .filter((c) => c.payment_status === 'paid')
-      .reduce((acc, c) => acc + getClaimTotal(c), 0);
+      .reduce((acc, c) => acc + getTaDaClaimTotal(c), 0);
     const tadaApprovedUnpaid = filteredClaims
       .filter((c) => c.status === 'approved' && c.payment_status !== 'paid')
-      .reduce((acc, c) => acc + getClaimTotal(c), 0);
+      .reduce((acc, c) => acc + getTaDaClaimTotal(c), 0);
     const tadaPendingApproval = filteredClaims
       .filter((c) => c.status === 'submitted')
-      .reduce((acc, c) => acc + getClaimTotal(c), 0);
+      .reduce((acc, c) => acc + getTaDaClaimTotal(c), 0);
 
-    // 2. Company Operational Expenses (from Notes)
-    const totalCompanyExpenses = filteredNotes.reduce((acc, n) => acc + (Number(n.amount) || 0), 0);
+    // 2. Company Operational Expenses (from Company Ops Notes)
+    const totalCompanyExpenses = filteredNotes.reduce((acc, n) => acc + getCompanyNoteAmount(n), 0);
 
     // 3. All Total Expenses
     const allTotalExpenses = totalPersonalExpenses + totalCompanyExpenses;
@@ -328,7 +334,7 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
           unpaid: 0,
         };
       }
-      const amt = getClaimTotal(c);
+      const amt = getTaDaClaimTotal(c);
       map[key].claimCount += 1;
       map[key].ta += Number(c.travel_allowance) || 0;
       map[key].da += Number(c.daily_allowance) || 0;
@@ -350,19 +356,16 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
       const d = new Date(baseDate.getFullYear(), baseDate.getMonth() - i, 1);
       monthSet.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
     }
-    // Also add any months present in claims/sales/notes up to recent
     const months = Array.from(monthSet).sort();
 
     return months.map((m) => {
       const mSales = salesRecords.filter((s) => getSaleMonthKey(s) === m);
-      const mClaims = allActiveClaims.filter((c) => getClaimMonthKey(c) === m);
-      const mNotes = companyNotes.filter(
-        (n) => n.category === 'expense' && getNoteMonthKey(n) === m
-      );
+      const mClaims = allActiveClaims.filter((c) => getTaDaClaimMonthKey(c) === m);
+      const mNotes = allOpsNotes.filter((n) => getCompanyNoteMonthKey(n) === m);
 
       const collected = mSales.reduce((acc, s) => acc + (Number(s.paid_amount) || 0), 0);
-      const tada = mClaims.reduce((acc, c) => acc + getClaimTotal(c), 0);
-      const ops = mNotes.reduce((acc, n) => acc + (Number(n.amount) || 0), 0);
+      const tada = mClaims.reduce((acc, c) => acc + getTaDaClaimTotal(c), 0);
+      const ops = mNotes.reduce((acc, n) => acc + getCompanyNoteAmount(n), 0);
       const totalExpense = tada + ops;
 
       return {
@@ -373,7 +376,7 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
         'Net Balance': collected - totalExpense,
       };
     });
-  }, [selectedMonth, salesRecords, allActiveClaims, companyNotes]);
+  }, [selectedMonth, salesRecords, allActiveClaims, allOpsNotes]);
 
   // Chart Data: Financial Comparison
   const comparisonChartData = useMemo(() => {
@@ -441,17 +444,23 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
     if (!onAddExpenseNote || !expenseForm.title.trim()) return;
     const amt = Number(expenseForm.amount) || 0;
     if (amt <= 0) {
-      alert('Please enter a valid expense amount greater than 0.');
+      setExpenseError('Please enter a valid expense amount greater than 0.');
       return;
     }
+    setExpenseError(null);
     setIsSavingExpense(true);
     try {
+      const targetDate = expenseForm.date || new Date().toISOString().split('T')[0];
       await onAddExpenseNote({
         title: expenseForm.title.trim(),
         content: expenseForm.content.trim() || 'Recorded via Financial & Budget Hub',
         amount: amt,
-        date: expenseForm.date || new Date().toISOString().split('T')[0],
+        date: targetDate,
       });
+      const savedMonth = extractMonthKey(targetDate);
+      if (scope === 'monthly' && savedMonth && savedMonth !== selectedMonth) {
+        setSelectedMonth(savedMonth);
+      }
       setExpenseForm({
         title: '',
         amount: '',
@@ -516,7 +525,11 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
     });
   };
 
-  const latestOtherMonth = claimMonthsSummary.find((m) => m.month !== selectedMonth);
+  const latestOtherTaDaMonth = claimMonthsSummary.find((m) => m.month !== selectedMonth);
+  const latestOtherOpsMonth = opsMonthsSummary.find((m) => m.month !== selectedMonth);
+  const showTaDaMismatch = scope === 'monthly' && filteredClaims.length === 0 && Boolean(latestOtherTaDaMonth);
+  const showOpsMismatch = scope === 'monthly' && filteredNotes.length === 0 && Boolean(latestOtherOpsMonth);
+  const recommendedJumpMonth = latestOtherOpsMonth?.month || latestOtherTaDaMonth?.month || '';
 
   return (
     <div className="space-y-6">
@@ -587,7 +600,10 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
 
           {onAddExpenseNote && (
             <button
-              onClick={() => setShowAddExpenseModal(true)}
+              onClick={() => {
+                setExpenseError(null);
+                setShowAddExpenseModal(true);
+              }}
               className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
             >
               <Plus size={14} />
@@ -613,32 +629,45 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
         </div>
       </div>
 
-      {/* SMART ALERT BANNER: If selected month has 0 TA/DA claims while other months have TA/DA data */}
-      {scope === 'monthly' && filteredClaims.length === 0 && latestOtherMonth && (
+      {/* SMART ALERT BANNER: If selected month is missing TA/DA or Company Ops entries that exist in other months */}
+      {(showTaDaMismatch || showOpsMismatch) && (
         <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
           <div className="flex items-start sm:items-center gap-3 text-amber-900">
             <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
-            <div>
-              <div className="font-bold">
-                No active TA/DA claims found in {selectedMonth}, but {allActiveClaims.length} claim(s) totaling{' '}
-                <span className="font-mono tabular-nums">
-                  ৳{allActiveClaims.reduce((s, c) => s + getClaimTotal(c), 0).toLocaleString()}
-                </span>{' '}
-                exist in other months ({claimMonthsSummary.map((m) => m.month).slice(0, 3).join(', ')}).
-              </div>
-              <div className="text-[11px] text-amber-700 mt-0.5">
-                Switch to &quot;All Time&quot; to see total company TA/DA expenditure or jump directly to {latestOtherMonth.month}.
+            <div className="space-y-1">
+              {showTaDaMismatch && latestOtherTaDaMonth && (
+                <div className="font-bold">
+                  No active TA/DA claims in {selectedMonth}, but {allActiveClaims.length} claim(s) totaling{' '}
+                  <span className="font-mono tabular-nums">
+                    ৳{allActiveClaims.reduce((s, c) => s + getTaDaClaimTotal(c), 0).toLocaleString()}
+                  </span>{' '}
+                  exist in {claimMonthsSummary.map((m) => m.month).slice(0, 3).join(', ')}.
+                </div>
+              )}
+              {showOpsMismatch && latestOtherOpsMonth && (
+                <div className="font-bold text-rose-900">
+                  No Company Ops expenses in {selectedMonth}, but {allOpsNotes.length} entry/entries totaling{' '}
+                  <span className="font-mono tabular-nums">
+                    ৳{allOpsTotal.toLocaleString()}
+                  </span>{' '}
+                  exist in {opsMonthsSummary.map((m) => m.month).slice(0, 3).join(', ')}.
+                </div>
+              )}
+              <div className="text-[11px] text-amber-800">
+                Switch to &quot;All Time (সর্বমোট)&quot; for cumulative Hishab or jump directly to {recommendedJumpMonth}.
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setSelectedMonth(latestOtherMonth.month)}
-              className="px-3 py-1.5 bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 rounded-lg font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              Jump to {latestOtherMonth.month}
-            </button>
+            {recommendedJumpMonth && (
+              <button
+                onClick={() => setSelectedMonth(recommendedJumpMonth)}
+                className="px-3 py-1.5 bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 rounded-lg font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                Jump to {recommendedJumpMonth}
+              </button>
+            )}
             <button
               onClick={() => setScope('all')}
               className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer"
@@ -772,7 +801,9 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
               ৳{totals.totalCompanyExpenses.toLocaleString()}
             </div>
             <div className="mt-1 text-[11px] text-rose-700 font-medium">
-              {filteredNotes.length} office, utility &amp; ops entries
+              {scope === 'monthly' && filteredNotes.length === 0 && allOpsNotes.length > 0
+                ? `${allOpsNotes.length} entries in All Time (৳${allOpsTotal.toLocaleString()})`
+                : `${filteredNotes.length} office, utility & ops entries`}
             </div>
           </div>
           <div className="mt-3 pt-2.5 border-t border-slate-100 text-[10px] text-slate-600 flex justify-between font-mono tabular-nums">
@@ -1210,7 +1241,7 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
                   </tr>
                 ) : (
                   filteredClaims.map((claim) => {
-                    const totalVal = getClaimTotal(claim);
+                    const totalVal = getTaDaClaimTotal(claim);
                     return (
                       <tr key={claim.id} className="hover:bg-slate-50">
                         <td className="py-3 px-4">
@@ -1359,44 +1390,125 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
         {/* SUB-TAB 4: COMPANY OPERATIONAL EXPENSE NOTES */}
         {ledgerTab === 'company-items' && (
           <div className="overflow-x-auto">
+            <div className="px-4 py-3 bg-slate-50/70 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-3 text-slate-700 font-semibold">
+                <span>
+                  Showing <strong className="font-mono tabular-nums">{filteredNotes.length}</strong> Company Ops{' '}
+                  {scope === 'all' ? 'across all months' : `in ${selectedMonth}`}
+                </span>
+                <span className="text-slate-300">|</span>
+                <span className="font-mono tabular-nums font-bold text-rose-700">
+                  Total: ৳{totals.totalCompanyExpenses.toLocaleString()}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {scope === 'monthly' && allOpsNotes.length > filteredNotes.length && (
+                  <button
+                    onClick={() => setScope('all')}
+                    className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-lg font-bold text-[11px] cursor-pointer"
+                  >
+                    Show All {allOpsNotes.length} Entries (৳{allOpsTotal.toLocaleString()})
+                  </button>
+                )}
+                {onAddExpenseNote && (
+                  <button
+                    onClick={() => {
+                      setExpenseError(null);
+                      setShowAddExpenseModal(true);
+                    }}
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-[11px] cursor-pointer inline-flex items-center gap-1"
+                  >
+                    <Plus size={13} />
+                    <span>Log Company Expense</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-extrabold uppercase text-[10px] tracking-wider">
                   <th className="py-3 px-4">Date</th>
+                  <th className="py-3 px-4">Category</th>
                   <th className="py-3 px-4">Title / Expense Head</th>
                   <th className="py-3 px-4">Details</th>
                   <th className="py-3 px-4">Logged By</th>
                   <th className="py-3 px-4 text-right">Amount (BDT)</th>
+                  {onDeleteExpenseNote && <th className="py-3 px-4 text-right">Action</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredNotes.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-10 text-center text-slate-400 space-y-2">
-                      <div>No company operational expense entries found for this period.</div>
-                      {onAddExpenseNote && (
-                        <button
-                          onClick={() => setShowAddExpenseModal(true)}
-                          className="px-3.5 py-1.5 bg-rose-600 text-white rounded-lg font-bold text-xs cursor-pointer inline-flex items-center gap-1"
-                        >
-                          <Plus size={13} />
-                          <span>Log First Company Expense</span>
-                        </button>
-                      )}
+                    <td colSpan={onDeleteExpenseNote ? 7 : 6} className="py-10 text-center text-slate-500 space-y-3">
+                      <div className="font-semibold">
+                        {scope === 'monthly' && allOpsNotes.length > 0
+                          ? `No Company Ops entries in ${selectedMonth}, but ${allOpsNotes.length} entry/entries totaling ৳${allOpsTotal.toLocaleString()} exist in other months.`
+                          : 'No company operational expense entries found for this period.'}
+                      </div>
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        {scope === 'monthly' && latestOtherOpsMonth && (
+                          <button
+                            onClick={() => setSelectedMonth(latestOtherOpsMonth.month)}
+                            className="px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg font-bold text-xs cursor-pointer"
+                          >
+                            Jump to {latestOtherOpsMonth.month}
+                          </button>
+                        )}
+                        {scope === 'monthly' && allOpsNotes.length > 0 && (
+                          <button
+                            onClick={() => setScope('all')}
+                            className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-bold text-xs cursor-pointer"
+                          >
+                            Show All Time
+                          </button>
+                        )}
+                        {onAddExpenseNote && (
+                          <button
+                            onClick={() => {
+                              setExpenseError(null);
+                              setShowAddExpenseModal(true);
+                            }}
+                            className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs cursor-pointer inline-flex items-center gap-1"
+                          >
+                            <Plus size={13} />
+                            <span>Log Company Expense</span>
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ) : (
                   filteredNotes.map((note) => (
                     <tr key={note.id} className="hover:bg-slate-50">
-                      <td className="py-3 px-4 font-mono tabular-nums text-slate-600 whitespace-nowrap">{note.date}</td>
+                      <td className="py-3 px-4 font-mono tabular-nums text-slate-600 whitespace-nowrap">
+                        {note.date || (note.created_at ? note.created_at.slice(0, 10) : '—')}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-700">
+                          {note.category}
+                        </span>
+                      </td>
                       <td className="py-3 px-4 font-bold text-slate-900">{note.title}</td>
                       <td className="py-3 px-4 text-slate-600 max-w-md">{note.content}</td>
                       <td className="py-3 px-4 text-slate-500">
                         {note.author_name} ({note.author_role})
                       </td>
                       <td className="py-3 px-4 text-right font-mono tabular-nums font-black text-rose-700">
-                        ৳{(Number(note.amount) || 0).toLocaleString()}
+                        ৳{getCompanyNoteAmount(note).toLocaleString()}
                       </td>
+                      {onDeleteExpenseNote && (
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            onClick={() => onDeleteExpenseNote(note.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="Delete company expense"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}
@@ -1424,6 +1536,11 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
             </div>
 
             <form onSubmit={handleAddQuickExpense} className="space-y-3 text-xs">
+              {expenseError && (
+                <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl font-semibold">
+                  {expenseError}
+                </div>
+              )}
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Expense Title / Purpose *</label>
                 <input
@@ -1445,7 +1562,10 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
                     min="1"
                     placeholder="e.g. 25000"
                     value={expenseForm.amount}
-                    onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
+                    onChange={(e) => {
+                      setExpenseError(null);
+                      setExpenseForm({ ...expenseForm, amount: e.target.value });
+                    }}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold focus:bg-white focus:outline-hidden"
                   />
                 </div>

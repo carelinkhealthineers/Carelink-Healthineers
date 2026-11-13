@@ -18,6 +18,9 @@ import {
   VolumeX,
   ArrowUpRight,
   Trash2,
+  Smartphone,
+  Sparkles,
+  Check,
 } from 'lucide-react';
 import {
   AppNotification,
@@ -35,6 +38,13 @@ import {
   NotificationViewerRole,
   subscribeToNotifications,
 } from '../../services/notificationService';
+import {
+  triggerPhoneNotification,
+  requestPhoneNotificationPermission,
+  getPhoneNotificationPermission,
+  sendTestPhoneNotification,
+} from '../../utils/phoneNotificationHelper';
+import { PWAInstallPrompt } from './PWAInstallPrompt';
 
 interface NotificationCenterProps {
   viewerRole: NotificationViewerRole;
@@ -112,6 +122,11 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     }
   });
 
+  const [phonePermission, setPhonePermission] = useState<NotificationPermission>(() =>
+    getPhoneNotificationPermission()
+  );
+  const [testSentMessage, setTestSentMessage] = useState<string | null>(null);
+
   const panelRef = useRef<HTMLDivElement>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const initialLoadedRef = useRef(false);
@@ -132,23 +147,16 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
           brandNew.forEach((n) => seenIdsRef.current.add(n.id));
           setLiveToasts((prev) => [...brandNew.slice(0, 3), ...prev].slice(0, 4));
 
-          if (
-            browserAlertsEnabled &&
-            typeof window !== 'undefined' &&
-            'Notification' in window &&
-            window.Notification.permission === 'granted'
-          ) {
-            brandNew.slice(0, 2).forEach((n) => {
-              try {
-                new window.Notification(`Carelink: ${n.title}`, {
-                  body: n.message,
-                  tag: n.id,
-                });
-              } catch {
-                // ignore desktop notification failure
-              }
+          // Trigger Mobile Phone Notification Bar (ServiceWorker showNotification + vibration)
+          brandNew.slice(0, 3).forEach((n) => {
+            triggerPhoneNotification(n.title, {
+              body: n.message,
+              tag: n.id,
+              url: n.link_tab || '/',
+              priority: n.priority,
+              category: n.category,
             });
-          }
+          });
 
           window.setTimeout(() => {
             const idsToDrop = new Set(brandNew.map((b) => b.id));
@@ -161,7 +169,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [viewerRole, employeeId, viewerId, browserAlertsEnabled]);
+  }, [viewerRole, employeeId, viewerId]);
 
   useEffect(() => {
     initialLoadedRef.current = false;
@@ -216,9 +224,53 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       if (perm === 'granted') {
         localStorage.setItem('carelink_desktop_alerts', 'on');
         setBrowserAlertsEnabled(true);
+        setPhonePermission('granted');
       }
     } catch {
       // ignore unsupported contexts
+    }
+  };
+
+  const handleEnablePhoneNotifications = async () => {
+    try {
+      const res = await requestPhoneNotificationPermission();
+      setPhonePermission(res.status);
+      if (res.granted) {
+        setBrowserAlertsEnabled(true);
+        const ok = await sendTestPhoneNotification(actorName);
+        if (ok) {
+          setTestSentMessage('ফোনের নোটিফিকেশন বারে পাঠানো হয়েছে! স্ক্রিনের ওপর দেখুন');
+          setTimeout(() => setTestSentMessage(null), 5000);
+        }
+      } else if (res.status === 'denied') {
+        setTestSentMessage('ব্রাউজার সেটিংসে গিয়ে Notification অনুমতি Allow করুন');
+        setTimeout(() => setTestSentMessage(null), 5000);
+      }
+    } catch (e) {
+      console.warn('Phone notification activation error:', e);
+    }
+  };
+
+  const handleTestPhoneNotification = async () => {
+    try {
+      const ok = await sendTestPhoneNotification(actorName);
+      if (ok) {
+        setTestSentMessage('টেস্ট নোটিফিকেশন পাঠানো হয়েছে! ফোনের স্ট্যাটাস বার চেক করুন');
+        setTimeout(() => setTestSentMessage(null), 5000);
+      } else {
+        const res = await requestPhoneNotificationPermission();
+        setPhonePermission(res.status);
+        if (res.granted) {
+          await sendTestPhoneNotification(actorName);
+          setTestSentMessage('টেস্ট নোটিফিকেশন সফলভাবে পাঠানো হয়েছে!');
+          setTimeout(() => setTestSentMessage(null), 5000);
+        } else {
+          setTestSentMessage('নোটিফিকেশন পারমিশন ব্লক করা আছে। অনুমতি দিন।');
+          setTimeout(() => setTestSentMessage(null), 5000);
+        }
+      }
+    } catch (e) {
+      console.warn('Test notification error:', e);
     }
   };
 
@@ -396,6 +448,85 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 >
                   <X size={15} />
                 </button>
+              </div>
+            </div>
+
+            {/* Phone Status Bar (ফোনের নোটিফিকেশন বার) Alert Controller */}
+            <div
+              className={`p-3 border-b text-xs ${
+                isDark
+                  ? 'bg-gradient-to-r from-blue-950/40 via-indigo-950/30 to-purple-950/20 border-white/10'
+                  : 'bg-gradient-to-r from-blue-50/80 via-indigo-50/40 to-sky-50/80 border-blue-100'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2.5">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <div
+                    className={`p-2 rounded-xl shrink-0 mt-0.5 ${
+                      phonePermission === 'granted'
+                        ? 'bg-emerald-500/20 text-emerald-400'
+                        : 'bg-blue-500/20 text-blue-400'
+                    }`}
+                  >
+                    <Smartphone size={16} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-[12px]">ফোনের নোটিফিকেশন বার</span>
+                      {phonePermission === 'granted' ? (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                          <Check size={10} /> সক্রিয় (Active)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                          অনুমতি দিন
+                        </span>
+                      )}
+                    </div>
+                    <p className={`text-[11px] mt-0.5 leading-snug ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                      {phonePermission === 'granted'
+                        ? 'সরাসরি আপনার মোবাইলের শীর্ষ নোটিফিকেশন বার (Status Bar) এবং ভাইব্রেশনে সতর্কবার্তা চালু আছে।'
+                        : 'TA/DA অনুমোদন, ডিউটি ও সেলসের নোটিফিকেশন ফোনের শীর্ষ নোটিফিকেশন বারে পেতে চালু করুন।'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                {phonePermission !== 'granted' ? (
+                  <button
+                    type="button"
+                    onClick={handleEnablePhoneNotifications}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] inline-flex items-center gap-1.5 cursor-pointer shadow-sm transition-transform active:scale-95"
+                  >
+                    <Sparkles size={12} />
+                    <span>ফোনের নোটিফিকেশন বার চালু করুন</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleTestPhoneNotification}
+                    className={`px-3 py-1.5 rounded-lg border text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+                      isDark
+                        ? 'bg-white/10 hover:bg-white/15 border-white/15 text-white'
+                        : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-800'
+                    }`}
+                  >
+                    <Smartphone size={12} className="text-emerald-400" />
+                    <span>ফোনে টেস্ট নোটিফিকেশন পাঠান</span>
+                  </button>
+                )}
+
+                {testSentMessage && (
+                  <span className="text-[11px] text-emerald-400 font-semibold inline-flex items-center gap-1">
+                    <Check size={12} /> {testSentMessage}
+                  </span>
+                )}
+              </div>
+
+              {/* In-app install banner */}
+              <div className="mt-2.5">
+                <PWAInstallPrompt theme={theme} />
               </div>
             </div>
 

@@ -106,6 +106,11 @@ import {
   subscribeToNotifications,
 } from '../../services/notificationService';
 import { AppNotification } from '../../types';
+import {
+  isCompanyOpsNote,
+  getCompanyNoteAmount,
+  parseSafeAmount,
+} from '../../utils/financialHelper';
 
 type TabView =
   | 'overview'
@@ -174,12 +179,14 @@ export const ExecutivePortal: React.FC = () => {
     content: string;
     category: NoteCategory;
     amount: string;
+    date: string;
     is_pinned: boolean;
   }>({
     title: '',
     content: '',
     category: 'expense',
     amount: '',
+    date: new Date().toISOString().split('T')[0],
     is_pinned: false,
   });
 
@@ -417,18 +424,20 @@ export const ExecutivePortal: React.FC = () => {
   // Company Note Handlers
   const handleCreateNoteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!execAccount || !newNote.title.trim() || !newNote.content.trim()) return;
+    if (!newNote.title.trim() || !newNote.content.trim()) return;
 
     try {
+      const parsedAmt = parseSafeAmount(newNote.amount);
       const created = await createCompanyNote({
-        author_id: execAccount.id,
-        author_name: execAccount.full_name,
-        author_role: execAccount.role,
+        author_id: execAccount?.id || 'exec-md-default',
+        author_name: execAccount?.full_name || 'Executive Desk',
+        author_role: execAccount?.role || 'MD',
         title: newNote.title.trim(),
         content: newNote.content.trim(),
         category: newNote.category,
         is_pinned: newNote.is_pinned,
-        amount: newNote.amount ? parseFloat(newNote.amount) : undefined,
+        amount: parsedAmt > 0 ? parsedAmt : undefined,
+        date: newNote.date || new Date().toISOString().split('T')[0],
       });
 
       setCompanyNotes([created, ...companyNotes]);
@@ -438,6 +447,7 @@ export const ExecutivePortal: React.FC = () => {
         content: '',
         category: 'expense',
         amount: '',
+        date: new Date().toISOString().split('T')[0],
         is_pinned: false,
       });
       triggerToast('Company Note / Directive saved.');
@@ -484,19 +494,18 @@ export const ExecutivePortal: React.FC = () => {
     amount: number;
     date: string;
   }) => {
-    if (!execAccount) return;
     try {
       const created = await createCompanyNote({
-        author_id: execAccount.id,
-        author_name: execAccount.full_name,
-        author_role: execAccount.role,
+        author_id: execAccount?.id || 'exec-md-default',
+        author_name: execAccount?.full_name || 'Executive Desk',
+        author_role: execAccount?.role || 'MD',
         title: expense.title,
         content: expense.content,
         category: 'expense',
         amount: expense.amount,
         date: expense.date,
       });
-      setCompanyNotes([created, ...companyNotes]);
+      setCompanyNotes((prev) => [created, ...prev]);
       triggerToast(`Company expense "৳${expense.amount.toLocaleString()}" logged to Financial Hub.`);
     } catch (err: any) {
       alert(`Failed to log company expense: ${err?.message}`);
@@ -1235,12 +1244,12 @@ export const ExecutivePortal: React.FC = () => {
                   <div className="text-2xl font-black font-mono tabular-nums text-slate-900">
                     ৳
                     {companyNotes
-                      .filter((n) => n.category === 'expense')
-                      .reduce((acc, n) => acc + (Number(n.amount) || 0), 0)
+                      .filter(isCompanyOpsNote)
+                      .reduce((acc, n) => acc + getCompanyNoteAmount(n), 0)
                       .toLocaleString()}
                   </div>
                   <div className="text-[11px] text-slate-500">
-                    {companyNotes.filter((n) => n.category === 'expense').length} Operational Expense Directives
+                    {companyNotes.filter(isCompanyOpsNote).length} Operational Expense Entries
                   </div>
                 </div>
 
@@ -1259,8 +1268,8 @@ export const ExecutivePortal: React.FC = () => {
                         .filter((c) => c.status !== 'rejected' && c.status !== 'draft')
                         .reduce((acc, c) => acc + getTaDaTotal(c), 0) +
                       companyNotes
-                        .filter((n) => n.category === 'expense')
-                        .reduce((acc, n) => acc + (Number(n.amount) || 0), 0)
+                        .filter(isCompanyOpsNote)
+                        .reduce((acc, n) => acc + getCompanyNoteAmount(n), 0)
                     ).toLocaleString()}
                   </div>
                   <div className="text-[11px] text-emerald-300 flex items-center justify-between">
@@ -1436,6 +1445,7 @@ export const ExecutivePortal: React.FC = () => {
               onReviewTaDa={handleReviewTaDaClaim}
               onToggleTaDaPayment={handleToggleClaimPayment}
               onAddExpenseNote={handleAddQuickExpenseNote}
+              onDeleteExpenseNote={handleDeleteNote}
             />
           )}
 
@@ -2059,9 +2069,9 @@ export const ExecutivePortal: React.FC = () => {
                 </div>
 
                 <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1">
-                  <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Expense Notes Logged</span>
+                  <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Company Ops Expenses Logged</span>
                   <div className="text-2xl font-black font-mono text-amber-600">
-                    ৳{companyNotes.filter((n) => n.category === 'expense').reduce((acc, n) => acc + (n.amount || 0), 0).toLocaleString()}
+                    ৳{companyNotes.filter(isCompanyOpsNote).reduce((acc, n) => acc + getCompanyNoteAmount(n), 0).toLocaleString()}
                   </div>
                 </div>
 
@@ -2203,8 +2213,8 @@ export const ExecutivePortal: React.FC = () => {
               .filter((c) => c.payment_status === 'paid')
               .reduce((acc, c) => acc + getTaDaTotal(c), 0);
             const totalOpsExpenses = companyNotes
-              .filter((n) => n.category === 'expense')
-              .reduce((acc, n) => acc + (Number(n.amount) || 0), 0);
+              .filter(isCompanyOpsNote)
+              .reduce((acc, n) => acc + getCompanyNoteAmount(n), 0);
             const grandOutflow = totalTaDaVal + totalOpsExpenses;
             const netCashSurplus = totalCollected - grandOutflow;
             const expenseRatioPct = totalSalesVal > 0 ? ((grandOutflow / totalSalesVal) * 100).toFixed(1) : '0.0';
@@ -2789,7 +2799,7 @@ export const ExecutivePortal: React.FC = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">Category</label>
                     <select
@@ -2798,21 +2808,32 @@ export const ExecutivePortal: React.FC = () => {
                       onChange={(e) => setNewNote({ ...newNote, category: e.target.value as NoteCategory })}
                     >
                       <option value="expense">Expense &amp; Finance</option>
-                      <option value="policy">Company Policy</option>
                       <option value="operational">Operational Note</option>
+                      <option value="policy">Company Policy</option>
                       <option value="urgent">Urgent Matter</option>
                       <option value="general">General Notice</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="font-bold text-slate-700 block mb-1">Amount / Budget (BDT, Optional)</label>
+                    <label className="font-bold text-slate-700 block mb-1">Amount (BDT)</label>
                     <input
                       type="number"
+                      min="0"
                       placeholder="e.g. 50000"
                       className="w-full p-2.5 border border-slate-300 rounded-xl text-xs text-slate-900 font-mono outline-none focus:border-blue-600"
                       value={newNote.amount}
                       onChange={(e) => setNewNote({ ...newNote, amount: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Date</label>
+                    <input
+                      type="date"
+                      className="w-full p-2.5 border border-slate-300 rounded-xl text-xs text-slate-900 font-mono outline-none focus:border-blue-600"
+                      value={newNote.date}
+                      onChange={(e) => setNewNote({ ...newNote, date: e.target.value })}
                     />
                   </div>
                 </div>

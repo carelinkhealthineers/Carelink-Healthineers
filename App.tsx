@@ -13,6 +13,7 @@ import { Footer } from './components/Footer';
 import { GlobalLoader } from './components/GlobalLoader';
 import { FloatingContactWidget } from './components/FloatingContactWidget';
 import { NotificationCenter } from './components/common/NotificationCenter';
+import { PWAInstallButton } from './components/common/PWAInstallButton';
 
 // Public Pages
 import { Origin } from './pages/Public/Origin';
@@ -375,6 +376,7 @@ const App: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-2">
+                    <PWAInstallButton theme="dark" />
                     <NotificationCenter
                       viewerRole="admin"
                       viewerId="admin_global"
@@ -520,6 +522,7 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-3">
+                       <PWAInstallButton theme="dark" />
                        <NotificationCenter
                          viewerRole="admin"
                          viewerId="admin_global"

@@ -370,6 +370,10 @@ export interface CreateCompanyNoteInput {
 
 export async function createCompanyNote(input: CreateCompanyNoteInput): Promise<CompanyNote> {
   const notes = await fetchCompanyNotes();
+  const parsedAmount =
+    input.amount !== undefined && input.amount !== null && !Number.isNaN(Number(input.amount))
+      ? Number(input.amount)
+      : undefined;
   const newNote: CompanyNote = {
     id: `note-${Date.now()}`,
     author_id: input.author_id,
@@ -379,7 +383,7 @@ export async function createCompanyNote(input: CreateCompanyNoteInput): Promise<
     content: input.content.trim(),
     category: input.category,
     is_pinned: !!input.is_pinned,
-    amount: input.amount ? Number(input.amount) : undefined,
+    amount: parsedAmount && parsedAmount > 0 ? parsedAmount : undefined,
     date: input.date || new Date().toISOString().split('T')[0],
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),

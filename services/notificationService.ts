@@ -116,6 +116,25 @@ export async function fetchNotificationsForViewer(
   );
 }
 
+function triggerServerWebPush(input: EmitNotificationInput) {
+  if (typeof window === 'undefined' || typeof fetch === 'undefined') return;
+  fetch('/api/push/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: `Carelink: ${input.title}`,
+      message: input.message,
+      category: input.category,
+      priority: input.priority || 'normal',
+      audiences: input.audiences,
+      target_employee_id: input.target_employee_id,
+      link_tab: input.link_tab,
+    }),
+  }).catch(() => {
+    // Non-blocking: ignore push dispatch error if offline
+  });
+}
+
 export async function emitNotification(input: EmitNotificationInput): Promise<AppNotification | null> {
   try {
     const existing = await fetchAllNotifications();
@@ -137,6 +156,7 @@ export async function emitNotification(input: EmitNotificationInput): Promise<Ap
 
     const next = [entry, ...existing].slice(0, MAX_STORED_NOTIFICATIONS);
     await saveAllNotifications(next);
+    triggerServerWebPush(input);
     return entry;
   } catch (err) {
     console.warn('Notification emit failed gracefully:', err);
@@ -283,4 +303,213 @@ export function subscribeToNotifications(onChange: () => void): () => void {
       // ignore cleanup errors
     }
   };
+}
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+export async function showPhoneBarNotification(
+  title: string,
+  body: string,
+  options?: { tag?: string; url?: string; priority?: NotificationPriority }
+): Promise<boolean> {
+  if (
+    typeof window === 'undefined' ||
+    !('Notification' in window) ||
+    window.Notification.permission !== 'granted'
+  ) {
+    return false;
+  }
+
+  const notifOptions = {
+    body,
+    icon: '/pwa-192x192.png',
+    badge: '/pwa-192x192.png',
+    vibrate: [200, 100, 200],
+    tag: options?.tag || `carelink-${Date.now()}`,
+    renotify: true,
+    requireInteraction: options?.priority === 'urgent',
+    data: { url: options?.url || window.location.pathname },
+  };
+
+  try {
+    if ('serviceWorker' in navigator) {
+      const reg = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
+      ]);
+      if (reg && 'showNotification' in reg) {
+        await reg.showNotification(title, notifOptions);
+        return true;
+      }
+    }
+  } catch {
+    // fallback below
+  }
+
+  try {
+    new window.Notification(title, {
+      body,
+      icon: '/pwa-192x192.png',
+      tag: notifOptions.tag,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function getDevicePushStatus(): Promise<{
+  supported: boolean;
+  permission: NotificationPermission | 'unsupported';
+  subscribed: boolean;
+}> {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return { supported: false, permission: 'unsupported', subscribed: false };
+  }
+  const permission = window.Notification.permission;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    return {
+      supported: true,
+      permission,
+      subscribed: permission === 'granted' && localStorage.getItem('carelink_desktop_alerts') !== 'off',
+    };
+  }
+
+  try {
+    const reg = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
+    ]);
+    if (reg) {
+      const sub = await reg.pushManager.getSubscription();
+      return { supported: true, permission, subscribed: Boolean(sub) && permission === 'granted' };
+    }
+  } catch {
+    // ignore
+  }
+
+  return {
+    supported: true,
+    permission,
+    subscribed: permission === 'granted' && localStorage.getItem('carelink_desktop_alerts') !== 'off',
+  };
+}
+
+export async function enablePhonePushNotifications(
+  viewerRole: NotificationViewerRole,
+  viewerId: string,
+  employeeId?: string
+): Promise<{ ok: boolean; pushSubscribed: boolean; error?: string }> {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return { ok: false, pushSubscribed: false, error: 'Notifications are not supported in this browser.' };
+  }
+
+  let permission = window.Notification.permission;
+  if (permission === 'default') {
+    permission = await window.Notification.requestPermission();
+  }
+
+  if (permission !== 'granted') {
+    return {
+      ok: false,
+      pushSubscribed: false,
+      error: 'Notification permission was denied. Please enable notifications in browser settings.',
+    };
+  }
+
+  localStorage.setItem('carelink_desktop_alerts', 'on');
+
+  if ('serviceWorker' in navigator && 'PushManager' in window) {
+    try {
+      const reg = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000)),
+      ]);
+      if (reg) {
+        const res = await fetch('/api/push/vapid-public-key');
+        const { publicKey } = await res.json();
+        if (publicKey) {
+          let sub = await reg.pushManager.getSubscription();
+          if (!sub) {
+            sub = await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(publicKey),
+            });
+          }
+
+          await fetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              subscription: sub.toJSON(),
+              viewerRole,
+              viewerId,
+              employeeId,
+            }),
+          });
+
+          return { ok: true, pushSubscribed: true };
+        }
+      }
+    } catch (err: any) {
+      console.warn('Web Push subscription fallback to local SW notifications:', err?.message);
+    }
+  }
+
+  return { ok: true, pushSubscribed: false };
+}
+
+export async function disablePhonePushNotifications(): Promise<void> {
+  localStorage.setItem('carelink_desktop_alerts', 'off');
+  if ('serviceWorker' in navigator && 'PushManager' in window) {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = await reg?.pushManager.getSubscription();
+      if (sub) {
+        await fetch('/api/push/unsubscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: sub.endpoint }),
+        }).catch(() => {});
+        await sub.unsubscribe();
+      }
+    } catch {
+      // ignore
+    }
+  }
+}
+
+export async function sendTestPhonePush(viewerId: string, actorName: string): Promise<boolean> {
+  const localShown = await showPhoneBarNotification(
+    'Carelink Phone Alerts Active',
+    `Hello ${actorName}, TA/DA approvals, duty updates, and reports will now appear in your phone notification bar.`,
+    { tag: 'carelink-test-alert', priority: 'high' }
+  );
+
+  try {
+    await fetch('/api/push/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Carelink Push Test',
+        message: `Phone notification bar alerts verified for ${actorName}.`,
+        category: 'system',
+        priority: 'high',
+        onlyViewerId: viewerId,
+      }),
+    });
+  } catch {
+    // ignore if offline
+  }
+
+  return localShown;
 }
