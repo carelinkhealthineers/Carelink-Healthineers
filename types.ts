@@ -413,11 +413,126 @@ export interface CustomExcelPreset {
   created_at: string;
 }
 
+/* ==========================================
+   Stock & Inventory Types
+   ========================================== */
+export interface StockItem {
+  id: string;
+  name: string;
+  sku_or_model?: string;
+  category?: string;
+  quantity: number;
+  unit_label: string;
+  buying_price: number; // Per-unit buying price in BDT
+  total_expense_logged: number; // Total purchase expense logged to Company Expenses
+  purchase_date: string; // YYYY-MM-DD
+  supplier_name?: string;
+  picture_url?: string;
+  notes?: string;
+  linked_expense_note_ids?: string[];
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type StockRequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface StockRequest {
+  id: string;
+  stock_item_id: string;
+  stock_item_name: string;
+  stock_item_sku?: string;
+  stock_item_category?: string;
+  unit_label: string;
+  requested_qty: number;
+  employee_id: string;
+  employee_name: string;
+  employee_code: string;
+  employee_department?: string;
+  purpose: string;
+  status: StockRequestStatus;
+  executive_remarks?: string;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/* ==========================================
+   Company Assets Types (No Expense Sync)
+   ========================================== */
+export type AssetCondition = 'good' | 'in_use' | 'maintenance';
+
+export interface CompanyAssetItem {
+  id: string;
+  name: string;
+  asset_code?: string;
+  category?: string;
+  quantity: number;
+  unit_label: string;
+  asset_price: number; // Per-unit company asset price/value in BDT (NOT added to expenses)
+  acquired_date: string; // YYYY-MM-DD
+  location_or_holder?: string;
+  condition: AssetCondition;
+  picture_url?: string;
+  notes?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/* ==========================================
+   Company Drafts & File Vault Types
+   ========================================== */
+export type DraftColorTag = 'sky' | 'rose' | 'violet' | 'mint' | 'amber';
+
+export interface DraftAttachment {
+  id: string;
+  name: string;
+  mime_type: string;
+  size_bytes: number;
+  data_url: string;
+  uploaded_at: string;
+}
+
+export interface CompanyDraft {
+  id: string;
+  title: string;
+  content: string;
+  color_tag: DraftColorTag;
+  is_pinned?: boolean;
+  files: DraftAttachment[];
+  author_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/* ==========================================
+   Company Investments / Partner Capital Types
+   ========================================== */
+export interface CompanyInvestment {
+  id: string;
+  investor_name: string;
+  investor_role: string; // e.g. MD, Chairman, Director, Partner
+  amount: number; // BDT
+  invest_date: string; // YYYY-MM-DD
+  payment_method: string;
+  purpose?: string;
+  notes?: string;
+  recorded_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export type NotificationCategory =
   | 'tada'
   | 'duty'
   | 'report'
   | 'sales'
+  | 'stock'
+  | 'assets'
+  | 'drafts'
+  | 'invest'
   | 'decision'
   | 'profile'
   | 'note'

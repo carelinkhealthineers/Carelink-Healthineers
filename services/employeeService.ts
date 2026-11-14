@@ -1,26 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
-import { supabase } from '../supabaseClient';
+import { supabase, isolatedAuthClient } from '../supabaseClient';
 import { Employee, EmployeeRole, EmployeeStatus } from '../types';
-
-const SUPABASE_URL =
-  (import.meta as any).env?.VITE_SUPABASE_URL ||
-  'https://vrtipkxoldcqhtvznpok.supabase.co';
-const SUPABASE_ANON_KEY =
-  (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ||
-  'sb_publishable__BiZqCP30kjQFrOs1K55Qw_EJoph6Zq';
-
-/**
- * Isolated Supabase client with persistSession: false.
- * Used for admin creating new employee accounts so the Admin's own
- * active session and localStorage tokens are never overwritten.
- */
-const isolatedAuthClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false,
-  },
-});
 
 export const AVAILABLE_MODULES = [
   {

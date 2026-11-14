@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   DollarSign,
   TrendingUp,
@@ -10,8 +10,6 @@ import {
   CheckCircle2,
   PieChart as PieIcon,
   BarChart3,
-  Edit3,
-  Save,
   X,
   CreditCard,
   Building,
@@ -55,9 +53,9 @@ interface FinancialHishabSectionProps {
   tadaClaims: TaDaClaim[];
   companyNotes: CompanyNote[];
   salesRecords: ProductSaleRecord[];
-  monthlyBudget: number;
+  monthlyBudget?: number;
   monthlyBudgets?: Record<string, number>;
-  onUpdateBudget: (newBudget: number, monthKey?: string) => Promise<void>;
+  onUpdateBudget?: (newBudget: number, monthKey?: string) => Promise<void>;
   currentMonthKey: string;
   onReviewTaDa?: (claimId: string, status: 'approved' | 'rejected', remarks?: string) => Promise<void>;
   onToggleTaDaPayment?: (claimId: string, currentStatus: 'unpaid' | 'paid') => Promise<void>;
@@ -75,9 +73,6 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
   tadaClaims,
   companyNotes,
   salesRecords,
-  monthlyBudget,
-  monthlyBudgets,
-  onUpdateBudget,
   currentMonthKey,
   onReviewTaDa,
   onToggleTaDaPayment,
@@ -95,17 +90,6 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
     list: ExpenseAttachment[];
   } | null>(null);
 
-  const activeMonthBudget = useMemo(() => {
-    if (monthlyBudgets && monthlyBudgets[selectedMonth] !== undefined) {
-      return monthlyBudgets[selectedMonth];
-    }
-    return monthlyBudget;
-  }, [monthlyBudgets, selectedMonth, monthlyBudget]);
-
-  const [isEditingBudget, setIsEditingBudget] = useState(false);
-  const [budgetInput, setBudgetInput] = useState(activeMonthBudget.toString());
-  const [isSavingBudget, setIsSavingBudget] = useState(false);
-
   // Quick Add Company Expense Modal
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
   const [expenseForm, setExpenseForm] = useState({
@@ -116,10 +100,6 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
   });
   const [expenseError, setExpenseError] = useState<string | null>(null);
   const [isSavingExpense, setIsSavingExpense] = useState(false);
-
-  useEffect(() => {
-    setBudgetInput(activeMonthBudget.toString());
-  }, [activeMonthBudget, selectedMonth]);
 
   // Helper to check if a claim passes the TA/DA status filter
   const matchesTaDaStatusFilter = (c: TaDaClaim, mode: TaDaInclusionMode) => {
@@ -229,13 +209,6 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
     });
   }, [salesRecords, scope, selectedMonth]);
 
-  // Budget calculation (single month or cumulative across active months if All Time)
-  const effectiveBudget = useMemo(() => {
-    if (scope === 'monthly') return activeMonthBudget;
-    if (!monthlyBudgets || Object.keys(monthlyBudgets).length === 0) return monthlyBudget;
-    return Object.values(monthlyBudgets).reduce<number>((acc, v) => acc + (Number(v) || 0), 0);
-  }, [scope, activeMonthBudget, monthlyBudgets, monthlyBudget]);
-
   // Calculations for "All Total Hishab Koto Hoilo"
   const totals = useMemo(() => {
     // 1. Personal / Staff Field Expenses (TA/DA)
@@ -267,10 +240,7 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
     const totalCollectedCash = filteredSales.reduce((acc, s) => acc + (Number(s.paid_amount) || 0), 0);
     const totalDueReceivables = filteredSales.reduce((acc, s) => acc + (Number(s.due_amount) || 0), 0);
 
-    // 5. Budget Tracking & Net Margin
-    const budgetRemaining = effectiveBudget - allTotalExpenses;
-    const budgetPercentUsed =
-      effectiveBudget > 0 ? Math.min(Math.round((allTotalExpenses / effectiveBudget) * 100), 100) : 0;
+    // 5. Net Margin & Collection Rate
     const netCashMargin = totalCollectedCash - allTotalExpenses;
     const netRevenueMargin = totalSalesRevenue - allTotalExpenses;
     const collectionRate =
@@ -290,13 +260,11 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
       totalSalesRevenue,
       totalCollectedCash,
       totalDueReceivables,
-      budgetRemaining,
-      budgetPercentUsed,
       netCashMargin,
       netRevenueMargin,
       collectionRate,
     };
-  }, [filteredClaims, filteredNotes, filteredSales, effectiveBudget]);
+  }, [filteredClaims, filteredNotes, filteredSales]);
 
   // Employee-wise TA/DA Aggregation
   const staffExpenseBreakdown = useMemo(() => {
@@ -382,11 +350,6 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
   const comparisonChartData = useMemo(() => {
     return [
       {
-        name: scope === 'all' ? 'Budget Ref' : 'Month Budget',
-        amount: effectiveBudget,
-        color: '#6366f1',
-      },
-      {
         name: 'Sales Revenue',
         amount: totals.totalSalesRevenue,
         color: '#0d9488',
@@ -412,7 +375,7 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
         color: '#10b981',
       },
     ];
-  }, [effectiveBudget, totals, scope]);
+  }, [totals]);
 
   // Chart Data: Expense Category Breakdown
   const expensePieData = useMemo(() => {
@@ -426,18 +389,6 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
 
     return data.length > 0 ? data : [{ name: 'No Expenses Logged', value: 1 }];
   }, [totals]);
-
-  const handleSaveBudget = async () => {
-    const val = Number(budgetInput);
-    if (isNaN(val) || val < 0) return;
-    setIsSavingBudget(true);
-    try {
-      await onUpdateBudget(val, selectedMonth);
-      setIsEditingBudget(false);
-    } finally {
-      setIsSavingBudget(false);
-    }
-  };
 
   const handleAddQuickExpense = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -453,7 +404,7 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
       const targetDate = expenseForm.date || new Date().toISOString().split('T')[0];
       await onAddExpenseNote({
         title: expenseForm.title.trim(),
-        content: expenseForm.content.trim() || 'Recorded via Financial & Budget Hub',
+        content: expenseForm.content.trim() || 'Recorded via Financial Hishab Hub',
         amount: amt,
         date: targetDate,
       });
@@ -479,7 +430,6 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
   const handleExportHishabExcel = () => {
     const headers = ['Category / Item', 'Type', 'Amount (BDT)', 'Notes / Status'];
     const rows: (string | number)[][] = [
-      ['Budget Allocated Ceiling', 'Target Budget', effectiveBudget, `Scope: ${periodLabel}`],
       ['Total Equipment Sales Revenue', 'Inflow (Booked)', totals.totalSalesRevenue, `${filteredSales.length} Equipment Orders`],
       ['Total Cash Collected', 'Inflow (Received)', totals.totalCollectedCash, `${totals.collectionRate}% Realization`],
       ['Total Due Receivables', 'Inflow (Pending)', totals.totalDueReceivables, 'Pending Doctor / Center Collection'],
@@ -489,8 +439,7 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
       ['  - Transportation Expense', 'Sub-Expense', totals.personalTransport, 'Local Rickshaw, CNG, Taxi'],
       ['  - Food & Hotel Lodging', 'Sub-Expense', totals.personalFoodHotel, 'Outstation Accommodation'],
       ['Company Operational Expenses (Notes)', 'Outflow (Operations)', totals.totalCompanyExpenses, `${filteredNotes.length} Expense Notes`],
-      ['ALL TOTAL EXPENSES KOTO HOILO', 'Grand Total Outflow', totals.allTotalExpenses, `${totals.budgetPercentUsed}% of Budget Used`],
-      ['BUDGET REMAINING BALANCE', 'Budget Surplus', totals.budgetRemaining, totals.budgetRemaining >= 0 ? 'Within Budget' : 'Over Budget'],
+      ['ALL TOTAL EXPENSES KOTO HOILO', 'Grand Total Outflow', totals.allTotalExpenses, 'TA/DA + Company Ops Combined'],
       ['NET CASH SURPLUS / PROFIT MARGIN', 'Net Profit Margin', totals.netCashMargin, totals.netCashMargin >= 0 ? 'Positive Operating Surplus' : 'Deficit'],
     ];
 
@@ -506,13 +455,12 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
   const handleExportHishabPDF = () => {
     const headers = ['Category / Item', 'Type', 'Amount (BDT)', 'Notes'];
     const rows: (string | number)[][] = [
-      ['Budget Allocated', 'Target', `Tk ${effectiveBudget.toLocaleString()}`, `Scope: ${scope === 'all' ? 'All Time' : selectedMonth}`],
       ['Total Equipment Sales Revenue', 'Inflow', `Tk ${totals.totalSalesRevenue.toLocaleString()}`, `${filteredSales.length} Orders`],
       ['Total Cash Collected', 'Cash In', `Tk ${totals.totalCollectedCash.toLocaleString()}`, `${totals.collectionRate}% Collected`],
       ['Total Due Receivables', 'Due In', `Tk ${totals.totalDueReceivables.toLocaleString()}`, 'Pending Receivables'],
       ['Personal Field Expenses (TA/DA)', 'Staff Outflow', `Tk ${totals.totalPersonalExpenses.toLocaleString()}`, `${filteredClaims.length} Claims`],
       ['Company Operational Notes', 'Ops Outflow', `Tk ${totals.totalCompanyExpenses.toLocaleString()}`, `${filteredNotes.length} Items`],
-      ['ALL TOTAL EXPENSES', 'Grand Outflow', `Tk ${totals.allTotalExpenses.toLocaleString()}`, `${totals.budgetPercentUsed}% Budget Used`],
+      ['ALL TOTAL EXPENSES', 'Grand Outflow', `Tk ${totals.allTotalExpenses.toLocaleString()}`, 'TA/DA + Company Ops'],
       ['NET CASH SURPLUS (HISHAB)', 'Net Balance', `Tk ${totals.netCashMargin.toLocaleString()}`, totals.netCashMargin >= 0 ? 'Surplus' : 'Deficit'],
     ];
 
@@ -538,7 +486,7 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
         <div>
           <h2 className="text-lg font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
             <DollarSign className="text-emerald-600 shrink-0" size={22} />
-            <span>Executive Financial &amp; Budget Hishab (সর্বমোট হিসাব)</span>
+            <span>Executive Financial Hishab (সর্বমোট হিসাব)</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
             Unified accounting hub combining Staff TA/DA Claims, Company Operational Expenses, Equipment Sales &amp; Cash Balance.
@@ -679,81 +627,7 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
       )}
 
       {/* KPI Hishab Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* 1. Monthly / Period Budget */}
-        <div className="p-5 bg-white rounded-2xl border border-slate-200 relative">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">
-              {scope === 'all' ? 'Cumulative Budget Ref' : 'This Month Budget'}
-            </span>
-            {scope === 'monthly' && (
-              <button
-                onClick={() => {
-                  setBudgetInput(activeMonthBudget.toString());
-                  setIsEditingBudget(!isEditingBudget);
-                }}
-                className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
-                title="Edit budget for selected month"
-              >
-                <Edit3 size={14} />
-              </button>
-            )}
-          </div>
-
-          {isEditingBudget && scope === 'monthly' ? (
-            <div className="mt-2 flex items-center gap-2">
-              <input
-                type="number"
-                value={budgetInput}
-                onChange={(e) => setBudgetInput(e.target.value)}
-                className="w-full px-2.5 py-1 text-sm font-mono tabular-nums font-bold bg-slate-50 border border-indigo-300 rounded-lg focus:outline-hidden"
-              />
-              <button
-                onClick={handleSaveBudget}
-                disabled={isSavingBudget}
-                className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 cursor-pointer"
-              >
-                <Save size={14} />
-              </button>
-              <button
-                onClick={() => setIsEditingBudget(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          ) : (
-            <div className="mt-2">
-              <div className="text-2xl font-black font-mono tabular-nums text-slate-900">
-                ৳{effectiveBudget.toLocaleString()}
-              </div>
-              <div className="mt-1 text-[11px] text-slate-500 font-medium flex items-center justify-between">
-                <span>Budget Allocated</span>
-                <span className="font-mono tabular-nums">{scope === 'all' ? 'All Months' : selectedMonth}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Progress Bar */}
-          <div className="mt-3">
-            <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1 tabular-nums">
-              <span>Utilized: {totals.budgetPercentUsed}%</span>
-              <span>Rem: ৳{Math.max(0, totals.budgetRemaining).toLocaleString()}</span>
-            </div>
-            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-              <div
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  totals.budgetPercentUsed > 90
-                    ? 'bg-rose-600'
-                    : totals.budgetPercentUsed > 70
-                    ? 'bg-amber-500'
-                    : 'bg-indigo-600'
-                }`}
-                style={{ width: `${totals.budgetPercentUsed}%` }}
-              />
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
         {/* 2. Personal & Field Staff Expenses (TA/DA) */}
         <div
@@ -926,7 +800,7 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
               <span>Financial Comparison ({scope === 'all' ? 'All Time' : selectedMonth})</span>
             </h3>
             <p className="text-[11px] text-slate-500">
-              Budget vs Sales vs Collected Cash vs Staff TA/DA vs Ops
+              Sales vs Collected Cash vs Staff TA/DA vs Ops
             </p>
           </div>
 
@@ -1090,9 +964,9 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
 
           <div className="flex items-center gap-3 text-xs text-slate-600 font-mono tabular-nums">
             <span>
-              Status:{' '}
-              <strong className={totals.budgetRemaining >= 0 ? 'text-emerald-700' : 'text-rose-600'}>
-                {totals.budgetRemaining >= 0 ? 'Within Budget' : 'Over Budget'}
+              Net Cash:{' '}
+              <strong className={totals.netCashMargin >= 0 ? 'text-emerald-700' : 'text-rose-600'}>
+                {totals.netCashMargin >= 0 ? '+' : '-'}৳{Math.abs(totals.netCashMargin).toLocaleString()}
               </strong>
             </span>
           </div>
@@ -1104,113 +978,108 @@ export const FinancialHishabSection: React.FC<FinancialHishabSectionProps> = ({
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-extrabold uppercase text-[10px] tracking-wider">
-                  <th className="py-3 px-4">Financial Metric / Item</th>
-                  <th className="py-3 px-4">Classification</th>
+                  <th className="py-3 px-4">Expense / Summary Item</th>
+                  <th className="py-3 px-4">Details</th>
+                  <th className="py-3 px-4 text-right">Share</th>
                   <th className="py-3 px-4 text-right">Amount (BDT)</th>
-                  <th className="py-3 px-4 text-right">% of Budget</th>
-                  <th className="py-3 px-4">Operational Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
                 <tr className="hover:bg-slate-50">
-                  <td className="py-3 px-4 font-bold text-indigo-950">Budget Allocation Ceiling</td>
-                  <td className="py-3 px-4 text-indigo-700 font-semibold">Allocated Target</td>
-                  <td className="py-3 px-4 text-right font-mono tabular-nums font-bold text-indigo-950">
-                    ৳{effectiveBudget.toLocaleString()}
+                  <td className="py-3 px-4 text-slate-800 pl-6">Travel Allowance (TA)</td>
+                  <td className="py-3 px-4 text-slate-500 text-[11px]">Bus, train &amp; intercity travel</td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-500">
+                    {totals.allTotalExpenses > 0 ? ((totals.personalTravel / totals.allTotalExpenses) * 100).toFixed(1) : '0.0'}%
                   </td>
-                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-500">100.0%</td>
-                  <td className="py-3 px-4 text-indigo-700 text-[11px]">
-                    {scope === 'all' ? 'Cumulative Reference' : `Approved Ceiling (${selectedMonth})`}
-                  </td>
-                </tr>
-
-                <tr className="hover:bg-slate-50">
-                  <td className="py-3 px-4 text-slate-800 pl-8">Field Travel Allowance (Intercity)</td>
-                  <td className="py-3 px-4 text-slate-500">Staff TA/DA</td>
-                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-800">
+                  <td className="py-3 px-4 text-right font-mono tabular-nums font-semibold text-slate-900">
                     ৳{totals.personalTravel.toLocaleString()}
                   </td>
-                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-500">
-                    {effectiveBudget > 0 ? ((totals.personalTravel / effectiveBudget) * 100).toFixed(1) : 0}%
-                  </td>
-                  <td className="py-3 px-4 text-slate-500 text-[11px]">Bus, train &amp; intercity field transit</td>
                 </tr>
 
                 <tr className="hover:bg-slate-50">
-                  <td className="py-3 px-4 text-slate-800 pl-8">Field Daily Allowance (DA)</td>
-                  <td className="py-3 px-4 text-slate-500">Staff TA/DA</td>
-                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-800">
+                  <td className="py-3 px-4 text-slate-800 pl-6">Daily Allowance (DA)</td>
+                  <td className="py-3 px-4 text-slate-500 text-[11px]">Daily field duty allowance</td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-500">
+                    {totals.allTotalExpenses > 0 ? ((totals.personalDaily / totals.allTotalExpenses) * 100).toFixed(1) : '0.0'}%
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums font-semibold text-slate-900">
                     ৳{totals.personalDaily.toLocaleString()}
                   </td>
-                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-500">
-                    {effectiveBudget > 0 ? ((totals.personalDaily / effectiveBudget) * 100).toFixed(1) : 0}%
-                  </td>
-                  <td className="py-3 px-4 text-slate-500 text-[11px]">Per-diem duty compensation</td>
                 </tr>
 
                 <tr className="hover:bg-slate-50">
-                  <td className="py-3 px-4 text-slate-800 pl-8">Local Transportation (CNG/Taxi)</td>
-                  <td className="py-3 px-4 text-slate-500">Staff TA/DA</td>
-                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-800">
+                  <td className="py-3 px-4 text-slate-800 pl-6">Local Transportation</td>
+                  <td className="py-3 px-4 text-slate-500 text-[11px]">Local CNG, rickshaw &amp; taxi</td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-500">
+                    {totals.allTotalExpenses > 0 ? ((totals.personalTransport / totals.allTotalExpenses) * 100).toFixed(1) : '0.0'}%
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums font-semibold text-slate-900">
                     ৳{totals.personalTransport.toLocaleString()}
                   </td>
-                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-500">
-                    {effectiveBudget > 0 ? ((totals.personalTransport / effectiveBudget) * 100).toFixed(1) : 0}%
-                  </td>
-                  <td className="py-3 px-4 text-slate-500 text-[11px]">Hospital &amp; clinic local conveyance</td>
                 </tr>
 
                 <tr className="hover:bg-slate-50">
-                  <td className="py-3 px-4 text-slate-800 pl-8">Accommodation &amp; Food Expense</td>
-                  <td className="py-3 px-4 text-slate-500">Staff TA/DA</td>
-                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-800">
+                  <td className="py-3 px-4 text-slate-800 pl-6">Food &amp; Hotel Lodging</td>
+                  <td className="py-3 px-4 text-slate-500 text-[11px]">Outstation meals &amp; stay</td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-500">
+                    {totals.allTotalExpenses > 0 ? ((totals.personalFoodHotel / totals.allTotalExpenses) * 100).toFixed(1) : '0.0'}%
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums font-semibold text-slate-900">
                     ৳{totals.personalFoodHotel.toLocaleString()}
                   </td>
-                  <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-500">
-                    {effectiveBudget > 0 ? ((totals.personalFoodHotel / effectiveBudget) * 100).toFixed(1) : 0}%
-                  </td>
-                  <td className="py-3 px-4 text-slate-500 text-[11px]">Outstation lodging &amp; meal bills</td>
                 </tr>
 
-                <tr className="bg-amber-50/40 font-bold">
+                <tr className="bg-amber-50/50 font-bold">
                   <td className="py-3 px-4 text-amber-950">Total Staff Field Expenses (TA/DA)</td>
-                  <td className="py-3 px-4 text-amber-800">Field Subtotal</td>
+                  <td className="py-3 px-4 text-amber-800 text-[11px] font-medium">
+                    {filteredClaims.length} claims · Paid: ৳{totals.tadaPaidAmount.toLocaleString()} · Unpaid: ৳{totals.tadaApprovedUnpaid.toLocaleString()}
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums text-amber-800">
+                    {totals.allTotalExpenses > 0 ? ((totals.totalPersonalExpenses / totals.allTotalExpenses) * 100).toFixed(1) : '0.0'}%
+                  </td>
                   <td className="py-3 px-4 text-right font-mono tabular-nums font-bold text-amber-950">
                     ৳{totals.totalPersonalExpenses.toLocaleString()}
                   </td>
-                  <td className="py-3 px-4 text-right font-mono tabular-nums text-amber-800">
-                    {effectiveBudget > 0 ? ((totals.totalPersonalExpenses / effectiveBudget) * 100).toFixed(1) : 0}%
-                  </td>
-                  <td className="py-3 px-4 text-amber-800 text-[11px]">
-                    {filteredClaims.length} Claims · Paid: ৳{totals.tadaPaidAmount.toLocaleString()} · Payable: ৳{totals.tadaApprovedUnpaid.toLocaleString()}
-                  </td>
                 </tr>
 
-                <tr className="bg-rose-50/40 font-bold">
-                  <td className="py-3 px-4 text-rose-950">Company Operational Expenses (Notes)</td>
-                  <td className="py-3 px-4 text-rose-800">Overhead Subtotal</td>
+                <tr className="bg-rose-50/50 font-bold">
+                  <td className="py-3 px-4 text-rose-950">Company Operations Expenses</td>
+                  <td className="py-3 px-4 text-rose-800 text-[11px] font-medium">
+                    {filteredNotes.length} office, stock &amp; utility entries
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums text-rose-800">
+                    {totals.allTotalExpenses > 0 ? ((totals.totalCompanyExpenses / totals.allTotalExpenses) * 100).toFixed(1) : '0.0'}%
+                  </td>
                   <td className="py-3 px-4 text-right font-mono tabular-nums font-bold text-rose-950">
                     ৳{totals.totalCompanyExpenses.toLocaleString()}
                   </td>
-                  <td className="py-3 px-4 text-right font-mono tabular-nums text-rose-800">
-                    {effectiveBudget > 0 ? ((totals.totalCompanyExpenses / effectiveBudget) * 100).toFixed(1) : 0}%
-                  </td>
-                  <td className="py-3 px-4 text-rose-800 text-[11px]">{filteredNotes.length} Expense Entries Logged</td>
                 </tr>
 
                 <tr className="bg-slate-900 text-white font-extrabold text-sm">
                   <td className="py-4 px-4 tracking-wide">ALL TOTAL EXPENSES (সর্বমোট খরচ)</td>
-                  <td className="py-4 px-4 text-emerald-400 font-semibold uppercase text-xs">Grand Total</td>
+                  <td className="py-4 px-4 text-slate-300 font-medium text-xs">
+                    Staff TA/DA + Company Ops
+                  </td>
+                  <td className="py-4 px-4 text-right font-mono tabular-nums text-emerald-400 text-xs">
+                    100%
+                  </td>
                   <td className="py-4 px-4 text-right font-mono tabular-nums text-lg text-white">
                     ৳{totals.allTotalExpenses.toLocaleString()}
                   </td>
-                  <td className="py-4 px-4 text-right font-mono tabular-nums text-emerald-400">
-                    {totals.budgetPercentUsed}%
+                </tr>
+
+                <tr className={totals.netCashMargin >= 0 ? 'bg-emerald-50/60 font-bold' : 'bg-rose-50/60 font-bold'}>
+                  <td className="py-3.5 px-4 text-slate-900">
+                    Net Cash Balance (Collected − Expenses)
                   </td>
-                  <td className="py-4 px-4 text-slate-300 text-xs font-mono tabular-nums">
-                    {totals.budgetRemaining >= 0
-                      ? `Remaining: ৳${totals.budgetRemaining.toLocaleString()}`
-                      : `Over Limit: -৳${Math.abs(totals.budgetRemaining).toLocaleString()}`}
+                  <td className="py-3.5 px-4 text-slate-600 text-[11px] font-medium font-mono tabular-nums">
+                    Collected: ৳{totals.totalCollectedCash.toLocaleString()} ({totals.collectionRate}% of ৳{totals.totalSalesRevenue.toLocaleString()} sales)
+                  </td>
+                  <td className={`py-3.5 px-4 text-right text-xs font-bold uppercase ${totals.netCashMargin >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    {totals.netCashMargin >= 0 ? 'Surplus' : 'Deficit'}
+                  </td>
+                  <td className={`py-3.5 px-4 text-right font-mono tabular-nums text-sm font-black ${totals.netCashMargin >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    {totals.netCashMargin >= 0 ? '+' : '-'}৳{Math.abs(totals.netCashMargin).toLocaleString()}
                   </td>
                 </tr>
               </tbody>

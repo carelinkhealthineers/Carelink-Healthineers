@@ -40,6 +40,9 @@ import {
   Trash2,
   Stethoscope,
   BookOpen,
+  Package,
+  FolderHeart,
+  Landmark,
 } from 'lucide-react';
 import {
   ExecutiveAccount,
@@ -57,6 +60,11 @@ import {
   ProductSaleRecord,
   CustomExcelPreset,
   ExpenseAttachment,
+  StockItem,
+  CompanyAssetItem,
+  CompanyDraft,
+  CompanyInvestment,
+  StockRequest,
 } from '../../types';
 import {
   getCurrentExecutiveSession,
@@ -81,6 +89,41 @@ import {
   fetchCustomExcelPresets,
   saveCustomExcelPreset,
   deleteCustomExcelPreset,
+  fetchStockItems,
+  fetchStockSegments,
+  addStockSegment,
+  deleteStockSegment,
+  clearEmptyStockSegments,
+  createStockItem,
+  restockStockItem,
+  updateStockItem,
+  deleteStockItem,
+  CreateStockItemInput,
+  RestockInput,
+  DEFAULT_ASSET_SEGMENTS,
+  fetchAssetSegments,
+  addAssetSegment,
+  deleteAssetSegment,
+  clearEmptyAssetSegments,
+  fetchCompanyAssets,
+  createCompanyAsset,
+  updateCompanyAsset,
+  deleteCompanyAsset,
+  CreateCompanyAssetInput,
+  fetchCompanyDrafts,
+  createCompanyDraft,
+  updateCompanyDraft,
+  togglePinCompanyDraft,
+  deleteCompanyDraft,
+  CreateDraftInput,
+  fetchCompanyInvestments,
+  createCompanyInvestment,
+  updateCompanyInvestment,
+  deleteCompanyInvestment,
+  CreateInvestmentInput,
+  fetchStockRequests,
+  approveStockRequest,
+  rejectStockRequest,
 } from '../../services/executiveService';
 import { fetchEmployees, DEPARTMENTS } from '../../services/employeeService';
 import { fetchDailyWorkReports, adminReviewDailyReport } from '../../services/dailyReportService';
@@ -98,6 +141,10 @@ import { DoctorSalesLedgerSection } from './components/DoctorSalesLedgerSection'
 import { CustomExcelPortalSection } from './components/CustomExcelPortalSection';
 import { ExecutiveUserManualBangla } from './components/ExecutiveUserManualBangla';
 import { ManagementDecisionsSection } from './components/ManagementDecisionsSection';
+import { StockManagementSection } from './components/StockManagementSection';
+import { CompanyAssetsSection } from './components/CompanyAssetsSection';
+import { CompanyDraftsSection } from './components/CompanyDraftsSection';
+import { CompanyInvestmentsSection } from './components/CompanyInvestmentsSection';
 import { ReceiptGallery, ReceiptPreviewModal } from '../../components/common/ReceiptPreviewModal';
 import { NotificationCenter } from '../../components/common/NotificationCenter';
 import {
@@ -106,15 +153,14 @@ import {
   subscribeToNotifications,
 } from '../../services/notificationService';
 import { AppNotification } from '../../types';
-import {
-  isCompanyOpsNote,
-  getCompanyNoteAmount,
-  parseSafeAmount,
-} from '../../utils/financialHelper';
 
 type TabView =
   | 'overview'
+  | 'stock'
+  | 'assets'
+  | 'drafts'
   | 'hishab'
+  | 'invest'
   | 'sales'
   | 'custom-excel'
   | 'manual'
@@ -125,12 +171,35 @@ type TabView =
   | 'analytics'
   | 'alerts';
 
+type MenuGroupKey = 'finance' | 'inventory' | 'employee' | 'management';
+
+const TAB_TO_GROUP: Partial<Record<TabView, MenuGroupKey>> = {
+  hishab: 'finance',
+  invest: 'finance',
+  notes: 'finance',
+  sales: 'finance',
+  'custom-excel': 'finance',
+  stock: 'inventory',
+  assets: 'inventory',
+  reports: 'employee',
+  tada: 'employee',
+  decisions: 'management',
+  analytics: 'management',
+  alerts: 'management',
+};
+
 export const ExecutivePortal: React.FC = () => {
   const navigate = useNavigate();
 
   // State
   const [execAccount, setExecAccount] = useState<ExecutiveAccount | null>(null);
   const [activeTab, setActiveTab] = useState<TabView>('overview');
+  const [expandedGroups, setExpandedGroups] = useState<Record<MenuGroupKey, boolean>>({
+    finance: false,
+    inventory: false,
+    employee: false,
+    management: false,
+  });
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -146,6 +215,18 @@ export const ExecutivePortal: React.FC = () => {
   const [monthlyBudget, setMonthlyBudget] = useState<number>(500000);
   const [monthlyBudgets, setMonthlyBudgets] = useState<Record<string, number>>({});
   const [customExcelPresets, setCustomExcelPresets] = useState<CustomExcelPreset[]>([]);
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [stockSegments, setStockSegments] = useState<string[]>([
+    'Kits',
+    'Electronics',
+    'Scissors',
+  ]);
+  const [stockRequests, setStockRequests] = useState<StockRequest[]>([]);
+  const [assetItems, setAssetItems] = useState<CompanyAssetItem[]>([]);
+  const [assetSegments, setAssetSegments] = useState<string[]>([...DEFAULT_ASSET_SEGMENTS]);
+  const [companyDrafts, setCompanyDrafts] = useState<CompanyDraft[]>([]);
+  const [investments, setInvestments] = useState<CompanyInvestment[]>([]);
+  const [executiveAccountsList, setExecutiveAccountsList] = useState<ExecutiveAccount[]>([]);
 
   // Filter & Search states
   const [searchTerm, setSearchTerm] = useState('');
@@ -179,14 +260,12 @@ export const ExecutivePortal: React.FC = () => {
     content: string;
     category: NoteCategory;
     amount: string;
-    date: string;
     is_pinned: boolean;
   }>({
     title: '',
     content: '',
     category: 'expense',
     amount: '',
-    date: new Date().toISOString().split('T')[0],
     is_pinned: false,
   });
 
@@ -255,6 +334,14 @@ export const ExecutivePortal: React.FC = () => {
         salesList,
         allBudgetsMap,
         presetList,
+        stockList,
+        segmentList,
+        assetList,
+        assetSegList,
+        draftList,
+        investmentList,
+        execAcctList,
+        stockRequestList,
       ] = await Promise.all([
         fetchEmployees().catch(() => []),
         fetchDailyWorkReports().catch(() => []),
@@ -266,6 +353,14 @@ export const ExecutivePortal: React.FC = () => {
         fetchSalesRecords().catch(() => []),
         fetchAllMonthlyBudgets().catch(() => ({} as Record<string, number>)),
         fetchCustomExcelPresets().catch(() => []),
+        fetchStockItems().catch(() => []),
+        fetchStockSegments().catch(() => ['Kits', 'Electronics', 'Scissors']),
+        fetchCompanyAssets().catch(() => []),
+        fetchAssetSegments().catch(() => [...DEFAULT_ASSET_SEGMENTS]),
+        fetchCompanyDrafts().catch(() => []),
+        fetchCompanyInvestments().catch(() => []),
+        fetchExecutiveAccounts().catch(() => []),
+        fetchStockRequests().catch(() => []),
       ]);
 
       setEmployees(empList);
@@ -279,6 +374,14 @@ export const ExecutivePortal: React.FC = () => {
       setMonthlyBudgets(allBudgetsMap);
       setMonthlyBudget(allBudgetsMap[activeMonthKey] ?? 500000);
       setCustomExcelPresets(presetList);
+      setStockItems(stockList);
+      setStockSegments(segmentList);
+      setAssetItems(assetList);
+      setAssetSegments(assetSegList);
+      setCompanyDrafts(draftList);
+      setInvestments(investmentList);
+      setExecutiveAccountsList(execAcctList);
+      setStockRequests(stockRequestList);
     } catch (err: any) {
       setErrorMsg(err?.message || 'Failed to initialize Executive Management Dashboard.');
     } finally {
@@ -289,6 +392,17 @@ export const ExecutivePortal: React.FC = () => {
   useEffect(() => {
     loadExecutiveData();
   }, []);
+
+  useEffect(() => {
+    const parentGroup = TAB_TO_GROUP[activeTab];
+    if (parentGroup) {
+      setExpandedGroups((prev) => (prev[parentGroup] ? prev : { ...prev, [parentGroup]: true }));
+    }
+  }, [activeTab]);
+
+  const toggleMenuGroup = (group: MenuGroupKey) => {
+    setExpandedGroups((prev) => ({ ...prev, [group]: !prev[group] }));
+  };
 
   useEffect(() => {
     const viewerKey = `exec_${execAccount?.id || 'default'}`;
@@ -424,20 +538,18 @@ export const ExecutivePortal: React.FC = () => {
   // Company Note Handlers
   const handleCreateNoteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newNote.title.trim() || !newNote.content.trim()) return;
+    if (!execAccount || !newNote.title.trim() || !newNote.content.trim()) return;
 
     try {
-      const parsedAmt = parseSafeAmount(newNote.amount);
       const created = await createCompanyNote({
-        author_id: execAccount?.id || 'exec-md-default',
-        author_name: execAccount?.full_name || 'Executive Desk',
-        author_role: execAccount?.role || 'MD',
+        author_id: execAccount.id,
+        author_name: execAccount.full_name,
+        author_role: execAccount.role,
         title: newNote.title.trim(),
         content: newNote.content.trim(),
         category: newNote.category,
         is_pinned: newNote.is_pinned,
-        amount: parsedAmt > 0 ? parsedAmt : undefined,
-        date: newNote.date || new Date().toISOString().split('T')[0],
+        amount: newNote.amount ? parseFloat(newNote.amount) : undefined,
       });
 
       setCompanyNotes([created, ...companyNotes]);
@@ -447,7 +559,6 @@ export const ExecutivePortal: React.FC = () => {
         content: '',
         category: 'expense',
         amount: '',
-        date: new Date().toISOString().split('T')[0],
         is_pinned: false,
       });
       triggerToast('Company Note / Directive saved.');
@@ -494,18 +605,19 @@ export const ExecutivePortal: React.FC = () => {
     amount: number;
     date: string;
   }) => {
+    if (!execAccount) return;
     try {
       const created = await createCompanyNote({
-        author_id: execAccount?.id || 'exec-md-default',
-        author_name: execAccount?.full_name || 'Executive Desk',
-        author_role: execAccount?.role || 'MD',
+        author_id: execAccount.id,
+        author_name: execAccount.full_name,
+        author_role: execAccount.role,
         title: expense.title,
         content: expense.content,
         category: 'expense',
         amount: expense.amount,
         date: expense.date,
       });
-      setCompanyNotes((prev) => [created, ...prev]);
+      setCompanyNotes([created, ...companyNotes]);
       triggerToast(`Company expense "৳${expense.amount.toLocaleString()}" logged to Financial Hub.`);
     } catch (err: any) {
       alert(`Failed to log company expense: ${err?.message}`);
@@ -576,6 +688,299 @@ export const ExecutivePortal: React.FC = () => {
       triggerToast('Custom sheet preset removed.');
     } catch (err: any) {
       alert(`Failed to delete preset: ${err?.message}`);
+    }
+  };
+
+  // Stock & Inventory Handlers (auto-syncs buying price to Company Expenses)
+  const handleAddStockSegment = async (segmentName: string) => {
+    try {
+      const updated = await addStockSegment(segmentName);
+      setStockSegments(updated);
+      triggerToast(`Segment "${segmentName.trim()}" saved to Stock.`);
+    } catch (err: any) {
+      triggerToast(`Failed to add segment: ${err?.message}`);
+    }
+  };
+
+  const handleDeleteStockSegment = async (segmentName: string) => {
+    try {
+      const updated = await deleteStockSegment(segmentName);
+      setStockSegments(updated);
+      triggerToast(`Removed segment "${segmentName}".`);
+    } catch (err: any) {
+      triggerToast(`Failed to remove segment: ${err?.message}`);
+    }
+  };
+
+  const handleClearEmptySegments = async (usedSegments: string[]) => {
+    try {
+      const updated = await clearEmptyStockSegments(usedSegments);
+      setStockSegments(updated);
+      triggerToast('Cleared empty stock segments.');
+    } catch (err: any) {
+      triggerToast(`Failed to clear empty segments: ${err?.message}`);
+    }
+  };
+
+  const handleCreateStock = async (input: CreateStockItemInput) => {
+    if (!execAccount) return;
+    try {
+      const cleanCat = input.category?.trim();
+      if (cleanCat && !stockSegments.some((s) => s.toLowerCase() === cleanCat.toLowerCase())) {
+        const updatedSegments = await addStockSegment(cleanCat);
+        setStockSegments(updatedSegments);
+      }
+      const { item, expenseNote } = await createStockItem(input, execAccount);
+      setStockItems((prev) => [item, ...prev]);
+      if (expenseNote) {
+        setCompanyNotes((prev) => [expenseNote, ...prev]);
+        triggerToast(`Added "${item.name}" to Stock and logged ৳${(expenseNote.amount || 0).toLocaleString()} to Expenses.`);
+      } else {
+        triggerToast(`Added "${item.name}" to Stock.`);
+      }
+    } catch (err: any) {
+      triggerToast(`Failed to add stock item: ${err?.message}`);
+    }
+  };
+
+  const handleRestockItem = async (id: string, input: RestockInput) => {
+    if (!execAccount) return;
+    try {
+      const { item, expenseNote } = await restockStockItem(id, input, execAccount);
+      setStockItems((prev) => prev.map((s) => (s.id === id ? item : s)));
+      if (expenseNote) {
+        setCompanyNotes((prev) => [expenseNote, ...prev]);
+        triggerToast(`Restocked "${item.name}" (+${input.added_quantity}) and added ৳${(expenseNote.amount || 0).toLocaleString()} to Expenses.`);
+      } else {
+        triggerToast(`Updated stock quantity for "${item.name}".`);
+      }
+    } catch (err: any) {
+      triggerToast(`Failed to restock item: ${err?.message}`);
+    }
+  };
+
+  const handleUpdateStock = async (id: string, updates: Partial<StockItem>) => {
+    try {
+      const cleanCat = updates.category?.trim();
+      if (cleanCat && !stockSegments.some((s) => s.toLowerCase() === cleanCat.toLowerCase())) {
+        const updatedSegments = await addStockSegment(cleanCat);
+        setStockSegments(updatedSegments);
+      }
+      const updated = await updateStockItem(id, updates);
+      setStockItems((prev) => prev.map((s) => (s.id === id ? updated : s)));
+      triggerToast(`Updated "${updated.name}" (${updated.quantity} ${updated.unit_label || 'pcs'}).`);
+    } catch (err: any) {
+      triggerToast(`Failed to update stock item: ${err?.message}`);
+    }
+  };
+
+  const handleDeleteStock = async (id: string, alsoDeleteExpenses: boolean) => {
+    try {
+      const deletedNoteIds = await deleteStockItem(id, alsoDeleteExpenses);
+      setStockItems((prev) => prev.filter((s) => s.id !== id));
+      if (deletedNoteIds.length > 0) {
+        const removeSet = new Set(deletedNoteIds);
+        setCompanyNotes((prev) => prev.filter((n) => !removeSet.has(n.id)));
+        triggerToast('Stock item and linked expense removed.');
+      } else {
+        triggerToast('Stock item removed.');
+      }
+    } catch (err: any) {
+      triggerToast(`Failed to delete stock item: ${err?.message}`);
+    }
+  };
+
+  const handleApproveStockRequest = async (requestId: string, remarks?: string) => {
+    if (!execAccount) return;
+    try {
+      const { request, updatedStockItem } = await approveStockRequest(requestId, execAccount, remarks);
+      setStockRequests((prev) => prev.map((r) => (r.id === requestId ? request : r)));
+      setStockItems((prev) => prev.map((s) => (s.id === updatedStockItem.id ? updatedStockItem : s)));
+      triggerToast(
+        `Approved ${request.requested_qty} ${request.unit_label} for ${request.employee_name} — ${updatedStockItem.name} now has ${updatedStockItem.quantity} ${updatedStockItem.unit_label}.`
+      );
+    } catch (err: any) {
+      triggerToast(`Could not approve request: ${err?.message}`);
+    }
+  };
+
+  const handleRejectStockRequest = async (requestId: string, remarks?: string) => {
+    if (!execAccount) return;
+    try {
+      const updated = await rejectStockRequest(requestId, execAccount, remarks);
+      setStockRequests((prev) => prev.map((r) => (r.id === requestId ? updated : r)));
+      triggerToast(`Declined stock request from ${updated.employee_name}.`);
+    } catch (err: any) {
+      triggerToast(`Could not decline request: ${err?.message}`);
+    }
+  };
+
+  // Company Assets Handlers (standalone asset register — does NOT add to Expenses)
+  const handleAddAssetSegment = async (segmentName: string) => {
+    try {
+      const updated = await addAssetSegment(segmentName);
+      setAssetSegments(updated);
+      triggerToast(`Segment "${segmentName.trim()}" saved to Company Assets.`);
+    } catch (err: any) {
+      triggerToast(`Failed to add asset segment: ${err?.message}`);
+    }
+  };
+
+  const handleDeleteAssetSegment = async (segmentName: string) => {
+    try {
+      const updated = await deleteAssetSegment(segmentName);
+      setAssetSegments(updated);
+      triggerToast(`Removed asset segment "${segmentName}".`);
+    } catch (err: any) {
+      triggerToast(`Failed to remove asset segment: ${err?.message}`);
+    }
+  };
+
+  const handleClearEmptyAssetSegments = async (usedSegments: string[]) => {
+    try {
+      const updated = await clearEmptyAssetSegments(usedSegments);
+      setAssetSegments(updated);
+      triggerToast('Cleared empty asset segments.');
+    } catch (err: any) {
+      triggerToast(`Failed to clear empty asset segments: ${err?.message}`);
+    }
+  };
+
+  const handleCreateAsset = async (input: CreateCompanyAssetInput) => {
+    if (!execAccount) return;
+    try {
+      const cleanCat = input.category?.trim();
+      if (cleanCat && !assetSegments.some((s) => s.toLowerCase() === cleanCat.toLowerCase())) {
+        const updatedSegments = await addAssetSegment(cleanCat);
+        setAssetSegments(updatedSegments);
+      }
+      const created = await createCompanyAsset(input, execAccount);
+      setAssetItems((prev) => [created, ...prev]);
+      triggerToast(`Added "${created.name}" to Company Assets (standalone price recorded).`);
+    } catch (err: any) {
+      triggerToast(`Failed to add company asset: ${err?.message}`);
+    }
+  };
+
+  const handleUpdateAsset = async (id: string, updates: Partial<CompanyAssetItem>) => {
+    try {
+      const cleanCat = updates.category?.trim();
+      if (cleanCat && !assetSegments.some((s) => s.toLowerCase() === cleanCat.toLowerCase())) {
+        const updatedSegments = await addAssetSegment(cleanCat);
+        setAssetSegments(updatedSegments);
+      }
+      const updated = await updateCompanyAsset(id, updates);
+      setAssetItems((prev) => prev.map((a) => (a.id === id ? updated : a)));
+      triggerToast(`Updated asset "${updated.name}".`);
+    } catch (err: any) {
+      triggerToast(`Failed to update company asset: ${err?.message}`);
+    }
+  };
+
+  const handleDeleteAsset = async (id: string) => {
+    try {
+      await deleteCompanyAsset(id);
+      setAssetItems((prev) => prev.filter((a) => a.id !== id));
+      triggerToast('Company asset removed.');
+    } catch (err: any) {
+      triggerToast(`Failed to delete company asset: ${err?.message}`);
+    }
+  };
+
+  // Company Drafts & File Box Handlers
+  const handleCreateDraft = async (input: CreateDraftInput) => {
+    try {
+      const created = await createCompanyDraft(input);
+      setCompanyDrafts((prev) => [created, ...prev]);
+      triggerToast(`Saved draft "${created.title}".`);
+    } catch (err: any) {
+      triggerToast(`Failed to save draft: ${err?.message}`);
+    }
+  };
+
+  const handleUpdateDraft = async (
+    id: string,
+    updates: Partial<Omit<CompanyDraft, 'id' | 'created_at'>>
+  ) => {
+    try {
+      const updated = await updateCompanyDraft(id, updates);
+      setCompanyDrafts((prev) =>
+        prev
+          .map((d) => (d.id === id ? updated : d))
+          .sort((a, b) => {
+            if (a.is_pinned && !b.is_pinned) return -1;
+            if (!a.is_pinned && b.is_pinned) return 1;
+            return (
+              new Date(b.updated_at || b.created_at).getTime() -
+              new Date(a.updated_at || a.created_at).getTime()
+            );
+          })
+      );
+      triggerToast(`Updated draft "${updated.title}".`);
+    } catch (err: any) {
+      triggerToast(`Failed to update draft: ${err?.message}`);
+    }
+  };
+
+  const handleTogglePinDraft = async (id: string) => {
+    try {
+      const updated = await togglePinCompanyDraft(id);
+      setCompanyDrafts((prev) =>
+        prev
+          .map((d) => (d.id === id ? updated : d))
+          .sort((a, b) => {
+            if (a.is_pinned && !b.is_pinned) return -1;
+            if (!a.is_pinned && b.is_pinned) return 1;
+            return (
+              new Date(b.updated_at || b.created_at).getTime() -
+              new Date(a.updated_at || a.created_at).getTime()
+            );
+          })
+      );
+      triggerToast(updated.is_pinned ? `Pinned "${updated.title}"` : `Unpinned "${updated.title}"`);
+    } catch (err: any) {
+      triggerToast(`Failed to pin draft: ${err?.message}`);
+    }
+  };
+
+  const handleDeleteDraft = async (id: string) => {
+    try {
+      await deleteCompanyDraft(id);
+      setCompanyDrafts((prev) => prev.filter((d) => d.id !== id));
+      triggerToast('Draft deleted.');
+    } catch (err: any) {
+      triggerToast(`Failed to delete draft: ${err?.message}`);
+    }
+  };
+
+  // Company Investments (MD / Partner Capital) Handlers
+  const handleCreateInvestment = async (input: CreateInvestmentInput) => {
+    try {
+      const created = await createCompanyInvestment(input, execAccount);
+      setInvestments((prev) => [created, ...prev]);
+      triggerToast(`Recorded ৳${Number(created.amount).toLocaleString()} investment by ${created.investor_name}.`);
+    } catch (err: any) {
+      triggerToast(`Failed to save investment: ${err?.message}`);
+    }
+  };
+
+  const handleUpdateInvestment = async (id: string, updates: Partial<CompanyInvestment>) => {
+    try {
+      const updated = await updateCompanyInvestment(id, updates);
+      setInvestments((prev) => prev.map((inv) => (inv.id === id ? updated : inv)));
+      triggerToast(`Updated investment for ${updated.investor_name}.`);
+    } catch (err: any) {
+      triggerToast(`Failed to update investment: ${err?.message}`);
+    }
+  };
+
+  const handleDeleteInvestment = async (id: string) => {
+    try {
+      await deleteCompanyInvestment(id);
+      setInvestments((prev) => prev.filter((inv) => inv.id !== id));
+      triggerToast('Investment entry deleted.');
+    } catch (err: any) {
+      triggerToast(`Failed to delete investment: ${err?.message}`);
     }
   };
 
@@ -830,204 +1235,485 @@ export const ExecutivePortal: React.FC = () => {
             </div>
           </div>
 
-          {/* Active Executive Profile Card */}
+          {/* Cute Compact Executive Profile Pill */}
           {execAccount && (
-            <div className="p-4 mx-3 my-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                  {execAccount.role} Access
-                </span>
-                <span className="text-[10px] font-mono text-emerald-400 font-semibold">Active</span>
-              </div>
-              <div>
+            <div className="px-3.5 py-3 mx-3 my-3.5 rounded-2xl bg-slate-800/50 border border-slate-700/60 flex items-center justify-between gap-2">
+              <div className="min-w-0">
                 <div className="text-xs font-bold text-white truncate">{execAccount.full_name}</div>
-                <div className="text-[10px] text-slate-400 truncate">{execAccount.title_designation}</div>
+                <div className="text-[10px] text-amber-300 font-semibold truncate">
+                  {execAccount.role}
+                </div>
               </div>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 shadow-[0_0_8px_rgba(52,211,153,0.7)]" />
             </div>
           )}
 
-          {/* Nav Items */}
-          <nav className="px-3 space-y-1">
+          {/* Cute Collapsible Sub-Menu Navigation */}
+          <nav className="px-3 space-y-1.5">
+            {/* Overview */}
             <button
+              type="button"
               onClick={() => setActiveTab('overview')}
-              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
                 activeTab === 'overview'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-600/25'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              <BarChart3 size={16} />
-              <span>Executive Briefing</span>
+              <span
+                className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                  activeTab === 'overview'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-sky-500/15 text-sky-300'
+                }`}
+              >
+                <BarChart3 size={15} />
+              </span>
+              <span>Overview</span>
             </button>
 
+            {/* Finance Sub-Menu */}
+            {(() => {
+              const isOpen = expandedGroups.finance;
+              const hasActiveChild = TAB_TO_GROUP[activeTab] === 'finance';
+              return (
+                <div className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => toggleMenuGroup('finance')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+                      hasActiveChild
+                        ? 'bg-slate-800/90 text-white border border-emerald-500/30'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-7 h-7 rounded-xl bg-emerald-500/15 text-emerald-300 flex items-center justify-center shrink-0">
+                        <DollarSign size={15} />
+                      </span>
+                      <span>Finance</span>
+                    </div>
+                    <ChevronDown
+                      size={14}
+                      className={`text-slate-400 transition-transform duration-200 ${
+                        isOpen ? 'rotate-180 text-emerald-300' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {isOpen && (
+                    <div className="ml-5 pl-2.5 border-l border-slate-700/80 space-y-1 py-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('hishab')}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          activeTab === 'hishab'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <DollarSign size={13} />
+                          <span>Hishab</span>
+                        </span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-300" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('invest')}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          activeTab === 'invest'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Landmark size={13} />
+                          <span>Invest</span>
+                        </span>
+                        {investments.length > 0 && (
+                          <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-slate-800 text-slate-300 font-mono">
+                            {investments.length}
+                          </span>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('notes')}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          activeTab === 'notes'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <StickyNote size={13} />
+                          <span>Expenses &amp; Notes</span>
+                        </span>
+                        {companyNotes.length > 0 && (
+                          <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-slate-800 text-slate-300 font-mono">
+                            {companyNotes.length}
+                          </span>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('sales')}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          activeTab === 'sales'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Stethoscope size={13} />
+                          <span>Doctor Sales</span>
+                        </span>
+                        {salesRecords.length > 0 && (
+                          <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-slate-800 text-slate-300 font-mono">
+                            {salesRecords.length}
+                          </span>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('custom-excel')}
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          activeTab === 'custom-excel'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                        }`}
+                      >
+                        <FileSpreadsheet size={13} />
+                        <span>Excel Studio</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Inventory Sub-Menu */}
+            {(() => {
+              const isOpen = expandedGroups.inventory;
+              const hasActiveChild = TAB_TO_GROUP[activeTab] === 'inventory';
+              const pendingStockReqCount = stockRequests.filter((r) => r.status === 'pending').length;
+              return (
+                <div className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => toggleMenuGroup('inventory')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+                      hasActiveChild
+                        ? 'bg-slate-800/90 text-white border border-teal-500/30'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-7 h-7 rounded-xl bg-teal-500/15 text-teal-300 flex items-center justify-center shrink-0">
+                        <Package size={15} />
+                      </span>
+                      <span>Inventory</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {pendingStockReqCount > 0 && (
+                        <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-amber-500/20 text-amber-300 font-extrabold tabular-nums">
+                          {pendingStockReqCount}
+                        </span>
+                      )}
+                      <ChevronDown
+                        size={14}
+                        className={`text-slate-400 transition-transform duration-200 ${
+                          isOpen ? 'rotate-180 text-teal-300' : ''
+                        }`}
+                      />
+                    </div>
+                  </button>
+
+                  {isOpen && (
+                    <div className="ml-5 pl-2.5 border-l border-slate-700/80 space-y-1 py-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('stock')}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          activeTab === 'stock'
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Package size={13} />
+                          <span>Stock</span>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          {pendingStockReqCount > 0 && (
+                            <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-amber-500/25 text-amber-200 font-extrabold">
+                              {pendingStockReqCount} req
+                            </span>
+                          )}
+                          <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-slate-800 text-slate-300 font-mono">
+                            {stockItems.length}
+                          </span>
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('assets')}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          activeTab === 'assets'
+                            ? 'bg-teal-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Building2 size={13} />
+                          <span>Company Assets</span>
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-slate-800 text-slate-300 font-mono">
+                          {assetItems.length}
+                        </span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Employee Sub-Menu (Daily Reports & TA/DA) */}
+            {(() => {
+              const isOpen = expandedGroups.employee;
+              const hasActiveChild = TAB_TO_GROUP[activeTab] === 'employee';
+              const pendingTaDaCount = tadaClaims.filter((c) => c.status === 'submitted').length;
+              return (
+                <div className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => toggleMenuGroup('employee')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+                      hasActiveChild
+                        ? 'bg-slate-800/90 text-white border border-indigo-500/30'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-7 h-7 rounded-xl bg-indigo-500/15 text-indigo-300 flex items-center justify-center shrink-0">
+                        <Users size={15} />
+                      </span>
+                      <span>Employee</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {pendingTaDaCount > 0 && (
+                        <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-amber-500/20 text-amber-300 font-extrabold tabular-nums">
+                          {pendingTaDaCount}
+                        </span>
+                      )}
+                      <ChevronDown
+                        size={14}
+                        className={`text-slate-400 transition-transform duration-200 ${
+                          isOpen ? 'rotate-180 text-indigo-300' : ''
+                        }`}
+                      />
+                    </div>
+                  </button>
+
+                  {isOpen && (
+                    <div className="ml-5 pl-2.5 border-l border-slate-700/80 space-y-1 py-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('reports')}
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          activeTab === 'reports'
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                        }`}
+                      >
+                        <FileText size={13} />
+                        <span>Daily Reports</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('tada')}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          activeTab === 'tada'
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Receipt size={13} />
+                          <span>TA/DA</span>
+                        </span>
+                        {pendingTaDaCount > 0 && (
+                          <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-amber-500/20 text-amber-300 font-extrabold tabular-nums">
+                            {pendingTaDaCount}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Draft */}
             <button
-              onClick={() => setActiveTab('hishab')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'hishab'
-                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+              type="button"
+              onClick={() => setActiveTab('drafts')}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'drafts'
+                  ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-600/25'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <DollarSign size={16} />
-                <span>Financial &amp; Budget Hishab</span>
+              <div className="flex items-center gap-2.5">
+                <span
+                  className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                    activeTab === 'drafts'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-violet-500/15 text-violet-300'
+                  }`}
+                >
+                  <FolderHeart size={15} />
+                </span>
+                <span>Draft</span>
               </div>
-              <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-300 font-mono font-bold">
-                ৳ Live
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-violet-500/20 text-violet-200 font-mono font-bold">
+                {companyDrafts.length}
               </span>
             </button>
 
-            <button
-              onClick={() => setActiveTab('sales')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'sales'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Stethoscope size={16} />
-                <span>Doctor &amp; Center Sales</span>
-              </div>
-              <span className="px-1.5 py-0.5 rounded text-[9px] bg-blue-500/20 text-blue-300 font-mono font-bold">
-                {salesRecords.length}
-              </span>
-            </button>
+            {/* Management Sub-Menu */}
+            {(() => {
+              const isOpen = expandedGroups.management;
+              const hasActiveChild = TAB_TO_GROUP[activeTab] === 'management';
+              const unreadAlerts =
+                missingReportEmployees.length +
+                execNotifications.filter(
+                  (n) => !n.read_by.includes(`exec_${execAccount?.id || 'default'}`)
+                ).length;
+              return (
+                <div className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => toggleMenuGroup('management')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+                      hasActiveChild
+                        ? 'bg-slate-800/90 text-white border border-rose-500/30'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-7 h-7 rounded-xl bg-rose-500/15 text-rose-300 flex items-center justify-center shrink-0">
+                        <Crown size={15} />
+                      </span>
+                      <span>Management</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {unreadAlerts > 0 && (
+                        <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-rose-500/20 text-rose-300 font-extrabold tabular-nums">
+                          {unreadAlerts}
+                        </span>
+                      )}
+                      <ChevronDown
+                        size={14}
+                        className={`text-slate-400 transition-transform duration-200 ${
+                          isOpen ? 'rotate-180 text-rose-300' : ''
+                        }`}
+                      />
+                    </div>
+                  </button>
 
-            <button
-              onClick={() => setActiveTab('custom-excel')}
-              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'custom-excel'
-                  ? 'bg-teal-600 text-white shadow-md shadow-teal-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
-              <FileSpreadsheet size={16} />
-              <span>Custom Excel Studio</span>
-            </button>
+                  {isOpen && (
+                    <div className="ml-5 pl-2.5 border-l border-slate-700/80 space-y-1 py-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('decisions')}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          activeTab === 'decisions'
+                            ? 'bg-rose-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Crown size={13} />
+                          <span>Decisions</span>
+                        </span>
+                        {pendingDecisions.length > 0 && (
+                          <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-amber-500/20 text-amber-300 font-extrabold">
+                            {pendingDecisions.length}
+                          </span>
+                        )}
+                      </button>
 
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('analytics')}
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          activeTab === 'analytics'
+                            ? 'bg-rose-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                        }`}
+                      >
+                        <TrendingUp size={13} />
+                        <span>Analytics</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('alerts')}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          activeTab === 'alerts'
+                            ? 'bg-rose-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Bell size={13} />
+                          <span>Alerts</span>
+                        </span>
+                        {unreadAlerts > 0 && (
+                          <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-rose-500/20 text-rose-300 font-extrabold">
+                            {unreadAlerts}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* User Manual */}
             <button
+              type="button"
               onClick={() => setActiveTab('manual')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
                 activeTab === 'manual'
-                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30 font-black'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/25 font-black'
                   : 'text-amber-300/90 hover:text-amber-200 hover:bg-amber-500/10'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <BookOpen size={16} />
-                <span>ব্যবহার বিধি (User Manual)</span>
+              <div className="flex items-center gap-2.5">
+                <span
+                  className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                    activeTab === 'manual'
+                      ? 'bg-slate-950/15 text-slate-950'
+                      : 'bg-amber-500/15 text-amber-300'
+                  }`}
+                >
+                  <BookOpen size={15} />
+                </span>
+                <span>User Manual</span>
               </div>
-              <span className="px-1.5 py-0.5 rounded text-[9px] bg-amber-400/20 text-amber-300 font-bold">
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-amber-400/20 text-amber-300 font-bold">
                 বাংলা
               </span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('reports')}
-              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'reports'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
-              <FileText size={16} />
-              <span>Employee Daily Reports</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('tada')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'tada'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Receipt size={16} />
-                <span>Employee TA/DA Claims</span>
-              </div>
-              {tadaClaims.filter((c) => c.status === 'submitted').length > 0 && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-300 font-extrabold tabular-nums">
-                  {tadaClaims.filter((c) => c.status === 'submitted').length}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setActiveTab('notes')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'notes'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <StickyNote size={16} />
-                <span>Company Notes &amp; Expenses</span>
-              </div>
-              {companyNotes.length > 0 && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-700 text-slate-300 font-semibold">
-                  {companyNotes.length}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setActiveTab('decisions')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'decisions'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Crown size={16} />
-                <span>Management Decisions</span>
-              </div>
-              {pendingDecisions.length > 0 && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-300 font-extrabold">
-                  {pendingDecisions.length}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setActiveTab('analytics')}
-              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'analytics'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
-              <TrendingUp size={16} />
-              <span>Reports &amp; Analytics</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('alerts')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'alerts'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Bell size={16} />
-                <span>Alert Center</span>
-              </div>
-              {(missingReportEmployees.length > 0 ||
-                execNotifications.some(
-                  (n) => !n.read_by.includes(`exec_${execAccount?.id || 'default'}`)
-                )) && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] bg-rose-500/20 text-rose-300 font-extrabold">
-                  {missingReportEmployees.length +
-                    execNotifications.filter(
-                      (n) => !n.read_by.includes(`exec_${execAccount?.id || 'default'}`)
-                    ).length}{' '}
-                  Alert
-                </span>
-              )}
             </button>
           </nav>
         </div>
@@ -1091,7 +1777,11 @@ export const ExecutivePortal: React.FC = () => {
                 onNavigate={(linkTab) => {
                   const validTabs: TabView[] = [
                     'overview',
+                    'stock',
+                    'assets',
+                    'drafts',
                     'hishab',
+                    'invest',
                     'sales',
                     'custom-excel',
                     'manual',
@@ -1244,12 +1934,12 @@ export const ExecutivePortal: React.FC = () => {
                   <div className="text-2xl font-black font-mono tabular-nums text-slate-900">
                     ৳
                     {companyNotes
-                      .filter(isCompanyOpsNote)
-                      .reduce((acc, n) => acc + getCompanyNoteAmount(n), 0)
+                      .filter((n) => n.category === 'expense')
+                      .reduce((acc, n) => acc + (Number(n.amount) || 0), 0)
                       .toLocaleString()}
                   </div>
                   <div className="text-[11px] text-slate-500">
-                    {companyNotes.filter(isCompanyOpsNote).length} Operational Expense Entries
+                    {companyNotes.filter((n) => n.category === 'expense').length} Operational Expense Directives
                   </div>
                 </div>
 
@@ -1268,8 +1958,8 @@ export const ExecutivePortal: React.FC = () => {
                         .filter((c) => c.status !== 'rejected' && c.status !== 'draft')
                         .reduce((acc, c) => acc + getTaDaTotal(c), 0) +
                       companyNotes
-                        .filter(isCompanyOpsNote)
-                        .reduce((acc, n) => acc + getCompanyNoteAmount(n), 0)
+                        .filter((n) => n.category === 'expense')
+                        .reduce((acc, n) => acc + (Number(n.amount) || 0), 0)
                     ).toLocaleString()}
                   </div>
                   <div className="text-[11px] text-emerald-300 flex items-center justify-between">
@@ -1445,7 +2135,61 @@ export const ExecutivePortal: React.FC = () => {
               onReviewTaDa={handleReviewTaDaClaim}
               onToggleTaDaPayment={handleToggleClaimPayment}
               onAddExpenseNote={handleAddQuickExpenseNote}
-              onDeleteExpenseNote={handleDeleteNote}
+            />
+          )}
+
+          {/* TAB: INVEST & MD CAPITAL */}
+          {activeTab === 'invest' && (
+            <CompanyInvestmentsSection
+              investments={investments}
+              executiveAccounts={executiveAccountsList}
+              onCreateInvestment={handleCreateInvestment}
+              onUpdateInvestment={handleUpdateInvestment}
+              onDeleteInvestment={handleDeleteInvestment}
+            />
+          )}
+
+          {/* TAB: STOCK & INVENTORY */}
+          {activeTab === 'stock' && (
+            <StockManagementSection
+              stockItems={stockItems}
+              stockSegments={stockSegments}
+              stockRequests={stockRequests}
+              onApproveStockRequest={handleApproveStockRequest}
+              onRejectStockRequest={handleRejectStockRequest}
+              onAddSegment={handleAddStockSegment}
+              onDeleteSegment={handleDeleteStockSegment}
+              onClearEmptySegments={handleClearEmptySegments}
+              onCreateStock={handleCreateStock}
+              onRestockItem={handleRestockItem}
+              onUpdateStock={handleUpdateStock}
+              onDeleteStock={handleDeleteStock}
+            />
+          )}
+
+          {/* TAB: COMPANY ASSETS (Standalone Value Register) */}
+          {activeTab === 'assets' && (
+            <CompanyAssetsSection
+              assetItems={assetItems}
+              assetSegments={assetSegments}
+              onAddSegment={handleAddAssetSegment}
+              onDeleteSegment={handleDeleteAssetSegment}
+              onClearEmptySegments={handleClearEmptyAssetSegments}
+              onCreateAsset={handleCreateAsset}
+              onUpdateAsset={handleUpdateAsset}
+              onDeleteAsset={handleDeleteAsset}
+            />
+          )}
+
+          {/* TAB: DRAFT & FILE BOX */}
+          {activeTab === 'drafts' && (
+            <CompanyDraftsSection
+              drafts={companyDrafts}
+              userName={execAccount?.full_name || 'Executive Desk'}
+              onCreateDraft={handleCreateDraft}
+              onUpdateDraft={handleUpdateDraft}
+              onTogglePin={handleTogglePinDraft}
+              onDeleteDraft={handleDeleteDraft}
             />
           )}
 
@@ -2069,9 +2813,9 @@ export const ExecutivePortal: React.FC = () => {
                 </div>
 
                 <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1">
-                  <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Company Ops Expenses Logged</span>
+                  <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Expense Notes Logged</span>
                   <div className="text-2xl font-black font-mono text-amber-600">
-                    ৳{companyNotes.filter(isCompanyOpsNote).reduce((acc, n) => acc + getCompanyNoteAmount(n), 0).toLocaleString()}
+                    ৳{companyNotes.filter((n) => n.category === 'expense').reduce((acc, n) => acc + (n.amount || 0), 0).toLocaleString()}
                   </div>
                 </div>
 
@@ -2213,8 +2957,8 @@ export const ExecutivePortal: React.FC = () => {
               .filter((c) => c.payment_status === 'paid')
               .reduce((acc, c) => acc + getTaDaTotal(c), 0);
             const totalOpsExpenses = companyNotes
-              .filter(isCompanyOpsNote)
-              .reduce((acc, n) => acc + getCompanyNoteAmount(n), 0);
+              .filter((n) => n.category === 'expense')
+              .reduce((acc, n) => acc + (Number(n.amount) || 0), 0);
             const grandOutflow = totalTaDaVal + totalOpsExpenses;
             const netCashSurplus = totalCollected - grandOutflow;
             const expenseRatioPct = totalSalesVal > 0 ? ((grandOutflow / totalSalesVal) * 100).toFixed(1) : '0.0';
@@ -2799,7 +3543,7 @@ export const ExecutivePortal: React.FC = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">Category</label>
                     <select
@@ -2808,32 +3552,21 @@ export const ExecutivePortal: React.FC = () => {
                       onChange={(e) => setNewNote({ ...newNote, category: e.target.value as NoteCategory })}
                     >
                       <option value="expense">Expense &amp; Finance</option>
-                      <option value="operational">Operational Note</option>
                       <option value="policy">Company Policy</option>
+                      <option value="operational">Operational Note</option>
                       <option value="urgent">Urgent Matter</option>
                       <option value="general">General Notice</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="font-bold text-slate-700 block mb-1">Amount (BDT)</label>
+                    <label className="font-bold text-slate-700 block mb-1">Amount / Budget (BDT, Optional)</label>
                     <input
                       type="number"
-                      min="0"
                       placeholder="e.g. 50000"
                       className="w-full p-2.5 border border-slate-300 rounded-xl text-xs text-slate-900 font-mono outline-none focus:border-blue-600"
                       value={newNote.amount}
                       onChange={(e) => setNewNote({ ...newNote, amount: e.target.value })}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="font-bold text-slate-700 block mb-1">Date</label>
-                    <input
-                      type="date"
-                      className="w-full p-2.5 border border-slate-300 rounded-xl text-xs text-slate-900 font-mono outline-none focus:border-blue-600"
-                      value={newNote.date}
-                      onChange={(e) => setNewNote({ ...newNote, date: e.target.value })}
                     />
                   </div>
                 </div>

@@ -27,6 +27,7 @@ import {
   Sparkles,
   Briefcase,
   Receipt,
+  Package,
 } from 'lucide-react';
 import {
   Employee,
@@ -56,6 +57,7 @@ import { AssignedDutiesSection } from './AssignedDutiesSection';
 import { EmployeeProfileSection } from './EmployeeProfileSection';
 import { DailyWorkReportSection } from './DailyWorkReportSection';
 import { TaDaExpenseSection } from './TaDaExpenseSection';
+import { EmployeeStockSection } from './EmployeeStockSection';
 import { NotificationCenter } from '../../components/common/NotificationCenter';
 import { PWAInstallButton } from '../../components/common/PWAInstallButton';
 
@@ -65,7 +67,7 @@ export const EmployeePortal: React.FC = () => {
   const [workspace, setWorkspace] = useState<EmployeeWorkspaceData | null>(null);
   const [assignedDuties, setAssignedDuties] = useState<AssignedDuty[]>([]);
   const [myProfileRequests, setMyProfileRequests] = useState<ProfileUpdateRequest[]>([]);
-  const [portalView, setPortalView] = useState<'workspace' | 'reports' | 'tada' | 'profile'>('workspace');
+  const [portalView, setPortalView] = useState<'workspace' | 'reports' | 'tada' | 'stock' | 'profile'>('workspace');
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -357,6 +359,7 @@ export const EmployeePortal: React.FC = () => {
             onNavigate={(linkTab) => {
               if (linkTab === 'tada') setPortalView('tada');
               else if (linkTab === 'reports') setPortalView('reports');
+              else if (linkTab === 'stock') setPortalView('stock');
               else if (linkTab === 'profile') setPortalView('profile');
               else setPortalView('workspace');
             }}
@@ -462,6 +465,19 @@ export const EmployeePortal: React.FC = () => {
                   >
                     <Receipt size={14} className="text-blue-400" />
                     <span>TA/DA &amp; Expense Claims</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setProfileMenuOpen(false);
+                      setPortalView('stock');
+                    }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors cursor-pointer text-left font-medium ${
+                      portalView === 'stock' ? 'bg-blue-600/20 text-white' : 'text-slate-300 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <Package size={14} className="text-blue-400" />
+                    <span>Stock &amp; Pcs Request</span>
                   </button>
 
                   <button
@@ -649,6 +665,18 @@ export const EmployeePortal: React.FC = () => {
           </button>
 
           <button
+            onClick={() => setPortalView('stock')}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+              portalView === 'stock'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25'
+                : 'bg-[#0e1422] text-slate-400 hover:text-white border border-[#1c2638]'
+            }`}
+          >
+            <Package size={15} />
+            <span>Stock &amp; Request</span>
+          </button>
+
+          <button
             onClick={() => setPortalView('profile')}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
               portalView === 'profile'
@@ -677,6 +705,8 @@ export const EmployeePortal: React.FC = () => {
           <DailyWorkReportSection employee={employee} onToast={triggerToast} />
         ) : portalView === 'tada' ? (
           <TaDaExpenseSection employee={employee} onToast={triggerToast} />
+        ) : portalView === 'stock' ? (
+          <EmployeeStockSection employee={employee} onToast={triggerToast} />
         ) : (
           <div className="space-y-8">
             {/* Phase 04 Admin Assigned Duties Section */}

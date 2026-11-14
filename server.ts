@@ -1,7 +1,7 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import webpush from "web-push";
+import * as webpush from "web-push";
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL =

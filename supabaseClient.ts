@@ -270,3 +270,17 @@ export const performSignOut = async () => {
     window.location.href = '/';
   }
 };
+
+/**
+ * Isolated Supabase client with persistSession: false.
+ * Used for admin creating new employee accounts so the Admin's own
+ * active session and localStorage tokens are never overwritten.
+ */
+export const isolatedAuthClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
+  },
+});
+

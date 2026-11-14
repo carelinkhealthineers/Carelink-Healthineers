@@ -516,7 +516,6 @@ export const CustomExcelPortalSection: React.FC<CustomExcelPortalSectionProps> =
       const netMargin = paidTotal - allExpenses;
 
       raw = [
-        { id: 'h-budget', metric: 'Monthly Budget Allocated', category: 'Target', amount_bdt: monthlyBudget, status_notes: 'Board Approved' },
         { id: 'h-sales', metric: 'Total Equipment Sales Revenue', category: 'Inflow', amount_bdt: salesTotal, status_notes: `${salesRecords.length} Orders` },
         { id: 'h-paid', metric: 'Cash Collections Received', category: 'Inflow', amount_bdt: paidTotal, status_notes: 'Bank Cleared' },
         { id: 'h-due', metric: 'Hospital / Doctor Due Receivables', category: 'Receivable', amount_bdt: dueTotal, status_notes: 'Pending Collection' },
@@ -526,7 +525,7 @@ export const CustomExcelPortalSection: React.FC<CustomExcelPortalSectionProps> =
         { id: 'h-tada-tr', metric: '  - Local Transportation', category: 'Sub-Expense', amount_bdt: tadaTransport, status_notes: 'Rickshaw / CNG / Taxi' },
         { id: 'h-tada-fh', metric: '  - Hotel & Fooding Expense', category: 'Sub-Expense', amount_bdt: tadaFoodHotel, status_notes: 'Accommodation & Meals' },
         { id: 'h-ops', metric: 'Company Operational Notes Expenses', category: 'Outflow (Ops)', amount_bdt: notesExpenseTotal, status_notes: `${expenseNotes.length} Office / Logistics Items` },
-        { id: 'h-total', metric: 'ALL TOTAL EXPENSES', category: 'Grand Outflow', amount_bdt: allExpenses, status_notes: `${monthlyBudget > 0 ? Math.round((allExpenses / monthlyBudget) * 100) : 0}% of Budget` },
+        { id: 'h-total', metric: 'ALL TOTAL EXPENSES', category: 'Grand Outflow', amount_bdt: allExpenses, status_notes: 'TA/DA + Company Ops Combined' },
         { id: 'h-net', metric: 'NET CASH BALANCE (HISHAB)', category: 'Surplus', amount_bdt: netMargin, status_notes: netMargin >= 0 ? 'Positive Operating Cash' : 'Deficit' },
       ];
     }
