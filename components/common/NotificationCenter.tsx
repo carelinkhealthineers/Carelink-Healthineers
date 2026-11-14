@@ -22,6 +22,8 @@ import {
   Building2,
   FolderHeart,
   Landmark,
+  Smartphone,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   AppNotification,
@@ -38,6 +40,11 @@ import {
   markNotificationRead,
   NotificationViewerRole,
   subscribeToNotifications,
+  showPhoneBarNotification,
+  enablePhonePushNotifications,
+  disablePhonePushNotifications,
+  getDevicePushStatus,
+  sendTestPhonePush,
 } from '../../services/notificationService';
 
 interface NotificationCenterProps {
@@ -107,6 +114,11 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const [compPriority, setCompPriority] = useState<NotificationPriority>('high');
   const [isSending, setIsSending] = useState(false);
 
+  // Phone Notification state
+  const [phonePushActive, setPhonePushActive] = useState<boolean>(false);
+  const [showPhoneModal, setShowPhoneModal] = useState<boolean>(false);
+  const [testingPhonePush, setTestingPhonePush] = useState<boolean>(false);
+
   const [browserAlertsEnabled, setBrowserAlertsEnabled] = useState<boolean>(() => {
     try {
       return (
@@ -119,6 +131,12 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       return false;
     }
   });
+
+  useEffect(() => {
+    getDevicePushStatus().then((status) => {
+      setPhonePushActive(status.subscribed);
+    });
+  }, []);
 
   const panelRef = useRef<HTMLDivElement>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
@@ -140,23 +158,12 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
           brandNew.forEach((n) => seenIdsRef.current.add(n.id));
           setLiveToasts((prev) => [...brandNew.slice(0, 3), ...prev].slice(0, 4));
 
-          if (
-            browserAlertsEnabled &&
-            typeof window !== 'undefined' &&
-            'Notification' in window &&
-            window.Notification.permission === 'granted'
-          ) {
-            brandNew.slice(0, 2).forEach((n) => {
-              try {
-                new window.Notification(`Carelink: ${n.title}`, {
-                  body: n.message,
-                  tag: n.id,
-                });
-              } catch {
-                // ignore desktop notification failure
-              }
+          brandNew.slice(0, 2).forEach((n) => {
+            showPhoneBarNotification(`Carelink: ${n.title}`, n.message, {
+              tag: n.id,
+              priority: n.priority,
             });
-          }
+          });
 
           window.setTimeout(() => {
             const idsToDrop = new Set(brandNew.map((b) => b.id));
@@ -169,7 +176,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [viewerRole, employeeId, viewerId, browserAlertsEnabled]);
+  }, [viewerRole, employeeId, viewerId]);
 
   useEffect(() => {
     initialLoadedRef.current = false;
@@ -209,24 +216,28 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     });
   }, [notifications, onlyUnread, categoryFilter, viewerId]);
 
-  const handleToggleBrowserAlerts = async () => {
-    if (typeof window === 'undefined' || !('Notification' in window)) return;
-    if (browserAlertsEnabled) {
-      localStorage.setItem('carelink_desktop_alerts', 'off');
-      setBrowserAlertsEnabled(false);
-      return;
-    }
-    try {
-      const perm =
-        window.Notification.permission === 'granted'
-          ? 'granted'
-          : await window.Notification.requestPermission();
-      if (perm === 'granted') {
-        localStorage.setItem('carelink_desktop_alerts', 'on');
-        setBrowserAlertsEnabled(true);
+  const handleTogglePhonePush = async () => {
+    if (phonePushActive) {
+      await disablePhonePushNotifications();
+      setPhonePushActive(false);
+    } else {
+      const res = await enablePhonePushNotifications(viewerRole, viewerId, employeeId);
+      if (res.ok) {
+        setPhonePushActive(true);
+        setShowPhoneModal(false);
+        await sendTestPhonePush(viewerId, actorName);
+      } else {
+        alert(res.error || 'Failed to enable phone notifications.');
       }
-    } catch {
-      // ignore unsupported contexts
+    }
+  };
+
+  const handleSendTestAlert = async () => {
+    setTestingPhonePush(true);
+    try {
+      await sendTestPhonePush(viewerId, actorName);
+    } finally {
+      setTestingPhonePush(false);
     }
   };
 
@@ -329,7 +340,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
         {isOpen && (
           <div
-            className={`fixed sm:absolute right-3 sm:right-0 left-3 sm:left-auto top-16 sm:top-12 w-auto sm:w-[430px] max-h-[82vh] flex flex-col rounded-2xl border shadow-2xl z-50 overflow-hidden ${
+            className={`fixed sm:absolute right-3 sm:right-0 left-3 sm:left-auto top-16 sm:top-12 w-auto sm:w-[450px] max-h-[85vh] flex flex-col rounded-2xl border shadow-2xl z-50 overflow-hidden ${
               isDark
                 ? 'bg-[#0d121d] border-[#232f45] text-slate-100'
                 : 'bg-white border-slate-200 text-slate-900'
@@ -355,28 +366,23 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               </div>
 
               <div className="flex items-center gap-1.5 shrink-0">
-                {typeof window !== 'undefined' && 'Notification' in window && (
-                  <button
-                    type="button"
-                    onClick={handleToggleBrowserAlerts}
-                    title={
-                      browserAlertsEnabled
-                        ? 'Desktop notifications enabled (click to disable)'
-                        : 'Enable desktop browser notifications'
-                    }
-                    className={`p-1.5 rounded-lg border text-xs cursor-pointer transition-colors ${
-                      browserAlertsEnabled
-                        ? isDark
-                          ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
-                          : 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                        : isDark
-                        ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
-                        : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    {browserAlertsEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setShowPhoneModal((v) => !v)}
+                  title="Phone Notification Settings & Test"
+                  className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+                    phonePushActive
+                      ? isDark
+                        ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                        : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                      : isDark
+                      ? 'bg-blue-600/20 border-blue-500/30 text-blue-300'
+                      : 'bg-blue-50 border-blue-200 text-blue-700'
+                  }`}
+                >
+                  <Smartphone size={13} />
+                  <span>{phonePushActive ? 'Phone Alerts ON' : 'Phone Alerts'}</span>
+                </button>
 
                 {(viewerRole === 'admin' || viewerRole === 'executive') && (
                   <button
@@ -406,6 +412,72 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 </button>
               </div>
             </div>
+
+            {/* Phone Notifications Control Banner */}
+            {(showPhoneModal || !phonePushActive) && (
+              <div
+                className={`p-4 border-b space-y-3 text-xs ${
+                  isDark ? 'bg-blue-950/30 border-blue-500/20' : 'bg-blue-50/70 border-blue-200'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+                      <Smartphone size={16} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm tracking-tight">
+                        📱 Phone Notification Bar (মোবাইল নোটিফিকেশন)
+                      </h4>
+                      <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                        Get all system alerts, stock requests & approvals, TA/DA claims, daily work reports, and urgent executive directives directly over your phone screen with vibration & sound.
+                      </p>
+                    </div>
+                  </div>
+                  {showPhoneModal && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPhoneModal(false)}
+                      className="text-slate-400 hover:text-white cursor-pointer"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleTogglePhonePush}
+                    className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md ${
+                      phonePushActive
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    }`}
+                  >
+                    <ShieldCheck size={14} />
+                    <span>{phonePushActive ? 'Phone Alerts Active (Click to Disable)' : 'Turn On Phone Notifications'}</span>
+                  </button>
+
+                  {phonePushActive && (
+                    <button
+                      type="button"
+                      onClick={handleSendTestAlert}
+                      disabled={testingPhonePush}
+                      className={`py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer border ${
+                        isDark
+                          ? 'bg-white/5 hover:bg-white/10 border-white/15 text-slate-200'
+                          : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-800'
+                      }`}
+                      title="Send test notification to phone bar"
+                    >
+                      <Send size={13} className="text-blue-500" />
+                      <span>{testingPhonePush ? 'Sending...' : 'Test Alert'}</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Admin / Executive Broadcast Composer */}
             {showComposer && (viewerRole === 'admin' || viewerRole === 'executive') && (

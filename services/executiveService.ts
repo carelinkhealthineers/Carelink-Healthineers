@@ -58,6 +58,20 @@ async function getStoredItem<T>(key: string, fallback: T): Promise<T> {
   }
 }
 
+const STOCK_SYNC_CHANNEL = 'carelink_stock_sync';
+
+function broadcastStockSync() {
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const ch = new BroadcastChannel(STOCK_SYNC_CHANNEL);
+      ch.postMessage({ type: 'stock_updated', ts: Date.now() });
+      ch.close();
+    }
+  } catch {
+    // ignore BroadcastChannel failures
+  }
+}
+
 // Helper to save to Supabase settings
 async function setStoredItem<T>(key: string, value: T): Promise<void> {
   const serialized = JSON.stringify(value);
@@ -73,6 +87,9 @@ async function setStoredItem<T>(key: string, value: T): Promise<void> {
   if (error) {
     console.warn(`Error persisting ${key} to Supabase settings:`, error);
     throw new Error(`Failed to save ${key}: ${error.message}`);
+  }
+  if (key === 'company_stock_items' || key === 'company_stock_requests' || key === 'company_stock_segments') {
+    broadcastStockSync();
   }
 }
 
@@ -1451,4 +1468,131 @@ export async function rejectStockRequest(
 
   return updatedRequest;
 }
+
+/**
+ * Real-time + BroadcastChannel + fallback polling subscription for
+ * stock catalog and stock pcs request updates between Employee & Executive portals.
+ */
+export function subscribeToStockSync(onChange: () => void): () => void {
+  const channel = supabase
+    .channel(`stock-sync-${Math.random().toString(36).slice(2, 8)}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'settings',
+        filter: `key=eq.${STOCK_REQUESTS_KEY}`,
+      },
+      () => onChange()
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'settings',
+        filter: `key=eq.${STOCK_ITEMS_KEY}`,
+      },
+      () => onChange()
+    )
+    .subscribe();
+
+  let bc: BroadcastChannel | null = null;
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      bc = new BroadcastChannel(STOCK_SYNC_CHANNEL);
+      bc.onmessage = () => onChange();
+    }
+  } catch {
+    bc = null;
+  }
+
+  const pollInterval = window.setInterval(onChange, 6000);
+
+  return () => {
+    window.clearInterval(pollInterval);
+    try {
+      supabase.removeChannel(channel);
+    } catch {
+      // ignore cleanup errors
+    }
+    try {
+      bc?.close();
+    } catch {
+      // ignore cleanup errors
+    }
+  };
+}
+
+export async function employeeCreateStockItem(
+  input: CreateStockItemInput,
+  employee: Employee
+): Promise<{ item: StockItem; expenseNote: CompanyNote | null }> {
+  const existing = await fetchStockItems();
+  const qty = Math.max(0, Number(input.quantity) || 0);
+  const unitPrice = Math.max(0, Number(input.buying_price) || 0);
+  const totalCost = Math.round(qty * unitPrice);
+  const unitLabel = (input.unit_label || 'pcs').trim() || 'pcs';
+  const purchaseDate = input.purchase_date || new Date().toISOString().split('T')[0];
+  const shouldAddExpense = input.add_to_expense !== false && totalCost > 0;
+
+  let expenseNote: CompanyNote | null = null;
+  if (shouldAddExpense) {
+    const detailsParts = [
+      `Field purchase by staff: ${qty} ${unitLabel} × Tk ${unitPrice.toLocaleString()}`,
+      input.sku_or_model ? `Model/SKU: ${input.sku_or_model.trim()}` : '',
+      input.supplier_name ? `Supplier: ${input.supplier_name.trim()}` : '',
+      input.notes ? `Notes: ${input.notes.trim()}` : '',
+    ].filter(Boolean);
+
+    expenseNote = await createCompanyNote({
+      author_id: employee.id,
+      author_name: employee.full_name,
+      author_role: employee.designation || 'Technical Staff',
+      title: `Field Stock Purchase: ${input.name.trim()} (${qty} ${unitLabel})`,
+      content: detailsParts.join(' · '),
+      category: 'expense',
+      amount: totalCost,
+      date: purchaseDate,
+    });
+  }
+
+  const nowIso = new Date().toISOString();
+  const newItem: StockItem = {
+    id: `stk-${Date.now()}`,
+    name: input.name.trim(),
+    sku_or_model: input.sku_or_model?.trim() || '',
+    category: input.category?.trim() || 'Field Electronics',
+    quantity: qty,
+    unit_label: unitLabel,
+    buying_price: unitPrice,
+    total_expense_logged: expenseNote ? totalCost : 0,
+    purchase_date: purchaseDate,
+    supplier_name: input.supplier_name?.trim() || '',
+    picture_url: input.picture_url || '',
+    notes: input.notes?.trim() || '',
+    linked_expense_note_ids: expenseNote ? [expenseNote.id] : [],
+    created_by: `${employee.full_name} (${employee.employee_id})`,
+    created_at: nowIso,
+    updated_at: nowIso,
+  };
+
+  const updated = [newItem, ...existing];
+  await setStoredItem(STOCK_ITEMS_KEY, updated);
+
+  await emitNotification({
+    title: `Field Stock Purchased: ${newItem.name} (${qty} ${unitLabel})`,
+    message: `${employee.full_name} (${employee.employee_id}) purchased ${qty} ${unitLabel} of ${newItem.name} at Tk ${unitPrice.toLocaleString()} each (Total: Tk ${totalCost.toLocaleString()}). Added to stock & expenses.`,
+    category: 'stock',
+    priority: 'high',
+    audiences: ['executive', 'admin'],
+    actor_name: employee.full_name,
+    actor_role: employee.designation || 'Staff',
+    link_tab: 'stock',
+  });
+
+  return { item: newItem, expenseNote };
+}
+
 

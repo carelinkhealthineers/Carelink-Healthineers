@@ -822,24 +822,22 @@ export const StockManagementSection: React.FC<StockManagementSectionProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            {stockRequests.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setShowRequestsPanel((v) => !v)}
-                className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-all border ${
-                  pendingRequests.length > 0
-                    ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border-amber-400/40'
-                    : showRequestsPanel
-                    ? 'bg-white/20 text-white border-white/30'
-                    : 'bg-white/10 hover:bg-white/15 text-slate-200 border-white/15'
-                }`}
-              >
-                <ClipboardCheck size={15} />
-                <span>
-                  Requests ({pendingRequests.length > 0 ? `${pendingRequests.length} Pending` : stockRequests.length})
-                </span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setShowRequestsPanel((v) => !v)}
+              className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-all border ${
+                pendingRequests.length > 0
+                  ? 'bg-amber-500/25 hover:bg-amber-500/35 text-amber-200 border-amber-400/50 shadow-sm shadow-amber-500/20'
+                  : showRequestsPanel
+                  ? 'bg-white/20 text-white border-white/30'
+                  : 'bg-white/10 hover:bg-white/15 text-slate-200 border-white/15'
+              }`}
+            >
+              <ClipboardCheck size={15} />
+              <span>
+                Requests ({pendingRequests.length > 0 ? `${pendingRequests.length} Pending` : stockRequests.length})
+              </span>
+            </button>
             {selectedSegment === null && stockItems.length > 0 && (
               <button
                 type="button"
@@ -934,7 +932,7 @@ export const StockManagementSection: React.FC<StockManagementSectionProps> = ({
       </div>
 
       {/* EMPLOYEE STOCK REQUESTS APPROVAL PANEL */}
-      {(pendingRequests.length > 0 || showRequestsPanel) && stockRequests.length > 0 && (
+      {(pendingRequests.length > 0 || showRequestsPanel) && (
         <div className="rounded-3xl bg-white border border-amber-200/90 shadow-sm overflow-hidden">
           <div className="px-5 py-4 bg-gradient-to-r from-amber-50 via-orange-50/60 to-white border-b border-amber-100 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -969,8 +967,13 @@ export const StockManagementSection: React.FC<StockManagementSectionProps> = ({
             )}
           </div>
 
-          <div className="divide-y divide-slate-100">
-            {(showRequestsPanel ? stockRequests : pendingRequests).map((req) => {
+          {stockRequests.length === 0 ? (
+            <div className="p-8 text-center text-xs text-slate-500">
+              No employee stock requests have been submitted yet. When an employee requests pcs from the Employee Portal, it will appear here for your approval.
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {(showRequestsPanel ? stockRequests : pendingRequests).map((req) => {
               const liveItem = stockItems.find((s) => s.id === req.stock_item_id);
               const liveQty = liveItem ? Number(liveItem.quantity) || 0 : 0;
               const insufficient = req.status === 'pending' && liveQty < req.requested_qty;
@@ -1106,7 +1109,8 @@ export const StockManagementSection: React.FC<StockManagementSectionProps> = ({
                 </div>
               );
             })}
-          </div>
+            </div>
+          )}
         </div>
       )}
 

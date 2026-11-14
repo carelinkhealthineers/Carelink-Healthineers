@@ -23,6 +23,8 @@ import {
   fetchStockSegments,
   fetchStockRequestsForEmployee,
   createStockRequest,
+  employeeCreateStockItem,
+  subscribeToStockSync,
 } from '../../services/executiveService';
 
 interface EmployeeStockSectionProps {
@@ -51,6 +53,67 @@ export const EmployeeStockSection: React.FC<EmployeeStockSectionProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
+  // Add Purchased Stock Item Modal State (for employee field purchase like electronics)
+  const [isAddStockOpen, setIsAddStockOpen] = useState(false);
+  const [isAddingStock, setIsAddingStock] = useState(false);
+  const [addStockError, setAddStockError] = useState<string | null>(null);
+  const [addForm, setAddForm] = useState({
+    name: '',
+    category: 'Electronics',
+    quantity: 1,
+    unit_label: 'pcs',
+    buying_price: 0,
+    supplier_name: '',
+    notes: '',
+    add_to_expense: true,
+  });
+
+  const handleEmployeeAddStock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addForm.name.trim()) {
+      setAddStockError('Please enter item name.');
+      return;
+    }
+    const qty = Math.max(1, Number(addForm.quantity) || 1);
+    const price = Math.max(0, Number(addForm.buying_price) || 0);
+
+    setIsAddingStock(true);
+    setAddStockError(null);
+    try {
+      await employeeCreateStockItem(
+        {
+          name: addForm.name.trim(),
+          category: addForm.category.trim() || 'Electronics',
+          quantity: qty,
+          unit_label: addForm.unit_label.trim() || 'pcs',
+          buying_price: price,
+          supplier_name: addForm.supplier_name.trim(),
+          notes: addForm.notes.trim(),
+          add_to_expense: addForm.add_to_expense,
+        },
+        employee
+      );
+
+      setIsAddStockOpen(false);
+      setAddForm({
+        name: '',
+        category: 'Electronics',
+        quantity: 1,
+        unit_label: 'pcs',
+        buying_price: 0,
+        supplier_name: '',
+        notes: '',
+        add_to_expense: true,
+      });
+      onToast(`Added "${addForm.name}" to stock & expense logs successfully.`);
+      await loadData(true);
+    } catch (err: any) {
+      setAddStockError(err?.message || 'Failed to add stock item.');
+    } finally {
+      setIsAddingStock(false);
+    }
+  };
+
   const loadData = useCallback(
     async (silent = false) => {
       if (silent) setRefreshing(true);
@@ -74,6 +137,10 @@ export const EmployeeStockSection: React.FC<EmployeeStockSectionProps> = ({
 
   useEffect(() => {
     loadData(false);
+    const unsub = subscribeToStockSync(() => {
+      loadData(true);
+    });
+    return unsub;
   }, [loadData]);
 
   // Unique segment tabs combining saved segments + item categories
@@ -191,15 +258,26 @@ export const EmployeeStockSection: React.FC<EmployeeStockSectionProps> = ({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => loadData(true)}
-          disabled={refreshing}
-          className="px-4 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-xs font-semibold text-slate-200 flex items-center gap-2 transition-all cursor-pointer self-start md:self-auto"
-        >
-          <RefreshCw size={14} className={refreshing ? 'animate-spin text-blue-400' : 'text-blue-400'} />
-          <span>Refresh Stock</span>
-        </button>
+        <div className="flex items-center gap-2.5 self-start md:self-auto">
+          <button
+            type="button"
+            onClick={() => setIsAddStockOpen(true)}
+            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white flex items-center gap-2 transition-all cursor-pointer shadow-lg shadow-blue-600/20"
+          >
+            <Plus size={14} />
+            <span>Add Purchased Item</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => loadData(true)}
+            disabled={refreshing}
+            className="px-4 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-xs font-semibold text-slate-200 flex items-center gap-2 transition-all cursor-pointer"
+          >
+            <RefreshCw size={14} className={refreshing ? 'animate-spin text-blue-400' : 'text-blue-400'} />
+            <span>Refresh Stock</span>
+          </button>
+        </div>
       </section>
 
       {/* Summary Cards (No prices — quantity & request status only) */}
@@ -648,6 +726,161 @@ export const EmployeeStockSection: React.FC<EmployeeStockSectionProps> = ({
                 >
                   {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                   <span>Send Request</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Add Purchased Stock Item Modal */}
+      {isAddStockOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs"
+          onClick={() => setIsAddStockOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg bg-[#0e1422] border border-[#232f45] rounded-3xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-5 border-b border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-400 flex items-center justify-center">
+                  <Package size={17} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Add Purchased Stock Item</h3>
+                  <p className="text-[11px] text-slate-400">Record field purchases (electronics, parts, tools)</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddStockOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleEmployeeAddStock} className="p-5 space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Item Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Dürr Dental Sensor Cable"
+                    value={addForm.name}
+                    onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
+                    className="w-full px-3 py-2 bg-[#090d14] border border-white/15 focus:border-blue-500 rounded-xl text-white outline-none text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Category / Segment</label>
+                  <select
+                    value={addForm.category}
+                    onChange={(e) => setAddForm({ ...addForm, category: e.target.value })}
+                    className="w-full px-3 py-2 bg-[#090d14] border border-white/15 focus:border-blue-500 rounded-xl text-white outline-none text-xs"
+                  >
+                    <option value="Electronics">Electronics</option>
+                    <option value="Spare Parts">Spare Parts</option>
+                    <option value="Tools">Tools</option>
+                    <option value="Consumables">Consumables</option>
+                    <option value="General Equipment">General Equipment</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Quantity *</label>
+                  <input
+                    type="number"
+                    min={1}
+                    required
+                    value={addForm.quantity}
+                    onChange={(e) => setAddForm({ ...addForm, quantity: parseInt(e.target.value, 10) || 1 })}
+                    className="w-full px-3 py-2 bg-[#090d14] border border-white/15 focus:border-blue-500 rounded-xl text-white outline-none font-mono text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Unit Label</label>
+                  <input
+                    type="text"
+                    value={addForm.unit_label}
+                    onChange={(e) => setAddForm({ ...addForm, unit_label: e.target.value })}
+                    className="w-full px-3 py-2 bg-[#090d14] border border-white/15 focus:border-blue-500 rounded-xl text-white outline-none text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Buying Price (Tk) *</label>
+                  <input
+                    type="number"
+                    min={0}
+                    required
+                    value={addForm.buying_price}
+                    onChange={(e) => setAddForm({ ...addForm, buying_price: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 bg-[#090d14] border border-white/15 focus:border-blue-500 rounded-xl text-white outline-none font-mono text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">Supplier / Store Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. local supplier or market store"
+                  value={addForm.supplier_name}
+                  onChange={(e) => setAddForm({ ...addForm, supplier_name: e.target.value })}
+                  className="w-full px-3 py-2 bg-[#090d14] border border-white/15 focus:border-blue-500 rounded-xl text-white outline-none text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">Notes / Description</label>
+                <textarea
+                  rows={2}
+                  placeholder="e.g. purchased urgently for client site repair"
+                  value={addForm.notes}
+                  onChange={(e) => setAddForm({ ...addForm, notes: e.target.value })}
+                  className="w-full p-2.5 bg-[#090d14] border border-white/15 focus:border-blue-500 rounded-xl text-white outline-none text-xs resize-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="add_to_expense"
+                  checked={addForm.add_to_expense}
+                  onChange={(e) => setAddForm({ ...addForm, add_to_expense: e.target.checked })}
+                  className="w-4 h-4 rounded accent-blue-600"
+                />
+                <label htmlFor="add_to_expense" className="text-xs text-slate-300 cursor-pointer">
+                  Log total cost (Tk {(addForm.quantity * addForm.buying_price).toLocaleString()}) to company expenses automatically
+                </label>
+              </div>
+
+              {addStockError && (
+                <div className="p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[11px] flex items-center gap-2">
+                  <AlertCircle size={14} className="shrink-0" />
+                  <span>{addStockError}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddStockOpen(false)}
+                  className="px-4 py-2.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-slate-300 font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAddingStock}
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center gap-2 shadow-lg shadow-blue-600/20 cursor-pointer disabled:opacity-60"
+                >
+                  {isAddingStock ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                  <span>Add to Stock &amp; Expenses</span>
                 </button>
               </div>
             </form>

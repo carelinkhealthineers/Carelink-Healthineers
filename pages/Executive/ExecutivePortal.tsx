@@ -43,6 +43,8 @@ import {
   Package,
   FolderHeart,
   Landmark,
+  ClipboardCheck,
+  XCircle,
 } from 'lucide-react';
 import {
   ExecutiveAccount,
@@ -124,6 +126,7 @@ import {
   fetchStockRequests,
   approveStockRequest,
   rejectStockRequest,
+  subscribeToStockSync,
 } from '../../services/executiveService';
 import { fetchEmployees, DEPARTMENTS } from '../../services/employeeService';
 import { fetchDailyWorkReports, adminReviewDailyReport } from '../../services/dailyReportService';
@@ -415,6 +418,31 @@ export const ExecutivePortal: React.FC = () => {
     const unsub = subscribeToNotifications(loadAlerts);
     return unsub;
   }, [execAccount?.id]);
+
+  // Real-time + polling sync for employee stock requests and stock levels
+  const refreshStockLive = async () => {
+    try {
+      const [latestReqs, latestItems] = await Promise.all([
+        fetchStockRequests().catch(() => null),
+        fetchStockItems().catch(() => null),
+      ]);
+      if (latestReqs) setStockRequests(latestReqs);
+      if (latestItems) setStockItems(latestItems);
+    } catch {
+      // ignore transient background refresh errors
+    }
+  };
+
+  useEffect(() => {
+    const unsubStock = subscribeToStockSync(refreshStockLive);
+    return unsubStock;
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'stock' || activeTab === 'overview') {
+      refreshStockLive();
+    }
+  }, [activeTab]);
 
   const triggerToast = (msg: string) => {
     setToastMsg(msg);
@@ -790,10 +818,23 @@ export const ExecutivePortal: React.FC = () => {
     }
   };
 
+  const pendingStockRequests = stockRequests.filter((r) => r.status === 'pending');
+
   const handleApproveStockRequest = async (requestId: string, remarks?: string) => {
-    if (!execAccount) return;
+    const reviewer: ExecutiveAccount = execAccount || {
+      id: 'exec-md-default',
+      full_name: 'Executive Desk',
+      username: 'exec',
+      auth_email: '',
+      title_designation: 'Executive',
+      role: 'MD',
+      accessible_departments: ['all'],
+      status: 'active',
+      created_at: '',
+      updated_at: '',
+    };
     try {
-      const { request, updatedStockItem } = await approveStockRequest(requestId, execAccount, remarks);
+      const { request, updatedStockItem } = await approveStockRequest(requestId, reviewer, remarks);
       setStockRequests((prev) => prev.map((r) => (r.id === requestId ? request : r)));
       setStockItems((prev) => prev.map((s) => (s.id === updatedStockItem.id ? updatedStockItem : s)));
       triggerToast(
@@ -805,9 +846,20 @@ export const ExecutivePortal: React.FC = () => {
   };
 
   const handleRejectStockRequest = async (requestId: string, remarks?: string) => {
-    if (!execAccount) return;
+    const reviewer: ExecutiveAccount = execAccount || {
+      id: 'exec-md-default',
+      full_name: 'Executive Desk',
+      username: 'exec',
+      auth_email: '',
+      title_designation: 'Executive',
+      role: 'MD',
+      accessible_departments: ['all'],
+      status: 'active',
+      created_at: '',
+      updated_at: '',
+    };
     try {
-      const updated = await rejectStockRequest(requestId, execAccount, remarks);
+      const updated = await rejectStockRequest(requestId, reviewer, remarks);
       setStockRequests((prev) => prev.map((r) => (r.id === requestId ? updated : r)));
       triggerToast(`Declined stock request from ${updated.employee_name}.`);
     } catch (err: any) {
@@ -1767,6 +1819,18 @@ export const ExecutivePortal: React.FC = () => {
               </div>
             )}
 
+            {pendingStockRequests.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('stock')}
+                className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer animate-pulse"
+                title="Review pending employee stock requests"
+              >
+                <ClipboardCheck size={14} className="text-amber-600" />
+                <span>{pendingStockRequests.length} Stock Approval{pendingStockRequests.length > 1 ? 's' : ''}</span>
+              </button>
+            )}
+
             {execAccount && (
               <NotificationCenter
                 viewerRole="executive"
@@ -1835,6 +1899,105 @@ export const ExecutivePortal: React.FC = () => {
           {/* TAB 1: EXECUTIVE BRIEFING & OVERVIEW */}
           {activeTab === 'overview' && (
             <div className="space-y-8">
+              {/* Pending Employee Stock Approvals Banner */}
+              {pendingStockRequests.length > 0 && (
+                <section className="rounded-3xl bg-white border border-amber-200 shadow-sm overflow-hidden">
+                  <div className="px-5 py-4 bg-gradient-to-r from-amber-50 via-orange-50/70 to-white border-b border-amber-100 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-amber-100 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
+                        <ClipboardCheck size={18} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h2 className="text-sm font-extrabold text-slate-900">
+                            Pending Employee Stock Pcs Requests
+                          </h2>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500 text-white">
+                            {pendingStockRequests.length} Waiting
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 mt-0.5">
+                          Approve to release requested pcs and automatically deduct from Stock.
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('stock')}
+                      className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Package size={13} />
+                      <span>Open Stock Tab</span>
+                    </button>
+                  </div>
+
+                  <div className="divide-y divide-slate-100">
+                    {pendingStockRequests.map((req) => {
+                      const liveItem = stockItems.find((s) => s.id === req.stock_item_id);
+                      const liveQty = liveItem ? Number(liveItem.quantity) || 0 : 0;
+                      const insufficient = liveQty < req.requested_qty;
+                      return (
+                        <div
+                          key={req.id}
+                          className="p-4 sm:px-5 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-slate-50/70"
+                        >
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-800 text-[11px] font-bold">
+                                {req.employee_name} ({req.employee_code})
+                              </span>
+                              <span className="text-xs font-extrabold text-slate-900">
+                                {req.stock_item_name}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs font-mono font-extrabold">
+                                {req.requested_qty} {req.unit_label}
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded-lg text-[10px] font-bold font-mono ${
+                                  insufficient
+                                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                }`}
+                              >
+                                In Stock: {liveQty} {req.unit_label}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-600">
+                              <strong className="text-slate-700">Purpose:</strong> {req.purpose}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              disabled={insufficient}
+                              onClick={() => handleApproveStockRequest(req.id)}
+                              className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+                                insufficient
+                                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                  : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs cursor-pointer'
+                              }`}
+                            >
+                              <CheckCircle2 size={13} />
+                              <span>Approve &amp; Deduct</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRejectStockRequest(req.id)}
+                              className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                            >
+                              <XCircle size={13} />
+                              <span>Decline</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
               {/* Executive KPI Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                 <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-2">
